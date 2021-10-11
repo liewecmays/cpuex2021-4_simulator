@@ -1,0 +1,8 @@
+.vscode
+assembler/out/*
+!assembler/out/.gitkeep
+assembler/source/*
+!assembler/source/.gitkeep
+assembler/**/*.output
+simulator/code/*
+!simulator/code/.gitkeep
