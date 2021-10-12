@@ -194,7 +194,7 @@ void print_op_list(){
 }
 
 void print_reg(){
-    for(int i=0; i<6; i++)
+    for(int i=0; i<10; i++)
         std::cout << "x" << i << ":" << reg_list[i] << ", " << std::ends;
     std::cout << std::endl;
     return;

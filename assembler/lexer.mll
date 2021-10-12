@@ -19,8 +19,10 @@ rule token = parse
 | "sw" { Parser.SW }
 | "addi" { Parser.ADDI }
 | "lw" { Parser.LW }
+| "jalr" { Parser.JALR }
 | "jal" { Parser.JAL }
 | "%x" { Parser.INTREG }
+| "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }
 | ident as id { Parser.ID id }
 | "#" { comment lexbuf; token lexbuf }

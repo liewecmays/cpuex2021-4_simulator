@@ -15,4 +15,5 @@ and operation =
 	| Sw of reg * reg * int (* rs1, rs2, offset *)
 	| Addi of reg * reg * int (* rs1, rd, imm *)
 	| Lw of reg * reg * int (* rs1, rd, offset *)
+	| Jalr of reg * reg * int (* rs1, rd, offset *)
 	| Jal of reg * string (* rd, label *)

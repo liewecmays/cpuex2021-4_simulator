@@ -5,8 +5,8 @@
 %token <int> INT
 %token <string> ID
 %token LPAR RPAR COLON COMMA PERIOD MINUS EOF
-%token INTREG
-%token ADD SUB BEQ BLT BLE SW ADDI LW JAL
+%token INTREG FLOATREG
+%token ADD SUB BEQ BLT BLE SW ADDI LW JALR JAL
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -32,12 +32,13 @@ operation:
 	| SW reg COMMA integer LPAR reg RPAR { Sw ($6, $2, $4) } // sw rs2,offset(rs1)
 	| ADDI reg COMMA reg COMMA integer { Addi ($4, $2, $6) } // addi rd,rs1,imm
 	| LW reg COMMA integer LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
+	| JALR reg COMMA reg COMMA integer { Jalr ($4, $2, $6) } // jalr rd,rs,offset
 	| JAL reg COMMA ID { Jal ($2, $4) } // jal rd,label
 ;
 
 reg:
 	| INTREG INT { Int_reg $2 }
-	// | FLOATREG INT { Float_reg $2 }
+	| FLOATREG INT { Float_reg $2 }
 ;
 
 integer:

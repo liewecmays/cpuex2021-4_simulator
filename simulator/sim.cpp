@@ -160,8 +160,11 @@ bool exec_op(Operation &op){
         // case 7: // load_fp
         //     current_pc++;
         //     break;
-        // case 8: // jalr
-        //     break;
+        case 8: // jalr
+            write_reg(op.rd, current_pc + 1);
+            current_pc = read_reg(op.rs1) + op.imm;
+            // todo: current_pc = read_reg(op.rs1) + op.imm * 4;
+            break;
         case 9: // jal
             write_reg(op.rd, current_pc + 1);
             current_pc = current_pc + op.imm;

@@ -108,6 +108,13 @@ let rec translate_code code untranslated line_no_arg =
 			let imm = binary_of_int_signed offset 15 in
 			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 				Code (line_no_arg, code)
+		| Jalr (rs1, rd, offset) ->
+			let opcode = binary_of_int 8 4 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed offset 18 in
+			let code = String.concat "" [opcode; String.sub imm 0 3; rs1; String.sub imm 3 5; rd; String.sub imm 8 10] in
+				Code (line_no_arg, code)		
 		| Jal (rd, label) ->
 			(try
 				let label_line = List.assoc label !label_to_line in
