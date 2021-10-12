@@ -6,7 +6,7 @@
 %token <string> ID
 %token LPAR RPAR COLON COMMA PERIOD MINUS EOF
 %token INTREG FLOATREG
-%token ADD SUB BEQ BLT BLE SW ADDI LW JALR JAL
+%token ADD SUB SLL SRL SRA BEQ BLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -26,11 +26,17 @@ code_list:
 operation:
 	| ADD reg COMMA reg COMMA reg { Add ($4, $6, $2) } // add rd,rs1,rs2
 	| SUB reg COMMA reg COMMA reg { Sub ($4, $6, $2) } // sub rd,rs1,rs2
+	| SLL reg COMMA reg COMMA reg { Sll ($4, $6, $2) } // sll rd,rs1,rs2
+	| SRL reg COMMA reg COMMA reg { Srl ($4, $6, $2) } // srl rd,rs1,rs2
+	| SRA reg COMMA reg COMMA reg { Sra ($4, $6, $2) } // sra rd,rs1,rs2
 	| BEQ reg COMMA reg COMMA ID { Beq ($2, $4, $6) } // beq rs1,rs2,label
 	| BLT reg COMMA reg COMMA ID { Blt ($2, $4, $6) } // blt rs1,rs2,label
 	| BLE reg COMMA reg COMMA ID { Ble ($2, $4, $6) } // ble rs1,rs2,label
 	| SW reg COMMA integer LPAR reg RPAR { Sw ($6, $2, $4) } // sw rs2,offset(rs1)
 	| ADDI reg COMMA reg COMMA integer { Addi ($4, $2, $6) } // addi rd,rs1,imm
+	| SLLI reg COMMA reg COMMA integer { Slli ($4, $2, $6) } // slli rd,rs1,imm
+	| SRLI reg COMMA reg COMMA integer { Srli ($4, $2, $6) } // srli rd,rs1,imm
+	| SRAI reg COMMA reg COMMA integer { Srai ($4, $2, $6) } // srai rd,rs1,imm
 	| LW reg COMMA integer LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
 	| JALR reg COMMA reg COMMA integer { Jalr ($4, $2, $6) } // jalr rd,rs,offset
 	| JAL reg COMMA ID { Jal ($2, $4) } // jal rd,label

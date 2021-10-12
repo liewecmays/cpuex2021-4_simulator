@@ -13,11 +13,17 @@ rule token = parse
 | "-" { Parser.MINUS }
 | "add" { Parser.ADD }
 | "sub" { Parser.SUB }
+| "sll" { Parser.SLL }
+| "srl" { Parser.SRL }
+| "sra" { Parser.SRA }
 | "beq" { Parser.BEQ }
 | "blt" { Parser.BLT }
 | "ble" { Parser.BLE }
 | "sw" { Parser.SW }
 | "addi" { Parser.ADDI }
+| "slli" { Parser.SLLI }
+| "srli" { Parser.SRLI }
+| "srai" { Parser.SRAI }
 | "lw" { Parser.LW }
 | "jalr" { Parser.JALR }
 | "jal" { Parser.JAL }

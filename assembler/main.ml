@@ -51,6 +51,33 @@ let rec translate_code code untranslated line_no_arg =
 			let margin = "0000000000" in
 			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
 				Code (line_no_arg, code)
+		| Sll (rs1, rs2, rd) ->
+			let opcode = binary_of_int 0 4 in
+			let funct = binary_of_int 2 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (line_no_arg, code)
+		| Srl (rs1, rs2, rd) ->
+			let opcode = binary_of_int 0 4 in
+			let funct = binary_of_int 3 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (line_no_arg, code)
+		| Sra (rs1, rs2, rd) ->
+			let opcode = binary_of_int 0 4 in
+			let funct = binary_of_int 4 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (line_no_arg, code)
 		| Beq (rs1, rs2, label) ->
 			(try
 				let label_line = List.assoc label !label_to_line
@@ -95,6 +122,30 @@ let rec translate_code code untranslated line_no_arg =
 		| Addi (rs1, rd, imm) ->
 			let opcode = binary_of_int 5 4 in
 			let funct = binary_of_int 0 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed imm 15 in
+			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
+				Code (line_no_arg, code)
+		| Slli (rs1, rd, imm) ->
+			let opcode = binary_of_int 5 4 in
+			let funct = binary_of_int 2 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed imm 15 in
+			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
+				Code (line_no_arg, code)
+		| Srli (rs1, rd, imm) ->
+			let opcode = binary_of_int 5 4 in
+			let funct = binary_of_int 3 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed imm 15 in
+			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
+				Code (line_no_arg, code)
+		| Srai (rs1, rd, imm) ->
+			let opcode = binary_of_int 5 4 in
+			let funct = binary_of_int 4 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
 			let imm = binary_of_int_signed imm 15 in

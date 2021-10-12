@@ -63,6 +63,15 @@ std::string string_of_op(Operation &op){
                 case 1: // sub
                     res += "sub] ";
                     break;
+                case 2: // sll
+                    res += "sll] ";
+                    break;
+                case 3: // srl
+                    res += "srl] ";
+                    break;
+                case 4: // sra
+                    res += "sra] ";
+                    break;
                 default: return "";
             }
             res += ("rs1=x" + std::to_string(op.rs1) + ", ");
@@ -138,6 +147,15 @@ std::string string_of_op(Operation &op){
             switch(op.funct){
                 case 0: // addi
                     res += "addi], ";
+                    break;
+                case 2: // slli
+                    res += "slli], ";
+                    break;
+                case 3: // srli
+                    res += "srli], ";
+                    break;
+                case 4: // srai
+                    res += "srai], ";
                     break;
                 default: return "";
             }

@@ -90,6 +90,15 @@ bool exec_op(Operation &op){
                 case 1: // sub
                     write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
                     break;
+                case 2: // sll
+                    write_reg(op.rd, read_reg(op.rs1) << read_reg(op.rs2));
+                    break;
+                case 3: // srl
+                    write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> read_reg(op.rs2));
+                    break;
+                case 4: // sra
+                    write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
+                    break;
                 default: return false;
             }
             current_pc++;
@@ -142,6 +151,15 @@ bool exec_op(Operation &op){
                     write_reg(op.rd, read_reg(op.rs1) + op.imm);
                     break;
                 default: return false;
+                case 2: // slli
+                    write_reg(op.rd, read_reg(op.rs1) << op.imm);
+                    break;
+                case 3: // srli
+                    write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> op.imm);
+                    break;
+                case 4: // srai
+                    write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
+                    break;
             }
             current_pc++;
             break;
