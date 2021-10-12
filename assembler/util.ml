@@ -1,9 +1,10 @@
 open Syntax
 
 (* レジスタ名から番号を取り出す *)
-let reg_no r =
-	try int_of_string (String.sub r 1 2) with
-	| Invalid_argument _ -> int_of_string (String.sub r 1 1)
+let int_of_reg r =
+	match r with
+	| Int_reg i -> i
+	| Float_reg i -> i
 
 (* 整数を指定された桁数の二進数に変換 *)
 exception Argument_error

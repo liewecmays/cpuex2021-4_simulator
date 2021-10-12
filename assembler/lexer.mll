@@ -1,6 +1,6 @@
 let digit = ['0'-'9']
 let space = ' ' | '\t' | '\r' | '\n'
-let alpha = ['a'-'z' 'A'-'Z' '_' ] 
+let alpha = ['a'-'z' 'A'-'Z' '_' ]
 let ident = alpha (alpha | digit)*
 
 rule token = parse
@@ -20,6 +20,7 @@ rule token = parse
 | "addi" { Parser.ADDI }
 | "lw" { Parser.LW }
 | "jal" { Parser.JAL }
+| "%x" { Parser.INTREG }
 | digit+ as n  { Parser.INT (int_of_string n) }
 | ident as id { Parser.ID id }
 | "#" { comment lexbuf; token lexbuf }

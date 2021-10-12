@@ -1,4 +1,6 @@
-type reg = string
+type reg =
+	| Int_reg of int
+	| Float_reg of int
 
 type code =
 	| Label of string
