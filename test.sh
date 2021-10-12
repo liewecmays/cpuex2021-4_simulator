@@ -10,11 +10,12 @@ done
 make
 echo -e ""
 
+cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s"
 cd assembler
 ./asm -f $FILENAME
 cd ../
 echo -e ""
 
-mv assembler/out/$FILENAME simulator/code/$FILENAME
+cp assembler/out/$FILENAME simulator/code/$FILENAME
 cd simulator
 ./sim -f $FILENAME

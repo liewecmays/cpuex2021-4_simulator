@@ -182,6 +182,8 @@ bool exec_op(Operation &op){
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
     
+    std::cout << "===== simulation start =====" << std::endl;
+
     // コマンドライン引数をパース
     int option;
     std::string filename;

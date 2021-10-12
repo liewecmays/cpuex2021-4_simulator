@@ -144,13 +144,12 @@ let assemble codes =
 (* コマンドライン引数で"-f filename"の形式でファイル名を受け取り、同一ファイル名の機械語コードを出力 *)
 exception Commandline_argument_error
 let () =
+	print_endline "===== assembling start =====";
 	let filename = if Sys.argv.(1) = "-f" then Sys.argv.(2) else raise Commandline_argument_error in
 	let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ filename ^ ".s"))) in
 	print_endline ("object file: ./source/" ^ filename ^ ".s");
-	print_endline "=== assembling start ===";
 	let raw_result = assemble codes in
 	let result = List.fast_sort (fun (n1, _) (n2, _) -> compare n1 n2) raw_result in (* 行番号でソート *)
-	print_endline "=== assembling completed ===";
 	let out_channel = open_out ("./out/" ^ filename) in
 	let rec output_result result =
 		match result with
@@ -158,4 +157,5 @@ let () =
 		| (_, c) :: rest ->  Printf.fprintf out_channel "%s\n" c; output_result rest
 	in output_result result;
 	print_endline ("output file: ./out/" ^ filename);
-	close_out out_channel
+	close_out out_channel;
+	print_endline "===== assembling completed =====";

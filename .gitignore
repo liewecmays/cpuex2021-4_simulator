@@ -6,3 +6,5 @@ assembler/source/*
 assembler/**/*.output
 simulator/code/*
 !simulator/code/.gitkeep
+source/*
+!source/.gitkeep
