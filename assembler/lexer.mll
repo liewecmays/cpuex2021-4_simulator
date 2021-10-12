@@ -2,6 +2,7 @@ let digit = ['0'-'9']
 let space = ' ' | '\t' | '\r' | '\n'
 let alpha = ['a'-'z' 'A'-'Z' '_' ]
 let ident = alpha (alpha | digit)*
+let label = alpha (alpha | digit)* ('.' (digit)+)
 
 rule token = parse
 | space+ { token lexbuf }
@@ -31,6 +32,7 @@ rule token = parse
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }
 | ident as id { Parser.ID id }
+| label as l { Parser.LABEL l }
 | "#" { comment lexbuf; token lexbuf }
 | "!" { comment lexbuf; token lexbuf }
 | eof { Parser.EOF }
