@@ -4,6 +4,27 @@
 #include <vector>
 #include <iostream>
 
+// 整数レジスタを読む
+int read_reg(int i){
+    return i == 0 ? 0 : reg_list[i];
+}
+
+// 整数レジスタに書く
+void write_reg(int i, int v){
+    if (i != 0) reg_list[i] = v;
+    return;
+}
+
+// 浮動小数レジスタを読む
+int read_reg_fp(int i){
+    return i == 0 ? 0 : reg_fp_list[i];
+}
+
+// 浮動小数レジスタに書く
+void write_reg_fp(int i, int v){
+    if (i != 0) reg_fp_list[i] = v;
+    return;
+}
 
 // 2進数を表す文字列から整数に変換
 int binary_stoi(std::string s){
@@ -148,10 +169,16 @@ std::string string_of_op(Operation &op){
             res += ("rd=f" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        case 8: // jmp_reg
-            return "jpm_reg, rs1=" + std::to_string(op.rs1) + ", " + "imm=" + std::to_string(op.imm);
-        case 9: // jmp
-            res = "jmp, imm=" + std::to_string(op.imm);
+        case 8: // jalr
+            res = "jalr, ";
+            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
+            res += ("rd=x" + std::to_string(op.rd) + ", ");
+            res += ("imm=" + std::to_string(op.imm));
+            return res;
+        case 9: // jal
+            res = "jal, ";
+            res += ("rd=x" + std::to_string(op.rd) + ", ");
+            res += ("imm=" + std::to_string(op.imm));
             return res;
         case 10: // lui
             res = "lui, imm=" + std::to_string(op.imm);

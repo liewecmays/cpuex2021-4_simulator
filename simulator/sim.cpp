@@ -85,43 +85,39 @@ bool exec_op(Operation &op){
         case 0: // op
             switch(op.funct){
                 case 0: // add
-                    reg_list[op.rd] = reg_list[op.rs1] + reg_list[op.rs2];
+                    write_reg(op.rd, read_reg(op.rs1) + read_reg(op.rs2));
                     break;
                 case 1: // sub
-                    reg_list[op.rd] = reg_list[op.rs1] - reg_list[op.rs2];
+                    write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
                     break;
                 default: return false;
             }
             current_pc++;
             break;
-        case 1: // op_fp
-            switch(op.funct){
-                case 0: // add
-                    reg_fp_list[op.rd] = reg_fp_list[op.rs1] + reg_fp_list[op.rs2];
-                    break;
-                case 1: // sub
-                    reg_fp_list[op.rd] = reg_fp_list[op.rs1] - reg_fp_list[op.rs2];
-                    break;
-                case 2: // mul
-                    reg_fp_list[op.rd] = reg_fp_list[op.rs1] * reg_fp_list[op.rs2];
-                    break;
-                case 3: // div
-                    reg_fp_list[op.rd] = reg_fp_list[op.rs1] / reg_fp_list[op.rs2];
-                    break;
-                default: return false;
-            }
-            current_pc++;
-            break;
+        // case 1: // op_fp
+        //     switch(op.funct){
+        //         case 0: // add
+        //             break;
+        //         case 1: // sub
+        //             break;
+        //         case 2: // mul
+        //             break;
+        //         case 3: // div
+        //             break;
+        //         default: return false;
+        //     }
+        //     current_pc++;
+        //     break;
         case 2: // branch
             switch(op.funct){
                 case 0: // beq
-                    reg_list[op.rs1] == reg_list[op.rs2] ? current_pc += op.imm : current_pc++;
+                    read_reg(op.rs1) == read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
                     break;
                 case 1: // blt
-                    reg_list[op.rs1] < reg_list[op.rs2] ? current_pc += op.imm : current_pc++;
+                    read_reg(op.rs1) < read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
                     break;
                 case 2: // ble
-                    reg_list[op.rs1] <= reg_list[op.rs2] ? current_pc += op.imm : current_pc++;
+                    read_reg(op.rs1) <= read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
                     break;
                 default: return false;
             }
@@ -129,8 +125,8 @@ bool exec_op(Operation &op){
         case 3: // store
             switch(op.funct){
                 case 0: // sw
-                    for(int i=0; i<4; i++){ // todo: endian
-                        memory[reg_list[op.rs1] + op.imm + i] = (reg_list[op.rs2] & (255 << (8 * i))) / (1 << (8 * i));
+                    for(int i=0; i<4; i++){
+                        memory[read_reg(op.rs1) + op.imm + i] = (read_reg(op.rs2) & (255 << (8 * i))) / (1 << (8 * i));
                     }
                     break;
                 default: return false;
@@ -143,7 +139,7 @@ bool exec_op(Operation &op){
         case 5: // op_imm
             switch(op.funct){
                 case 0: // addi
-                    reg_list[op.rd] = reg_list[op.rs1] + op.imm;
+                    write_reg(op.rd, read_reg(op.rs1) + op.imm);
                     break;
                 default: return false;
             }
@@ -153,9 +149,9 @@ bool exec_op(Operation &op){
             switch(op.funct){
                 case 0: // lw
                     for(int i=0; i<4; i++){
-                        load += memory[reg_list[op.rs1] + op.imm + i] << (8 * i);
+                        load += memory[read_reg(op.rs1) + op.imm + i] << (8 * i);
                     }
-                    reg_list[op.rd] = load;
+                    write_reg(op.rd, load);
                     break;
                 default: return false;
             }
@@ -167,7 +163,7 @@ bool exec_op(Operation &op){
         // case 8: // jalr
         //     break;
         case 9: // jal
-            reg_list[op.rd] = current_pc + 1;
+            write_reg(op.rd, current_pc + 1);
             current_pc = current_pc + op.imm;
             break;
         // case 10: // lui
