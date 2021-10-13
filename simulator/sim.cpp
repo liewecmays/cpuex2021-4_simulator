@@ -79,56 +79,48 @@ Operation parse_op(std::string line){
 }
 
 // 命令を実行し、PCを変化させる
-bool exec_op(Operation &op){
+void exec_op(Operation &op){
     int load = 0;
     switch(op.opcode){
         case 0: // op
             switch(op.funct){
                 case 0: // add
                     write_reg(op.rd, read_reg(op.rs1) + read_reg(op.rs2));
-                    break;
+                    current_pc++;
+                    return;
                 case 1: // sub
                     write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
-                    break;
+                    current_pc++;
+                    return;
                 case 2: // sll
                     write_reg(op.rd, read_reg(op.rs1) << read_reg(op.rs2));
-                    break;
+                    current_pc++;
+                    return;
                 case 3: // srl
                     write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> read_reg(op.rs2));
-                    break;
+                    current_pc++;
+                    return;
                 case 4: // sra
                     write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
-                    break;
-                default: return false;
+                    current_pc++;
+                    return;
+                default: break;
             }
-            current_pc++;
             break;
         // case 1: // op_fp
-        //     switch(op.funct){
-        //         case 0: // add
-        //             break;
-        //         case 1: // sub
-        //             break;
-        //         case 2: // mul
-        //             break;
-        //         case 3: // div
-        //             break;
-        //         default: return false;
-        //     }
-        //     current_pc++;
         //     break;
         case 2: // branch
             switch(op.funct){
                 case 0: // beq
                     read_reg(op.rs1) == read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
-                    break;
+                    return;
                 case 1: // blt
                     read_reg(op.rs1) < read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
-                    break;
+                    return;
                 case 2: // ble
                     read_reg(op.rs1) <= read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
-                    break;
-                default: return false;
+                    return;
+                default: break;
             }
             break;
         case 3: // store
@@ -137,10 +129,10 @@ bool exec_op(Operation &op){
                     for(int i=0; i<4; i++){
                         memory[read_reg(op.rs1) + op.imm + i] = (read_reg(op.rs2) & (255 << (8 * i))) / (1 << (8 * i));
                     }
-                    break;
-                default: return false;
+                    current_pc++;
+                    return;
+                default: break;
             }
-            current_pc++;
             break;
         // case 4: // store_fp
         //     current_pc++;
@@ -149,19 +141,22 @@ bool exec_op(Operation &op){
             switch(op.funct){
                 case 0: // addi
                     write_reg(op.rd, read_reg(op.rs1) + op.imm);
-                    break;
-                default: return false;
+                    current_pc++;
+                    return;
                 case 2: // slli
                     write_reg(op.rd, read_reg(op.rs1) << op.imm);
-                    break;
+                    current_pc++;
+                    return;
                 case 3: // srli
                     write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> op.imm);
-                    break;
+                    current_pc++;
+                    return;
                 case 4: // srai
                     write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
-                    break;
+                    current_pc++;
+                    return;
+                default: break;
             }
-            current_pc++;
             break;
         case 6: // load
             switch(op.funct){
@@ -170,30 +165,31 @@ bool exec_op(Operation &op){
                         load += memory[read_reg(op.rs1) + op.imm + i] << (8 * i);
                     }
                     write_reg(op.rd, load);
-                    break;
-                default: return false;
+                    current_pc++;
+                    return;
+                default: break;
             }
-            current_pc++;
             break;
         // case 7: // load_fp
         //     current_pc++;
-        //     break;
+        //     return;
         case 8: // jalr
             write_reg(op.rd, current_pc + 1);
             current_pc = read_reg(op.rs1) + op.imm;
             // todo: current_pc = read_reg(op.rs1) + op.imm * 4;
-            break;
+            return;
         case 9: // jal
             write_reg(op.rd, current_pc + 1);
             current_pc = current_pc + op.imm;
-            break;
+            return;
         // case 10: // lui
         //     current_pc++;
         //     break;
-        default: return false;
+        default: break;
     }
 
-    return true;
+    std::cerr << "Error in executing the code" << std::endl;
+    std::exit(EXIT_FAILURE);
 }
 
 
@@ -244,18 +240,21 @@ int main(int argc, char *argv[]){
     bool end_flag = false;
     if(is_debug_mode){
         std::string cmd;
+        std::smatch match;
 
         while(true){
             std::cout << "# " << std::ends;    
             std::getline(std::cin, cmd);
-            if(std::regex_match(cmd, std::regex("^\\s*(e|(exit))\\s*$"))){
+            if(std::regex_match(cmd, std::regex("^\\s*\\r?\\n?$"))){
+                continue;
+            }else if(std::regex_match(cmd, std::regex("^\\s*(e|(exit))\\s*$"))){
                 break;
+            }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){
+                // todo: help
+                continue;
             }else if(std::regex_match(cmd, std::regex("^\\s*(n|(next))\\s*$"))){
                 std::cout << "op[" << current_pc << "]: " << string_of_op (op_list[current_pc]) << std::endl;
-                if(!exec_op(op_list[current_pc])){
-                    std::cerr << "Error in executing the code" << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
+                exec_op(op_list[current_pc]);
                 print_reg();
                 op_count++;
                 if(end_flag || current_pc >= op_list.size()){
@@ -263,15 +262,28 @@ int main(int argc, char *argv[]){
                     break;
                 }
                 if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
+            }else if(std::regex_match(cmd, match, std::regex("^\\s*(n|(next))\\s+(\\d+)\\s*$"))){
+                for(int i=0; i<std::stoi(match[3].str()); i++){
+                    exec_op(op_list[current_pc]);
+                    op_count++;
+                    if(end_flag || current_pc >= op_list.size()){
+                        end_flag = true;
+                        break;
+                    }
+                    if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
+                }
+                if(end_flag){
+                    std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }else{
+                std::cout << "Error: invalid command" << std::endl;
             }
         }
     }else{
         // 命令を1ステップずつ実行
         while(true){
-            if(!exec_op(op_list[current_pc])){
-                std::cerr << "Error in executing the code" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
+            exec_op(op_list[current_pc]);
             op_count++;
             if(end_flag || current_pc >= op_list.size()){
                 std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
