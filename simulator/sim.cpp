@@ -196,14 +196,6 @@ bool exec_op(Operation &op){
     return true;
 }
 
-// char* get_line(char *s, int size) {
-//     std::cout << "# " << std::ends;
-
-//     std::string str;
-//     std::getline(cin, str);
-
-//     return str;
-// }
 
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
@@ -249,15 +241,16 @@ int main(int argc, char *argv[]){
     // print_op_list();
 
     int op_count = 0;
+    bool end_flag = false;
     if(is_debug_mode){
         std::string cmd;
 
         while(true){
             std::cout << "# " << std::ends;    
             std::getline(std::cin, cmd);
-            if(std::regex_match(cmd, std::regex("^\\s*exit\\s*$"))){
+            if(std::regex_match(cmd, std::regex("^\\s*(e|(exit))\\s*$"))){
                 break;
-            }else if(std::regex_match(cmd, std::regex("^\\s*next\\s*$"))){
+            }else if(std::regex_match(cmd, std::regex("^\\s*(n|(next))\\s*$"))){
                 std::cout << "op[" << current_pc << "]: " << string_of_op (op_list[current_pc]) << std::endl;
                 if(!exec_op(op_list[current_pc])){
                     std::cerr << "Error in executing the code" << std::endl;
@@ -265,23 +258,26 @@ int main(int argc, char *argv[]){
                 }
                 print_reg();
                 op_count++;
-                if(op_count == 1000) break;
-                if(current_pc >= op_list.size()) break;
-                // todo: 何らかの基準で止まる
+                if(end_flag || current_pc >= op_list.size()){
+                    std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+                if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
             }
         }
     }else{
         // 命令を1ステップずつ実行
-        bool flag = true;
-        while(flag){
+        while(true){
             if(!exec_op(op_list[current_pc])){
                 std::cerr << "Error in executing the code" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             op_count++;
-            if(op_count == 1000) break;
-            if(current_pc >= op_list.size()) break;
-            // todo: 何らかの基準で止まる
+            if(end_flag || current_pc >= op_list.size()){
+                std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
+                break;
+            }
+            if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
         }
         // 結果を表示
         print_reg();
