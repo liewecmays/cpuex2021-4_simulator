@@ -14,7 +14,7 @@ std::vector<int> reg_list(32);
 std::vector<float> reg_fp_list(32);
 std::vector<int> memory;
 unsigned int current_pc = 0; // 注意: 行番号と異なり0-indexed
-bool is_step_mode = false;
+bool is_debug_mode = false;
 
 // 機械語命令をパース
 Operation parse_op(std::string line){
@@ -196,22 +196,31 @@ bool exec_op(Operation &op){
     return true;
 }
 
+// char* get_line(char *s, int size) {
+//     std::cout << "# " << std::ends;
+
+//     std::string str;
+//     std::getline(cin, str);
+
+//     return str;
+// }
 
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
     
-    std::cout << "===== simulation start =====" << std::endl;
+    // std::cout << "===== simulation start =====" << std::endl;
 
     // コマンドライン引数をパース
     int option;
     std::string filename;
-    while ((option = getopt(argc, argv, "f:s")) != -1){
+    while ((option = getopt(argc, argv, "f:d")) != -1){
         switch(option){
             case 'f':
                 filename = "./code/" + std::string(optarg);
                 break;
-            case 's':
-                is_step_mode = true; // todo: ステップ実行モードを実装
+            case 'd':
+                is_debug_mode = true;
+                break;
             default:
                 std::cerr << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -239,29 +248,44 @@ int main(int argc, char *argv[]){
     }
     // print_op_list();
 
-    
-    // 命令を1ステップずつ実行
-    bool flag = true;
-    int cnt = 0;
-    while(flag){
-        if(current_pc < op_list.size()){
-            // std::cout << "pc" << current_pc << ": " << string_of_op (op_list[current_pc]) << std::endl;
+    int op_count = 0;
+    if(is_debug_mode){
+        std::string cmd;
+
+        while(true){
+            std::cout << "# " << std::ends;    
+            std::getline(std::cin, cmd);
+            if(std::regex_match(cmd, std::regex("^\\s*exit\\s*$"))){
+                break;
+            }else if(std::regex_match(cmd, std::regex("^\\s*next\\s*$"))){
+                std::cout << "op[" << current_pc << "]: " << string_of_op (op_list[current_pc]) << std::endl;
+                if(!exec_op(op_list[current_pc])){
+                    std::cerr << "Error in executing the code" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                print_reg();
+                op_count++;
+                if(op_count == 1000) break;
+                if(current_pc >= op_list.size()) break;
+                // todo: 何らかの基準で止まる
+            }
+        }
+    }else{
+        // 命令を1ステップずつ実行
+        bool flag = true;
+        while(flag){
             if(!exec_op(op_list[current_pc])){
                 std::cerr << "Error in executing the code" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-            // print_reg();
-            // std::cout << std::endl;
-            cnt++;
-            if(cnt == 1000) flag = false;
-        }else{
-            flag = false;
+            op_count++;
+            if(op_count == 1000) break;
+            if(current_pc >= op_list.size()) break;
+            // todo: 何らかの基準で止まる
         }
-        // todo: 何らかの基準で止まる
+        // 結果を表示
+        print_reg();
+        // print_reg_fp();
+        print_memory_word(0, 10);
     }
-
-    // 結果を表示
-    print_reg();
-    // print_reg_fp();
-    print_memory_word(0, 10);
 }
