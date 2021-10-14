@@ -7,7 +7,7 @@
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EOF
 %token INTREG FLOATREG
-%token ADD SUB SLL SRL SRA BEQ BLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL
+%token ADD SUB SLL SRL SRA BEQ BLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL LUI AUIPC
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -41,6 +41,8 @@ operation:
 	| LW reg COMMA integer LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
 	| JALR reg COMMA reg COMMA integer { Jalr ($4, $2, $6) } // jalr rd,rs,offset
 	| JAL reg COMMA label { Jal ($2, $4) } // jal rd,label
+	| LUI reg COMMA integer { Lui($2, $4) } // lui rd,imm
+	| AUIPC reg COMMA integer { Auipc($2, $4) } // auipc rd,imm
 ;
 
 reg:

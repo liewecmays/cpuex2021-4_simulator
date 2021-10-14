@@ -2,11 +2,7 @@ type reg =
 	| Int_reg of int
 	| Float_reg of int
 
-type code =
-	| Label of string
-	| Operation of operation
-
-and operation =
+type operation =
 	| Add of reg * reg * reg (* rs1, rs2, rd *)
 	| Sub of reg * reg * reg (* rs1, rs2, rd *)
 	| Sll of reg * reg * reg (* rs1, rs2, rd *)
@@ -23,3 +19,9 @@ and operation =
 	| Lw of reg * reg * int (* rs1, rd, offset *)
 	| Jalr of reg * reg * int (* rs1, rd, offset *)
 	| Jal of reg * string (* rd, label *)
+	| Lui of reg * int (* rd, imm *)
+	| Auipc of reg * int (* rd, imm *)
+
+type code =
+	| Label of string
+	| Operation of operation

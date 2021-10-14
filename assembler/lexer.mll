@@ -28,6 +28,8 @@ rule token = parse
 | "lw" { Parser.LW }
 | "jalr" { Parser.JALR }
 | "jal" { Parser.JAL }
+| "lui" { Parser.LUI }
+| "auipc" { Parser.AUIPC }
 | "%x" { Parser.INTREG }
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }

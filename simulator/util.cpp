@@ -133,7 +133,7 @@ std::string string_of_op(Operation &op){
             res = "store_fp[";
             switch(op.funct){
                 case 0: // sw
-                    res += "sw], ";
+                    res += "fsw], ";
                     memory[op.rs1 + op.imm] = reg_list[op.rs2];
                     break;
                 default: return "";
@@ -179,7 +179,7 @@ std::string string_of_op(Operation &op){
             res = "load_fp[";
             switch(op.funct){
                 case 0: // lw
-                    res += "lw], ";
+                    res += "flw], ";
                     break;
                 default: return "";
             }
@@ -198,8 +198,20 @@ std::string string_of_op(Operation &op){
             res += ("rd=x" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        case 10: // lui
-            res = "lui, imm=" + std::to_string(op.imm);
+        case 10: // long_imm
+            res = "load_imm[";
+            switch(op.funct){
+                case 0: // lui
+                    res += "lui], ";
+                    break;
+                case 1: // auipc
+                    res += "auipc], ";
+                    break;
+                default: return "";
+            }
+            res += ("rd=x" + std::to_string(op.rd) + ", ");
+            res += ("imm=" + std::to_string(op.imm));
+            return res;
         default: return "";
     }
 }

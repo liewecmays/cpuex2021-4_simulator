@@ -175,7 +175,20 @@ let rec translate_code code untranslated line_no_arg =
 				let code = String.concat "" [opcode; String.sub imm 0 13; rd; String.sub imm 13 10] in
 					Code (line_no_arg, code)
 			with Not_found -> Fail (label, (line_no_arg, op)))
-
+		| Lui (rd, imm) ->
+			let opcode = binary_of_int 10 4 in
+			let funct = binary_of_int 0 3 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed imm 20 in
+			let code = String.concat "" [opcode; funct; String.sub imm 0 10; rd; String.sub imm 10 10] in
+				Code (line_no_arg, code)
+		| Auipc (rd, imm) ->
+			let opcode = binary_of_int 10 4 in
+			let funct = binary_of_int 1 3 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed imm 20 in
+			let code = String.concat "" [opcode; funct; String.sub imm 0 10; rd; String.sub imm 10 10] in
+				Code (line_no_arg, code)
 
 (* コードのリストをアセンブルする *)
 let assemble codes =

@@ -21,57 +21,63 @@ int op_count = 0;
 // 機械語命令をパース
 Operation parse_op(std::string line){
     Operation op;
-    int opcode;
+    int opcode, funct, rs1, rs2, rd;
 
     opcode = std::stoi(line.substr(0, 4), 0, 2);
+    funct = std::stoi(line.substr(4, 3), 0, 2);
+    rs1 = std::stoi(line.substr(7, 5), 0, 2);
+    rs2 = std::stoi(line.substr(12, 5), 0, 2);
+    rd = std::stoi(line.substr(17, 5), 0, 2);
+    
     op.opcode = opcode;
     switch(opcode){
         case 0: // op
         case 1: // op_fp
-            op.funct = std::stoi(line.substr(4, 3), 0, 2);
-            op.rs1 = std::stoi(line.substr(7, 5), 0, 2);
-            op.rs2 = std::stoi(line.substr(12, 5), 0, 2);
-            op.rd = std::stoi(line.substr(17, 5), 0, 2);
+            op.funct = funct;
+            op.rs1 = rs1;
+            op.rs2 = rs2;
+            op.rd = rd;
             op.imm = -1;
             break;
         case 2: // branch
         case 3: // store
         case 4: // store_fp
-            op.funct = std::stoi(line.substr(4, 3), 0, 2);
-            op.rs1 = std::stoi(line.substr(7, 5), 0, 2);
-            op.rs2 = std::stoi(line.substr(12, 5), 0, 2);
+            op.funct = funct;
+            op.rs1 = rs1;
+            op.rs2 = rs2;
             op.rd = -1;
             op.imm = binary_stoi(line.substr(17, 15));
             break;
         case 5: // op_imm
         case 6: // load
         case 7: // load_fp
-            op.funct = std::stoi(line.substr(4, 3), 0, 2);
-            op.rs1 = std::stoi(line.substr(7, 5), 0, 2);
+            op.funct = funct;
+            op.rs1 = rs1;
             op.rs2 = -1;
-            op.rd = std::stoi(line.substr(17, 5), 0, 2);
+            op.rd = rs2;
             op.imm = binary_stoi(line.substr(12, 5) + line.substr(22, 10));
             break;
         case 8: // jalr
             op.funct = -1;
-            op.rs1 = std::stoi(line.substr(7, 5), 0, 2);
+            op.rs1 = rs1;
             op.rs2 = -1;
-            op.rd = std::stoi(line.substr(17, 5), 0, 2);
+            op.rd = rd;
             op.imm = binary_stoi(line.substr(4, 3) + line.substr(12, 5) + line.substr(22, 10));
             break;
         case 9: // jal
             op.funct = -1;
             op.rs1 = -1;
             op.rs2 = -1;
-            op.rd = std::stoi(line.substr(17, 5), 0, 2);
+            op.rd = rd;
             op.imm = binary_stoi(line.substr(4, 13) + line.substr(22, 10));
             break;
-        // case 10: // lui
-        //     op.funct = -1;
-        //     op.rs1 = -1;
-        //     op.rs2 = -1;
-        //     op.imm = binary_stoi(line.substr(4, 28));
-        //     break;
+        case 10: // long_imm
+            op.funct = funct;
+            op.rs1 = -1;
+            op.rs2 = -1;
+            op.rd = rd;
+            op.imm = binary_stoi(line.substr(7, 10) + line.substr(22, 10));
+            break;
         default:
             std::cerr << "Error in parsing the code" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -184,9 +190,19 @@ void exec_op(Operation &op){
             write_reg(op.rd, current_pc + 1);
             current_pc = current_pc + op.imm;
             return;
-        // case 10: // lui
-        //     current_pc++;
-        //     break;
+        case 10: // long_imm
+            switch(op.funct){
+                case 0: // lui
+                    write_reg(op.rd, static_cast<unsigned int>(read_reg(op.imm)) << 12);
+                    current_pc++;
+                    return;
+                case 1: // auipc
+                    write_reg(op.rd, (static_cast<unsigned int>(read_reg(op.imm)) << 12) + current_pc * 4);
+                    current_pc++;
+                    return;
+                default: break;
+            }
+            break;
         default: break;
     }
 
