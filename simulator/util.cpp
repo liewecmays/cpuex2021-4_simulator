@@ -204,13 +204,6 @@ std::string string_of_op(Operation &op){
     }
 }
 
-void print_op_list(){
-    for(unsigned int i=0; i<op_list.size(); i++){
-        std::cout << i << ": " << string_of_op(op_list[i]) << std::endl;
-    }
-    return;
-}
-
 void print_reg(){
     for(int i=0; i<10; i++)
         std::cout << "x" << i << ":" << reg_list[i] << ", " << std::ends;

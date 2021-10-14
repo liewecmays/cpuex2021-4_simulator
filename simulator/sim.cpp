@@ -14,7 +14,9 @@ std::vector<int> reg_list(32);
 std::vector<float> reg_fp_list(32);
 std::vector<int> memory;
 unsigned int current_pc = 0; // 注意: 行番号と異なり0-indexed
-bool is_debug_mode = false;
+bool is_debug = false;
+bool simulation_end = false;
+int op_count = 0;
 
 // 機械語命令をパース
 Operation parse_op(std::string line){
@@ -192,6 +194,58 @@ void exec_op(Operation &op){
     std::exit(EXIT_FAILURE);
 }
 
+// デバッグモードのコマンドを認識して実行
+bool exec_command(std::string cmd){
+    bool res = false; // デバッグモード終了ならtrue
+    std::smatch match;
+
+    if(std::regex_match(cmd, std::regex("^\\s*\\r?\\n?$"))){ // 空行
+        // do nothing
+    }else if(std::regex_match(cmd, std::regex("^\\s*(q|(quit))\\s*$"))){ // quit
+        res = true;
+    }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
+        // todo: help
+    }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
+        if(simulation_end){
+            std::cout << "No operation is left to be simulated." << std::endl;
+        }else{
+            bool end_flag = false;
+            if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+            std::cout << "op[" << current_pc << "]: " << string_of_op (op_list[current_pc]) << std::endl;
+            exec_op(op_list[current_pc]);
+            if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+            op_count++;
+
+            if(end_flag){
+                simulation_end = true;
+                std::cout << "All operations have been simulated successfully!" << std::endl;
+            }
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
+        if(simulation_end){
+            std::cout << "No operation is left to be simulated." << std::endl;
+        }else{
+            bool end_flag = false;
+            for(int i=0; i<std::stoi(match[3].str()); i++){
+                if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                exec_op(op_list[current_pc]);
+                if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                op_count++;
+                
+                if(end_flag){
+                    simulation_end = true;
+                    std::cout << "All operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }
+        }
+    }else{
+        std::cout << "Error: invalid command" << std::endl;
+    }
+
+    return res;
+}
+
 
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
@@ -207,7 +261,7 @@ int main(int argc, char *argv[]){
                 filename = "./code/" + std::string(optarg);
                 break;
             case 'd':
-                is_debug_mode = true;
+                is_debug = true;
                 break;
             default:
                 std::cerr << "Invalid command-line argument" << std::endl;
@@ -234,66 +288,27 @@ int main(int argc, char *argv[]){
             op_list.emplace_back(parse_op(line));
         }
     }
-    // print_op_list();
-
-    int op_count = 0;
-    bool end_flag = false;
-    if(is_debug_mode){
+    
+    if(is_debug){ // デバッグモード
         std::string cmd;
-        std::smatch match;
-
         while(true){
             std::cout << "# " << std::ends;    
             std::getline(std::cin, cmd);
-            if(std::regex_match(cmd, std::regex("^\\s*\\r?\\n?$"))){
-                continue;
-            }else if(std::regex_match(cmd, std::regex("^\\s*(e|(exit))\\s*$"))){
-                break;
-            }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){
-                // todo: help
-                continue;
-            }else if(std::regex_match(cmd, std::regex("^\\s*(n|(next))\\s*$"))){
-                std::cout << "op[" << current_pc << "]: " << string_of_op (op_list[current_pc]) << std::endl;
-                exec_op(op_list[current_pc]);
-                print_reg();
-                op_count++;
-                if(end_flag || current_pc >= op_list.size()){
-                    std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
-                    break;
-                }
-                if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
-            }else if(std::regex_match(cmd, match, std::regex("^\\s*(n|(next))\\s+(\\d+)\\s*$"))){
-                for(int i=0; i<std::stoi(match[3].str()); i++){
-                    exec_op(op_list[current_pc]);
-                    op_count++;
-                    if(end_flag || current_pc >= op_list.size()){
-                        end_flag = true;
-                        break;
-                    }
-                    if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
-                }
-                if(end_flag){
-                    std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
-                    break;
-                }
-            }else{
-                std::cout << "Error: invalid command" << std::endl;
-            }
+            if(exec_command(cmd)) break;
         }
-    }else{
-        // 命令を1ステップずつ実行
+    }else{ // デバッグなしモード
+        bool end_flag = false;
         while(true){
+            if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
             exec_op(op_list[current_pc]);
+            if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
             op_count++;
-            if(end_flag || current_pc >= op_list.size()){
-                std::cout << std::endl << "All operations have been simulated successfully!" << std::endl;
+            
+            if(end_flag){
+                simulation_end = true;
+                std::cout << "All operations have been simulated successfully!" << std::endl;
                 break;
             }
-            if(is_end(op_list[current_pc])) end_flag = true; // 次の命令が終了時のループかどうかを判定
         }
-        // 結果を表示
-        print_reg();
-        // print_reg_fp();
-        print_memory_word(0, 10);
     }
 }
