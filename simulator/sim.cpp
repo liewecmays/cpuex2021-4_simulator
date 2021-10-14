@@ -239,6 +239,24 @@ bool exec_command(std::string cmd){
                 }
             }
         }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(r|(run))\\s*$"))){ // run
+        if(simulation_end){
+            std::cout << "No operation is left to be simulated." << std::endl;
+        }else{
+            bool end_flag = false;
+            while(true){
+                if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                exec_op(op_list[current_pc]);
+                if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                op_count++;
+                
+                if(end_flag){
+                    simulation_end = true;
+                    std::cout << "All operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }
+        }
     }else{
         std::cout << "Error: invalid command" << std::endl;
     }
@@ -297,18 +315,6 @@ int main(int argc, char *argv[]){
             if(exec_command(cmd)) break;
         }
     }else{ // デバッグなしモード
-        bool end_flag = false;
-        while(true){
-            if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-            exec_op(op_list[current_pc]);
-            if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
-            op_count++;
-            
-            if(end_flag){
-                simulation_end = true;
-                std::cout << "All operations have been simulated successfully!" << std::endl;
-                break;
-            }
-        }
+        exec_command("run");
     }
 }
