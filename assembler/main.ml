@@ -205,21 +205,22 @@ let assemble codes =
 	in assemble_inner codes []
 
 
-(* コマンドライン引数で"-f filename"の形式でファイル名を受け取り、同一ファイル名の機械語コードを出力 *)
-exception Commandline_argument_error
+let filename = ref ""
+let speclist = [("-f", Arg.Set_string filename, "Name of the input file")]
+let usage_msg = "" (* todo *)
 let () =
 	print_endline "===== assembling start =====";
-	let filename = if Sys.argv.(1) = "-f" then Sys.argv.(2) else raise Commandline_argument_error in
-	let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ filename ^ ".s"))) in
-	print_endline ("object file: ./source/" ^ filename ^ ".s");
+	Arg.parse speclist (fun _ -> ()) usage_msg;
+	let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ !filename ^ ".s"))) in
+	print_endline ("source file: ./source/" ^ !filename ^ ".s");
 	let raw_result = assemble codes in
 	let result = List.fast_sort (fun (n1, _) (n2, _) -> compare n1 n2) raw_result in (* 行番号でソート *)
-	let out_channel = open_out ("./out/" ^ filename) in
+	let out_channel = open_out ("./out/" ^ !filename) in
 	let rec output_result result =
 		match result with
 		| [] -> ()
 		| (_, c) :: rest ->  Printf.fprintf out_channel "%s\n" c; output_result rest
 	in output_result result;
-	print_endline ("output file: ./out/" ^ filename);
+	print_endline ("output file: ./out/" ^ !filename);
 	close_out out_channel;
 	print_endline "===== assembling completed =====";
