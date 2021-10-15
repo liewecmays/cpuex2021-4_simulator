@@ -24,6 +24,7 @@ bool is_debug = false;
 bool breakpoint_skip = false;
 bool simulation_end = false;
 int op_count = 0;
+int line_count = 0;
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string line, int line_num){
@@ -107,6 +108,7 @@ Operation parse_op(std::string line, int line_num){
         }
     }
 
+    line_count++;
     return op;
 }
 
@@ -314,7 +316,6 @@ bool exec_command(std::string cmd){
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
-
                 }
 
                 if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
@@ -379,20 +380,29 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break N id
         int line_no = std::stoi(match[3].str()); // 1-indexed
-        std::string bp_id = match[4].str();
-        if(bp_to_line.right.find(line_no-1) == bp_to_line.right.end()){
-            if(bp_to_line.left.find(bp_id) == bp_to_line.left.end()){
-                if(label_to_line.left.find(bp_id) == label_to_line.left.end()){
-                    bp_to_line.insert(bimap_value_t(bp_id, line_no-1));
-                    std::cout << "breakpoint '" << bp_id << "' is now set to line " << line_no << std::endl;
+        if(0 < line_no && line_no <= line_count){
+            std::string bp_id = match[4].str();
+            if(bp_to_line.right.find(line_no-1) == bp_to_line.right.end()){
+                if(label_to_line.right.find(line_no-1) == label_to_line.right.end()){
+                    if(bp_to_line.left.find(bp_id) == bp_to_line.left.end()){
+                        if(label_to_line.left.find(bp_id) == label_to_line.left.end()){
+                            bp_to_line.insert(bimap_value_t(bp_id, line_no-1));
+                            std::cout << "breakpoint '" << bp_id << "' is now set to line " << line_no << std::endl;
+                        }else{
+                            std::cout << "'" << bp_id << "' is a label name and cannot be used as a breakpoint id" << std::endl;
+                        }
+                    }else{
+                        std::cout << "breakpoint id '" << bp_id << "' has already been used for another line" << std::endl;
+                    } 
                 }else{
-                    std::cout << "'" << bp_id << "' is a label name and cannot be used as a breakpoint id" << std::endl;
-                }
+                    std::string label = label_to_line.right.at(line_no-1);
+                    std::cout << "line " << line_no << " is labeled '" << label << "' (hint: exec 'break " << label << "')" << std::endl;
+                }   
             }else{
-                std::cout << "breakpoint id '" << bp_id << "' has already been used for another line" << std::endl;
-            }         
+                std::cout << "breakpoint has already been set to line " << line_no << " (id: " << bp_to_line.right.at(line_no-1) << ")" << std::endl;
+            }
         }else{
-            std::cout << "breakpoint has already been set to line " << line_no << " (id: " << bp_to_line.right.at(line_no-1) << ")" << std::endl;
+            std::cout << "invalid line number" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(delete))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // delete id
         std::string bp_id = match[3].str();
