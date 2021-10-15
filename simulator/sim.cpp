@@ -284,7 +284,7 @@ bool exec_command(std::string cmd){
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
     
-    // std::cout << "===== simulation start =====" << std::endl;
+    std::cout << "[sim] simulation start" << std::endl;
 
     // コマンドライン引数をパース
     int option;
@@ -296,6 +296,7 @@ int main(int argc, char *argv[]){
                 break;
             case 'd':
                 is_debug = true;
+                std::cout << "[sim] entering debug mode ..." << std::endl;
                 break;
             default:
                 std::cerr << "Invalid command-line argument" << std::endl;

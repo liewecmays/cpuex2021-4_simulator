@@ -201,7 +201,7 @@ let assemble codes =
 		| [] -> []
 		| code :: rest ->
 			line_no := !line_no + 1;
-			print_endline (string_of_int !line_no);
+			(* print_endline (string_of_int !line_no); *)
 			match translate_code code untranslated !line_no label_option with
 			| Code (n, c, l) -> (n, c, l) :: assemble_inner rest untranslated None
 			| Code_list (label, res) -> res @ assemble_inner rest untranslated (Some label) (* 直後の命令の処理にラベルを渡す *)
@@ -217,10 +217,9 @@ let speclist = [
 ]
 let usage_msg = "" (* todo *)
 let () =
-	print_endline "===== assembling start =====";
 	Arg.parse speclist (fun _ -> ()) usage_msg;
 	let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ !filename ^ ".s"))) in
-	print_endline ("source file: ./source/" ^ !filename ^ ".s");
+	print_endline ("[asm] source file: ./source/" ^ !filename ^ ".s");
 	let raw_result = assemble codes in
 	let result = List.fast_sort (fun (n1, _, _) (n2, _, _) -> compare n1 n2) raw_result in (* 行番号でソート *)
 	let out_channel = open_out ("./out/" ^ !filename ^ (if !is_debug then ".dbg" else "")) in
@@ -235,6 +234,5 @@ let () =
 			else
 				(Printf.fprintf out_channel "%s\n" c; output_result rest)
 	in output_result result;
-	print_endline ("output file: ./out/" ^ !filename ^ (if !is_debug then ".dbg" else ""));
+	print_endline ("[asm] output file: ./out/" ^ !filename ^ (if !is_debug then ".dbg" else ""));
 	close_out out_channel;
-	print_endline "===== assembling completed =====";
