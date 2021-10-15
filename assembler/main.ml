@@ -2,7 +2,7 @@ open Syntax
 open Util
 
 let line_no = ref 0 (* 現在見ている行番号を保持 *)
-let label_bp_list = ref [] (* 出現したラベルとブレークポイントを保持 *)
+let label_bp_list = ref [] (* ラベルorブレークポイント、および出現した行番号を保持 *)
 let label_to_line = ref [] (* ラベルと行の対応関係を保持 *)
 
 (* コマンドライン引数処理用の変数 *)
@@ -35,11 +35,11 @@ exception Translate_error of string
 let rec translate_code code untranslated line_no_arg label_option =
 	match code with
 	| Label label ->
-		if List.mem label !label_bp_list then
+		if List.mem_assoc label !label_bp_list then	
 			raise (Translate_error "label duplication") (* ラベルが重複する場合エラー *)
 		else
 			(line_no := !line_no - 1; (* ラベルの行はカウントしないので、増やした分を戻す *)
-			label_bp_list := label :: !label_bp_list;
+			label_bp_list := (label, line_no_arg) :: !label_bp_list;
 			label_to_line := (label, line_no_arg) :: !label_to_line;
 			let rec solve_untranslated untranslated = (* 新しいラベルに対応付けられていたuntranslatedを翻訳する *)
 				match untranslated with
@@ -50,10 +50,11 @@ let rec translate_code code untranslated line_no_arg label_option =
 						| (Code (n, c, l_o, b_o), Code_list (label', list)) ->
 							(((match b_o with
 							| Some bp ->
-								if List.mem bp !label_bp_list then
-									raise (Translate_error "breakpoint duplication") (* ブレークポイントが重複する場合エラー *)
-								else
-									label_bp_list := bp :: !label_bp_list (* 翻訳が成功してからブレークポイントを追加 *)
+								(try
+									if List.assoc bp !label_bp_list == line_no_arg' then () else
+										raise (Translate_error "breakpoint duplication") (* ブレークポイントが重複する場合エラー(ただし同じ行にあるラベルは除く) *)
+								with Not_found ->
+									label_bp_list := (bp, line_no_arg') :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
 							| None -> ());
 							Code_list (label', (n, c, l_o, b_o) :: list))) (* label'は再帰的に外側のスコープのlabelを渡している *)
 						| _ -> raise (Translate_error "upexpected error")
@@ -235,10 +236,11 @@ let assemble codes =
 			| Code (n, c, l_o, b_o) ->
 				((match b_o with
 				| Some bp ->
-					if List.mem bp !label_bp_list then
-						raise (Translate_error "breakpoint duplication") (* ブレークポイントが重複する場合エラー *)
-					else
-						label_bp_list := bp :: !label_bp_list (* 翻訳が成功してからブレークポイントを追加 *)
+					(try
+						if List.assoc bp !label_bp_list == n then () else
+							raise (Translate_error "breakpoint duplication") (* ブレークポイントが重複する場合エラー(ただし同じ行にあるラベルは除く) *)
+					with Not_found ->
+						label_bp_list := (bp, n) :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
 				| None -> ());
 				(n, c, l_o, b_o) :: assemble_inner rest untranslated None)
 			| Code_list (label, res) -> res @ assemble_inner rest untranslated (Some label) (* 直後の命令の処理にラベルを渡す *)

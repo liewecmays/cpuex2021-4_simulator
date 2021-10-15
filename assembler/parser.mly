@@ -21,10 +21,13 @@ code_list:
 	| label COLON operation code_list { Label $1 :: Operation ($3, None) :: $4 }
 	| operation { Operation ($1, None) :: [] }
 	| label COLON operation { Label $1 ::  Operation ($3, None) :: [] }
+	// with breakpoints
 	| operation AT label code_list { Operation ($1, Some $3) :: $4 }
 	| label COLON operation AT label code_list { Label $1 :: Operation ($3, Some $5) :: $6 }
+	| label COLON AT operation code_list { Label $1 :: Operation ($4, Some $1) :: $5 }
 	| operation AT label { Operation ($1, Some $3) :: [] }
-	| label COLON operation AT label { Label $1 ::  Operation ($3, Some $5) :: [] }
+	| label COLON operation AT label { Label $1 :: Operation ($3, Some $5) :: [] }
+	| label COLON AT operation { Label $1 :: Operation ($4, Some $1) :: [] }
 	// | PERIOD ID {}
 ;
 
