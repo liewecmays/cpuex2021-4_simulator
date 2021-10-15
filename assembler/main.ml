@@ -31,12 +31,12 @@ type assembling_result = (int * string * (string option)) list (* 行番号と�
 	line_no_arg: 行番号
 	label_option: その行にラベルがついている場合、ラベル
 *)
-exception Translate_error
+exception Translate_error of string
 let rec translate_code code untranslated line_no_arg label_option =
 	match code with
 	| Label label ->
 		if List.mem label !label_bp_list then
-			raise Translate_error (* ラベルが重複する場合エラー *)
+			raise (Translate_error "label duplication") (* ラベルが重複する場合エラー *)
 		else
 			(line_no := !line_no - 1; (* ラベルの行はカウントしないので、増やした分を戻す *)
 			label_bp_list := label :: !label_bp_list;
@@ -47,19 +47,23 @@ let rec translate_code code untranslated line_no_arg label_option =
 				| (line_no_arg', op, label_option', bp_option') :: rest ->
 					let res = translate_code (Operation (op, bp_option')) [] line_no_arg' label_option' in (* 解決するはずなのでuntranslatedは空でもよい *)
 						match (res, solve_untranslated rest) with
-						| (Code (n, c, l_op, b_op), Code_list (label', list)) -> Code_list (label', (n, c, l_op, b_op) :: list) (* label'は再帰的に外側のスコープのlabelを渡している *)
-						| _ -> raise Translate_error
+						| (Code (n, c, l_o, b_o), Code_list (label', list)) ->
+							(((match b_o with
+							| Some bp ->
+								if List.mem bp !label_bp_list then
+									raise (Translate_error "breakpoint duplication") (* ブレークポイントが重複する場合エラー *)
+								else
+									label_bp_list := bp :: !label_bp_list (* 翻訳が成功してからブレークポイントを追加 *)
+							| None -> ());
+							Code_list (label', (n, c, l_o, b_o) :: list))) (* label'は再帰的に外側のスコープのlabelを渡している *)
+						| _ -> raise (Translate_error "upexpected error")
 			in solve_untranslated (assoc_all untranslated label))
 	| Operation (op, bp_option) ->
 		(match bp_option with
 		| Some bp ->
-			if List.mem bp !label_bp_list then
-				raise Translate_error (* ブレークポイントが重複する場合エラー *)
-			else
-				if !is_debug then
-					label_bp_list := bp :: !label_bp_list
-				else
-					raise Translate_error (* デバッグモードでないのにブレークポイントが指定されている場合エラー *)
+			if not !is_debug then 
+				raise (Translate_error "designating breakpoints under non-debug-mode") (* デバッグモードでないのにブレークポイントが指定されている場合エラー *)
+			else ()
 		| None -> ());
 		match op with
 		| Add (rs1, rs2, rd) ->
@@ -228,7 +232,15 @@ let assemble codes =
 			line_no := !line_no + 1;
 			(* print_endline (string_of_int !line_no); *)
 			match translate_code code untranslated !line_no label_option with
-			| Code (n, c, l_o, b_o) -> (n, c, l_o, b_o) :: assemble_inner rest untranslated None
+			| Code (n, c, l_o, b_o) ->
+				((match b_o with
+				| Some bp ->
+					if List.mem bp !label_bp_list then
+						raise (Translate_error "breakpoint duplication") (* ブレークポイントが重複する場合エラー *)
+					else
+						label_bp_list := bp :: !label_bp_list (* 翻訳が成功してからブレークポイントを追加 *)
+				| None -> ());
+				(n, c, l_o, b_o) :: assemble_inner rest untranslated None)
 			| Code_list (label, res) -> res @ assemble_inner rest untranslated (Some label) (* 直後の命令の処理にラベルを渡す *)
 			| Fail (label, (n, op, l_o, b_o)) -> assemble_inner rest ((label, (n, op, l_o, b_o)) :: untranslated) None
 	in assemble_inner codes [] None

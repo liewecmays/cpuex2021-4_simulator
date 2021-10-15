@@ -27,9 +27,6 @@ int op_count = 0;
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string line, int line_num){
-    Operation op;
-    int opcode, funct, rs1, rs2, rd;
-
     if (line.size() > 32){
         if(is_debug){ // デバッグモードの場合、ラベルやブレークポイントを処理
             std::smatch match;
@@ -46,7 +43,9 @@ Operation parse_op(std::string line, int line_num){
             std::exit(EXIT_FAILURE);
         }
     }
-    
+
+    Operation op;
+    int opcode, funct, rs1, rs2, rd;    
     opcode = std::stoi(line.substr(0, 4), 0, 2);
     funct = std::stoi(line.substr(4, 3), 0, 2);
     rs1 = std::stoi(line.substr(7, 5), 0, 2);
@@ -78,7 +77,7 @@ Operation parse_op(std::string line, int line_num){
             op.funct = funct;
             op.rs1 = rs1;
             op.rs2 = -1;
-            op.rd = rs2;
+            op.rd = rd;
             op.imm = binary_stoi(line.substr(12, 5) + line.substr(22, 10));
             break;
         case 8: // jalr
