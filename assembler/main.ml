@@ -2,6 +2,7 @@ open Syntax
 open Util
 
 let line_no = ref 0 (* 現在見ている行番号を保持 *)
+let label_list = ref [] (* 出現したラベルを保持 *)
 let label_to_line = ref [] (* ラベルと行の対応関係を保持 *)
 
 (* 機械語への翻訳結果の型 *)
@@ -24,17 +25,21 @@ exception Translate_error
 let rec translate_code code untranslated line_no_arg label_option =
 	match code with
 	| Label label ->
-		line_no := !line_no - 1; (* ラベルの行はカウントしないので、増やした分を戻す *)
-		label_to_line := (label, line_no_arg) :: !label_to_line;
-		let rec solve_untranslated untranslated = (* 新しいラベルに対応付けられていたuntranslatedを翻訳する *)
-			match untranslated with
-			| [] -> Code_list (label, [])
-			| (line_no_arg', op, label_option') :: rest ->
-				let res = translate_code (Operation op) [] line_no_arg' label_option' in (* 解決するはずなのでuntranslatedは空でもよい *)
-					match (res, solve_untranslated rest) with
-					| (Code (n, c, l), Code_list (label', list)) -> Code_list (label', (n, c, l) :: list) (* label'は再帰的に外側のスコープのlabelを渡している *)
-					| _ -> raise Translate_error
-		in solve_untranslated (assoc_all untranslated label)
+		if List.mem label !label_list then
+			raise Translate_error
+		else
+			(line_no := !line_no - 1; (* ラベルの行はカウントしないので、増やした分を戻す *)
+			label_list := label :: !label_list;
+			label_to_line := (label, line_no_arg) :: !label_to_line;
+			let rec solve_untranslated untranslated = (* 新しいラベルに対応付けられていたuntranslatedを翻訳する *)
+				match untranslated with
+				| [] -> Code_list (label, [])
+				| (line_no_arg', op, label_option') :: rest ->
+					let res = translate_code (Operation op) [] line_no_arg' label_option' in (* 解決するはずなのでuntranslatedは空でもよい *)
+						match (res, solve_untranslated rest) with
+						| (Code (n, c, l), Code_list (label', list)) -> Code_list (label', (n, c, l) :: list) (* label'は再帰的に外側のスコープのlabelを渡している *)
+						| _ -> raise Translate_error
+			in solve_untranslated (assoc_all untranslated label))
 	| Operation op ->
 		match op with
 		| Add (rs1, rs2, rd) ->
