@@ -17,7 +17,7 @@ std::vector<Operation> op_list;
 std::vector<int> reg_list(32);
 std::vector<float> reg_fp_list(32);
 std::vector<int> memory;
-bimap_t breakpoint_to_line;
+bimap_t bp_to_line;
 bimap_t label_to_line;
 unsigned int current_pc = 0; // 注意: 行番号と異なり0-indexed
 bool is_debug = false;
@@ -27,23 +27,6 @@ int op_count = 0;
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string line, int line_num){
-    if (line.size() > 32){
-        if(is_debug){ // デバッグモードの場合、ラベルやブレークポイントを処理
-            std::smatch match;
-            if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))$"))){
-                label_to_line.insert(bimap_value_t(match[1].str(), line_num));                
-            }else if(std::regex_match(line, match, std::regex("^\\d{32}@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
-                breakpoint_to_line.insert(bimap_value_t(match[1].str(), line_num));
-            }else if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
-                label_to_line.insert(bimap_value_t(match[1].str(), line_num));
-                breakpoint_to_line.insert(bimap_value_t(match[2].str(), line_num));
-            }
-        }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
-            std::cerr << "Error: Could not parse the code (maybe it is encoded in debug-style)" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-    }
-
     Operation op;
     int opcode, funct, rs1, rs2, rd;    
     opcode = std::stoi(line.substr(0, 4), 0, 2);
@@ -104,6 +87,24 @@ Operation parse_op(std::string line, int line_num){
         default:
             std::cerr << "Error in parsing the code" << std::endl;
             std::exit(EXIT_FAILURE);
+    }
+
+    // ラベル・ブレークポイントの処理
+    if (line.size() > 32){
+        if(is_debug){ // デバッグモード
+            std::smatch match;
+            if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))$"))){
+                label_to_line.insert(bimap_value_t(match[1].str(), line_num));                
+            }else if(std::regex_match(line, match, std::regex("^\\d{32}@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
+                bp_to_line.insert(bimap_value_t(match[1].str(), line_num));
+            }else if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
+                label_to_line.insert(bimap_value_t(match[1].str(), line_num));
+                bp_to_line.insert(bimap_value_t(match[2].str(), line_num));
+            }
+        }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
+            std::cerr << "Error: Could not parse the code (maybe it is encoded in debug-style)" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
 
     return op;
@@ -305,11 +306,11 @@ bool exec_command(std::string cmd){
         }else{
             bool end_flag = false;
             while(true){
-                if(breakpoint_to_line.right.find(current_pc) != breakpoint_to_line.right.end()){ // ブレークポイントに当たった場合は停止
+                if(bp_to_line.right.find(current_pc) != bp_to_line.right.end()){ // ブレークポイントに当たった場合は停止
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << "halt before breakpoint: " + breakpoint_to_line.right.at(current_pc) << "(@line " << current_pc + 1 << ")" << std::endl;
+                        std::cout << "halt before breakpoint: " + bp_to_line.right.at(current_pc) << "(@line " << current_pc + 1 << ")" << std::endl;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
@@ -333,8 +334,8 @@ bool exec_command(std::string cmd){
             std::cout << "No operation is left to be simulated." << std::endl;
         }else{
             std::string bp = match[3].str();
-            if(breakpoint_to_line.left.find(bp) != breakpoint_to_line.left.end()){
-                unsigned int bp_line = breakpoint_to_line.left.at(bp);
+            if(bp_to_line.left.find(bp) != bp_to_line.left.end()){
+                unsigned int bp_line = bp_to_line.left.at(bp);
                 bool end_flag = false;
                 while(true){
                     if(current_pc == bp_line){
@@ -362,6 +363,36 @@ bool exec_command(std::string cmd){
             }else{
                 std::cout << "breakpoint '" << bp << "' is not found" << std::endl;
             }
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break label
+        std::string label = match[3].str();
+        if(label_to_line.left.find(label) != label_to_line.left.end()){
+            if(bp_to_line.left.find(label) == bp_to_line.left.end()){
+                int line_no = label_to_line.left.at(label); // 0-indexed
+                bp_to_line.insert(bimap_value_t(label, line_no));
+                std::cout << "breakpoint '" << label << "' is now set to line " << line_no + 1 << std::endl;
+            }else{
+                std::cout << "breakpoint '" << label << "' has already been set" << std::endl;  
+            }
+        }else{
+            std::cout << "label '" << label << "' is not found" << std::endl;
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break N name
+        int line_no = std::stoi(match[3].str()); // 1-indexed
+        std::string name = match[4].str();
+        if(bp_to_line.right.find(line_no-1) == bp_to_line.right.end()){
+            if(bp_to_line.left.find(name) == bp_to_line.left.end()){
+                if(label_to_line.left.find(name) == label_to_line.left.end()){
+                    bp_to_line.insert(bimap_value_t(name, line_no-1));
+                    std::cout << "breakpoint '" << name << "' is now set to line " << line_no << std::endl;
+                }else{
+                    std::cout << "'" << name << "' is a label name and cannot be used as a breakpoint name" << std::endl;
+                }
+            }else{
+                std::cout << "breakpoint name '" << name << "' has already been used for another line" << std::endl;
+            }         
+        }else{
+            std::cout << "breakpoint has already been set to line " << line_no << " (name: " << bp_to_line.right.at(line_no-1) << ")" << std::endl;
         }
     }else{
         std::cout << "Error: invalid command" << std::endl;
