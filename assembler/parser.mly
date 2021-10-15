@@ -5,7 +5,7 @@
 %token <int> INT
 %token <string> ID
 %token <string> LABEL
-%token LPAR RPAR COLON COMMA PERIOD MINUS EOF
+%token LPAR RPAR COLON COMMA PERIOD MINUS AT EOF
 %token INTREG FLOATREG
 %token ADD SUB SLL SRL SRA BEQ BLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL LUI AUIPC
 
@@ -17,10 +17,14 @@ toplevel:
 	| code_list EOF { $1 }
 
 code_list:
-	| operation code_list { Operation $1 :: $2 }
-	| label COLON operation code_list { Label $1 ::  Operation $3 :: $4 }
-	| operation { Operation($1) :: [] }
-	| label COLON operation { Label $1 ::  Operation $3 :: [] }
+	| operation code_list { Operation ($1, None) :: $2 }
+	| label COLON operation code_list { Label $1 :: Operation ($3, None) :: $4 }
+	| operation { Operation ($1, None) :: [] }
+	| label COLON operation { Label $1 ::  Operation ($3, None) :: [] }
+	| operation AT label code_list { Operation ($1, Some $3) :: $4 }
+	| label COLON operation AT label code_list { Label $1 :: Operation ($3, Some $5) :: $6 }
+	| operation AT label { Operation ($1, Some $3) :: [] }
+	| label COLON operation AT label { Label $1 ::  Operation ($3, Some $5) :: [] }
 	// | PERIOD ID {}
 ;
 

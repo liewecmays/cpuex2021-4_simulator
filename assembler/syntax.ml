@@ -24,4 +24,4 @@ type operation =
 
 type code =
 	| Label of string
-	| Operation of operation
+	| Operation of operation * (string option) (* 命令, (ある場合は)ブレークポイント名 *)

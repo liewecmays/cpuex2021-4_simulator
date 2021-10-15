@@ -12,6 +12,7 @@ rule token = parse
 | "," { Parser.COMMA }
 | "." { Parser.PERIOD }
 | "-" { Parser.MINUS }
+| "@" { Parser.AT }
 | "add" { Parser.ADD }
 | "sub" { Parser.SUB }
 | "sll" { Parser.SLL }
