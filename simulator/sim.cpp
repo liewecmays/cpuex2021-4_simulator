@@ -2,27 +2,51 @@
 #include "util.hpp"
 #include <string>
 #include <vector>
+#include <boost/bimap/bimap.hpp>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <regex>
 #include <unistd.h>
 
+typedef boost::bimaps::bimap<std::string, unsigned int> bimap_t;
+typedef bimap_t::value_type bimap_value_t;
+
 // グローバル変数
 std::vector<Operation> op_list;
 std::vector<int> reg_list(32);
 std::vector<float> reg_fp_list(32);
 std::vector<int> memory;
+bimap_t breakpoint_to_line;
+bimap_t label_to_line;
 unsigned int current_pc = 0; // 注意: 行番号と異なり0-indexed
 bool is_debug = false;
+bool breakpoint_skip = false;
 bool simulation_end = false;
 int op_count = 0;
 
-// 機械語命令をパース
-Operation parse_op(std::string line){
+// 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
+Operation parse_op(std::string line, int line_num){
     Operation op;
     int opcode, funct, rs1, rs2, rd;
 
+    if (line.size() > 32){
+        if(is_debug){ // デバッグモードの場合、ラベルやブレークポイントを処理
+            std::smatch match;
+            if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))$"))){
+                label_to_line.insert(bimap_value_t(match[1].str(), line_num));                
+            }else if(std::regex_match(line, match, std::regex("^\\d{32}@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
+                breakpoint_to_line.insert(bimap_value_t(match[1].str(), line_num));
+            }else if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
+                label_to_line.insert(bimap_value_t(match[1].str(), line_num));
+                breakpoint_to_line.insert(bimap_value_t(match[2].str(), line_num));
+            }
+        }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
+            std::cerr << "Error: Could not parse the code (maybe it is encoded in debug-style)" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+    
     opcode = std::stoi(line.substr(0, 4), 0, 2);
     funct = std::stoi(line.substr(4, 3), 0, 2);
     rs1 = std::stoi(line.substr(7, 5), 0, 2);
@@ -222,12 +246,13 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
+        breakpoint_skip = false;
         if(simulation_end){
             std::cout << "No operation is left to be simulated." << std::endl;
         }else{
             bool end_flag = false;
             if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-            std::cout << "op[" << current_pc << "]: " << string_of_op (op_list[current_pc]) << std::endl;
+            std::cout << "line " << current_pc + 1 << ": " << string_of_op (op_list[current_pc]) << std::endl;
             exec_op(op_list[current_pc]);
             if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
             op_count++;
@@ -238,6 +263,7 @@ bool exec_command(std::string cmd){
             }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
+        breakpoint_skip = false;
         if(simulation_end){
             std::cout << "No operation is left to be simulated." << std::endl;
         }else{
@@ -256,6 +282,7 @@ bool exec_command(std::string cmd){
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(r|(run))\\s*$"))){ // run
+        breakpoint_skip = false;
         if(simulation_end){
             std::cout << "No operation is left to be simulated." << std::endl;
         }else{
@@ -271,6 +298,70 @@ bool exec_command(std::string cmd){
                     std::cout << "All operations have been simulated successfully!" << std::endl;
                     break;
                 }
+            }
+        }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
+        if(simulation_end){
+            std::cout << "No operation is left to be simulated." << std::endl;
+        }else{
+            bool end_flag = false;
+            while(true){
+                if(breakpoint_to_line.right.find(current_pc) != breakpoint_to_line.right.end()){ // ブレークポイントに当たった場合は停止
+                    if(breakpoint_skip){
+                        breakpoint_skip = false;
+                    }else{
+                        std::cout << "halt before breakpoint: " + breakpoint_to_line.right.at(current_pc) << "(@line " << current_pc + 1 << ")" << std::endl;
+                        breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
+                        break;
+                    }
+
+                }
+
+                if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                exec_op(op_list[current_pc]);
+                if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                op_count++;
+                
+                if(end_flag){
+                    simulation_end = true;
+                    std::cout << "All operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
+        if(simulation_end){
+            std::cout << "No operation is left to be simulated." << std::endl;
+        }else{
+            std::string bp = match[3].str();
+            if(breakpoint_to_line.left.find(bp) != breakpoint_to_line.left.end()){
+                unsigned int bp_line = breakpoint_to_line.left.at(bp);
+                bool end_flag = false;
+                while(true){
+                    if(current_pc == bp_line){
+                        if(breakpoint_skip){
+                            breakpoint_skip = false;
+                        }else{
+                            std::cout << "halt before breakpoint: " + bp << "(@line " << current_pc + 1 << ")" << std::endl;
+                            breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
+                            break;
+                        }
+                    }
+
+                    if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                    exec_op(op_list[current_pc]);
+                    if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                    op_count++;
+                    
+                    if(end_flag){
+                        simulation_end = true;
+                        std::cout << "did not encounter breakpoint '" << bp << "'" << std::endl;
+                        std::cout << "All operations have been simulated successfully!" << std::endl;
+                        break;
+                    }
+                }
+            }else{
+                std::cout << "breakpoint '" << bp << "' is not found" << std::endl;
             }
         }
     }else{
@@ -317,11 +408,13 @@ int main(int argc, char *argv[]){
 
     // ファイルの各行をパースしてop_listに追加
     std::string line;
+    int line_num = 0; // 0-indexed
     while(std::getline(input_file, line)){
         if(std::regex_match(line, std::regex("^\\s*\\r?\\n?$"))){ // 空行は無視
             continue;
         }else{
-            op_list.emplace_back(parse_op(line));
+            op_list.emplace_back(parse_op(line, line_num));
+            line_num++;
         }
     }
     
