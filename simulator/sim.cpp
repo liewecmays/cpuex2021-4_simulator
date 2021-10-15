@@ -307,6 +307,7 @@ int main(int argc, char *argv[]){
     memory.reserve(1000); // todo: サイズを入力で変更できるようにする
 
     // ファイルを読む
+    filename += is_debug ? ".dbg" : "";
     std::ifstream input_file(filename);
     if(!input_file.is_open()){
         std::cerr << "Could not open ./code/" << filename << std::endl;
