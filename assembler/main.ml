@@ -249,7 +249,7 @@ let assemble codes =
 						label_bp_list := (bp, n) :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
 				| None -> ());
 				(n, c, l_o, b_o) :: assemble_inner rest untranslated None)
-			| Code_list (label, res) -> res @ assemble_inner rest untranslated (Some label) (* 直後の命令の処理にラベルを渡す *)
+				| Code_list (label, res) -> res @ assemble_inner rest (assoc_delete untranslated label) (Some label) (* 直後の命令の処理にラベルを渡す *)
 			| Fail (label, (n, op, l_o, b_o)) -> assemble_inner rest ((label, (n, op, l_o, b_o)) :: untranslated) None
 	in assemble_inner codes [] None
 

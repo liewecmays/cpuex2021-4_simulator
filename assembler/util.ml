@@ -35,3 +35,11 @@ let assoc_all l key =
 		| [] -> acc
 		| (k, v) :: rest -> if key = k then assoc_all_inner rest key (v :: acc) else assoc_all_inner rest key acc
 	in assoc_all_inner l key []
+
+(* 連想配列からkeyに対応しているものを全て除く *)
+let assoc_delete l key =
+	let rec assoc_delete_inner l key acc =
+		match l with
+		| [] -> acc
+		| (k, v) :: rest -> if key = k then assoc_delete_inner rest key acc else assoc_delete_inner rest key ((k, v) :: acc)
+	in assoc_delete_inner l key []
