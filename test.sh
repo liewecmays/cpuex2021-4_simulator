@@ -13,20 +13,20 @@ done
 if "${IS_DEBUG}"; then
     make
     echo -e ""
-    cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s"
+    cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
     cd assembler
-    ./asm -f $FILENAME -d
+    ./asm -f $FILENAME -d || exit 1
     cd ../
-    cp assembler/out/"${FILENAME}.dbg" simulator/code/"${FILENAME}.dbg"
-    cd simulator
-    ./sim -f $FILENAME -d
+    cp assembler/out/"${FILENAME}.dbg" simulator/code/"${FILENAME}.dbg" || exit 1
+    cd simulator || exit 1
+    ./sim -f $FILENAME -d || exit 1
 else
     make -s
-    cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s"
+    cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
     cd assembler
-    ./asm -f $FILENAME
+    ./asm -f $FILENAME || exit 1
     cd ../
-    cp assembler/out/$FILENAME simulator/code/$FILENAME
-    cd simulator
+    cp assembler/out/$FILENAME simulator/code/$FILENAME || exit 1
+    cd simulator || exit 1
     ./sim -f $FILENAME
 fi
