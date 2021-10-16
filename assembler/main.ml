@@ -213,15 +213,17 @@ let rec translate_code code untranslated line_no_arg label_option =
 			let opcode = binary_of_int 10 4 in
 			let funct = binary_of_int 0 3 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
-			let imm = binary_of_int_signed imm 20 in
-			let code = String.concat "" [opcode; funct; String.sub imm 0 10; rd; String.sub imm 10 10] in
+			if imm < 0 then raise (Translate_error "long_imm operations does not accept negative immdediates") else
+			let imm = binary_of_int_signed imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+			let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 				Code (line_no_arg, code, label_option, bp_option)
 		| Auipc (rd, imm) ->
 			let opcode = binary_of_int 10 4 in
 			let funct = binary_of_int 1 3 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
-			let imm = binary_of_int_signed imm 20 in
-			let code = String.concat "" [opcode; funct; String.sub imm 0 10; rd; String.sub imm 10 10] in
+			if imm < 0 then raise (Translate_error "long_imm operations does not accept negative immdediates") else
+			let imm = binary_of_int_signed imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+			let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 				Code (line_no_arg, code, label_option, bp_option)
 
 (* コードのリストをアセンブルする *)

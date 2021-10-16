@@ -83,7 +83,7 @@ Operation parse_op(std::string line, int line_num){
             op.rs1 = -1;
             op.rs2 = -1;
             op.rd = rd;
-            op.imm = binary_stoi(line.substr(7, 10) + line.substr(22, 10));
+            op.imm = binary_stoi("0" + line.substr(7, 10) + line.substr(22, 10));
             break;
         default:
             std::cerr << "Error in parsing the code" << std::endl;
@@ -219,11 +219,11 @@ void exec_op(Operation &op){
         case 10: // long_imm
             switch(op.funct){
                 case 0: // lui
-                    write_reg(op.rd, static_cast<unsigned int>(read_reg(op.imm)) << 12);
+                    write_reg(op.rd, op.imm << 12);
                     current_pc++;
                     return;
                 case 1: // auipc
-                    write_reg(op.rd, (static_cast<unsigned int>(read_reg(op.imm)) << 12) + current_pc * 4);
+                    write_reg(op.rd, (op.imm << 12) + current_pc * 4);
                     current_pc++;
                     return;
                 default: break;
@@ -258,6 +258,9 @@ bool exec_command(std::string cmd){
             exec_op(op_list[current_pc]);
             if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
             op_count++;
+
+            print_reg();
+            print_memory_word(0, 5);
 
             if(end_flag){
                 simulation_end = true;
