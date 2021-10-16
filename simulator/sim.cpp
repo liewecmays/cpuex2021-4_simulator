@@ -254,7 +254,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
@@ -262,9 +262,6 @@ bool exec_command(std::string cmd){
             exec_op(op_list[current_pc]);
             if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
             op_count++;
-
-            print_reg();
-            print_memory_word(0, 5);
 
             if(end_flag){
                 simulation_end = true;
@@ -274,7 +271,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             for(int i=0; i<std::stoi(match[3].str()); i++){
@@ -293,7 +290,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(r|(run))\\s*$"))){ // run
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             while(true){
@@ -309,9 +306,22 @@ bool exec_command(std::string cmd){
                 }
             }
         }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
+        breakpoint_skip = false;
+        simulation_end = false;
+        current_pc = 0; // PCを0にする
+        for(int i=0; i<32; i++){ // レジスタをクリア
+            reg_list[i] = 0;
+            reg_fp_list[i] = 0;
+        }
+        for(int i=0; i<1000; i++){ // メモリをクリア
+            memory[i] = 0;
+        }
+
+        std::cout << info << "simulation environment is now initialized" << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             while(true){
@@ -319,7 +329,7 @@ bool exec_command(std::string cmd){
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << info << "halt before breakpoint: " + bp_to_line.right.at(current_pc) << "(@line " << current_pc + 1 << ")" << std::endl;
+                        std::cout << info << "halt before breakpoint '" + bp_to_line.right.at(current_pc) << "' (line " << current_pc + 1 << ")" << std::endl;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
@@ -337,9 +347,35 @@ bool exec_command(std::string cmd){
                 }
             }
         }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
+        std::cout << "operations executed: " << op_count << std::endl;
+        if(simulation_end){
+            std::cout << "next: (no operation left to be simulated)" << std::endl;
+        }else{
+            std::cout << "next: line " << current_pc + 1 << " (" << string_of_op (op_list[current_pc]) << ")" << std::endl;
+        }
+        if(bp_to_line.empty()){
+            std::cout << "breakpoints: (no breakpoint found)" << std::endl;
+        }else{
+            std::cout << "breakpoints:" << std::endl;
+            for(auto x : bp_to_line.left) {
+                std::cout << "  " << x.first << " (line " << x.second + 1 << ")" << std::endl;
+            }
+        }
+    // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
+    //
+    }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print)) reg\\s*$"))){ // print reg
+        print_reg();
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+x(\\d+))+\\s*$"))){ // print reg
+        int reg_no;
+        while(std::regex_search(cmd, match, std::regex("x(\\d+)"))){
+            reg_no = std::stoi(match[1].str());
+            std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
+            cmd = match.suffix();
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
             std::string bp = match[3].str();
             if(bp_to_line.left.find(bp) != bp_to_line.left.end()){
@@ -350,7 +386,7 @@ bool exec_command(std::string cmd){
                         if(breakpoint_skip){
                             breakpoint_skip = false;
                         }else{
-                            std::cout << info << "halt before breakpoint: " + bp << "(@line " << current_pc + 1 << ")" << std::endl;
+                            std::cout << info << "halt before breakpoint '" + bp << "' (line " << current_pc + 1 << ")" << std::endl;
                             breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                             break;
                         }
@@ -371,6 +407,14 @@ bool exec_command(std::string cmd){
             }else{
                 std::cout << "breakpoint '" << bp << "' has not been set" << std::endl;
             }
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
+        int reg_no = std::stoi(match[4].str());
+        int val = std::stoi(match[5].str());
+        if(0 < reg_no && reg_no < 31){
+            write_reg(reg_no, val);
+        }else{
+            std::cout << error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break label
         std::string label = match[3].str();

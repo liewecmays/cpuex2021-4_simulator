@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <iomanip>
 
 // 整数レジスタを読む
 int read_reg(int i){
@@ -52,25 +53,24 @@ int binary_stoi(std::string s){
 
 // 命令を文字列に変換
 std::string string_of_op(Operation &op){
-    std::string res;
+    std::string res = "";
     switch(op.opcode){
         case 0: // op
-            res = "op[";
             switch(op.funct){
                 case 0: // add
-                    res += "add] ";
+                    res += "add ";
                     break;
                 case 1: // sub
-                    res += "sub] ";
+                    res += "sub ";
                     break;
                 case 2: // sll
-                    res += "sll] ";
+                    res += "sll ";
                     break;
                 case 3: // srl
-                    res += "srl] ";
+                    res += "srl ";
                     break;
                 case 4: // sra
-                    res += "sra] ";
+                    res += "sra ";
                     break;
                 default: return "";
             }
@@ -79,19 +79,18 @@ std::string string_of_op(Operation &op){
             res += ("rd=x" + std::to_string(op.rd));
             return res;
         case 1: // op_fp
-            res = "op_fp[";
             switch(op.funct){
                 case 0: // fadd
-                    res += "fadd], ";
+                    res += "fadd ";
                     break;
                 case 1: // fsub
-                    res += "fsub], ";
+                    res += "fsub ";
                     break;
                 case 2: // fmul
-                    res += "fmul], ";
+                    res += "fmul ";
                     break;
                 case 3: // fdiv
-                    res += "fdiv], ";
+                    res += "fdiv ";
                     break;
                 default: return "";
             }
@@ -100,16 +99,15 @@ std::string string_of_op(Operation &op){
             res += ("rd=f" + std::to_string(op.rd));
             return res;
         case 2: // branch
-            res = "branch[";
             switch(op.funct){
                 case 0: // beq
-                    res += "beq], ";
+                    res += "beq ";
                     break;
                 case 1: // blt
-                    res += "blt], ";
+                    res += "blt ";
                     break;
-                case 2: // belt
-                    res += "belt], ";
+                case 2: // ble
+                    res += "ble ";
                     break;
                 default: return "";
             }
@@ -118,10 +116,9 @@ std::string string_of_op(Operation &op){
             res += ("imm=" + std::to_string(op.imm));
             return res;
         case 3: // store
-            res = "store[";
             switch(op.funct){
                 case 0: // sw
-                    res += "sw], ";
+                    res += "sw ";
                     break;
                 default: return "";
             }
@@ -129,33 +126,27 @@ std::string string_of_op(Operation &op){
             res += ("rs2=x" + std::to_string(op.rs2) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        case 4: // store_fp
-            res = "store_fp[";
-            switch(op.funct){
-                case 0: // sw
-                    res += "fsw], ";
-                    memory[op.rs1 + op.imm] = reg_list[op.rs2];
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-            res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
+        // case 4: // store_fp
+        //     switch(op.funct){
+        //         case 0: // sw
+        //             res += "fsw "
+        //             break;
+        //         default: return "";
+        //     }
+        //     return res;
         case 5: // op_imm
-            res = "op_imm[";
             switch(op.funct){
                 case 0: // addi
-                    res += "addi], ";
+                    res += "addi ";
                     break;
                 case 2: // slli
-                    res += "slli], ";
+                    res += "slli ";
                     break;
                 case 3: // srli
-                    res += "srli], ";
+                    res += "srli ";
                     break;
                 case 4: // srai
-                    res += "srai], ";
+                    res += "srai ";
                     break;
                 default: return "";
             }
@@ -164,10 +155,9 @@ std::string string_of_op(Operation &op){
             res += ("imm=" + std::to_string(op.imm));
             return res;
         case 6: // load
-            res = "load[";
             switch(op.funct){
                 case 0: // lw
-                    res += "lw], ";
+                    res += "lw ";
                     break;
                 default: return "";
             }
@@ -175,37 +165,32 @@ std::string string_of_op(Operation &op){
             res += ("rd=x" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        case 7: // load_fp
-            res = "load_fp[";
-            switch(op.funct){
-                case 0: // lw
-                    res += "flw], ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-            res += ("rd=f" + std::to_string(op.rd) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
+        // case 7: // load_fp
+        //     switch(op.funct){
+        //         case 0: // lw
+        //             res += "flw ";
+        //             break;
+        //         default: return "";
+        //     }
+        //     return res;
         case 8: // jalr
-            res = "jalr, ";
+            res = "jalr ";
             res += ("rs1=x" + std::to_string(op.rs1) + ", ");
             res += ("rd=x" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
         case 9: // jal
-            res = "jal, ";
+            res = "jal ";
             res += ("rd=x" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
         case 10: // long_imm
-            res = "load_imm[";
             switch(op.funct){
                 case 0: // lui
-                    res += "lui], ";
+                    res += "lui ";
                     break;
                 case 1: // auipc
-                    res += "auipc], ";
+                    res += "auipc ";
                     break;
                 default: return "";
             }
@@ -217,17 +202,21 @@ std::string string_of_op(Operation &op){
 }
 
 void print_reg(){
-    for(int i=0; i<10; i++)
-        std::cout << "x" << i << ":" << reg_list[i] << ", " << std::ends;
-    std::cout << std::endl;
+    for(int i=0; i<32; i++){
+        std::cout << "\x1b[1mx" << i << "\x1b[0m:" << std::ends;
+        if(i < 10) std::cout << " " << std::ends;
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::cout.fill('0');
+        std::cout << std::setw(8) << reg_list[i] << " " << std::ends;
+        std::cout.setf(std::ios::dec, std::ios::basefield);
+        if(i % 4 == 3) std::cout << std::endl;
+    }
     return;
 }
 
-void print_reg_fp(){
-    for(int i=0; i<5; i++)
-        std::cout << "f" << i << ":" << reg_fp_list[i] << std::endl;
-    return;
-}
+// void print_reg_fp(){
+//     return;
+// }
 
 void print_memory(int start, int end){
     for(int i=start; i<end; i++)
