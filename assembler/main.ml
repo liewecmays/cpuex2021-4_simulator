@@ -230,7 +230,11 @@ let rec translate_code code untranslated line_no_arg label_option =
 let assemble codes =
 	let rec assemble_inner codes untranslated label_option =
 		match codes with
-		| [] -> []
+		| [] ->
+			(match untranslated with
+			| [] -> []
+			| (label, (n, op, l_o, b_o)) :: rest -> (* 未解決の命令が残っている場合、存在しないラベルを参照する命令があるということなのでエラー *)
+				raise (Translate_error ("label '" ^ label ^ "' is not found")))
 		| code :: rest ->
 			line_no := !line_no + 1;
 			(* print_endline (string_of_int !line_no); *)
