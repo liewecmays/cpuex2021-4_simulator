@@ -63,7 +63,7 @@ let rec translate_code code untranslated line_no_arg label_option =
 		(match bp_option with
 		| Some bp ->
 			if not !is_debug then 
-				raise (Translate_error "designating breakpoints under non-debug-mode") (* デバッグモードでないのにブレークポイントが指定されている場合エラー *)
+				raise (Translate_error "do not designate breakpoints under non-debug-mode") (* デバッグモードでないのにブレークポイントが指定されている場合エラー *)
 			else ()
 		| None -> ());
 		match op with
@@ -254,28 +254,37 @@ let assemble codes =
 	in assemble_inner codes [] None
 
 
+let head = "\x1b[1m[asm]\x1b[0m "
+let error = "\x1b[1m\x1b[31mError: \x1b[0m"
 let () =
-	Arg.parse speclist (fun _ -> ()) usage_msg;
-	let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ !filename ^ ".s"))) in
-	print_endline ("[asm] source file: ./source/" ^ !filename ^ ".s");
-	let raw_result = assemble codes in
-	let result = List.fast_sort (fun (n1, _, _, _) (n2, _, _, _) -> compare n1 n2) raw_result in (* 行番号でソート *)
-	let out_channel = open_out ("./out/" ^ !filename ^ (if !is_debug then ".dbg" else "")) in
-	let rec output_result result = (* アセンブルの結果を行ごとにファイルに出力 *)
-		match result with
-		| [] -> ()
-		| (_, c, l_o, b_o) :: rest -> 
-			let line = ref c in
-			(if !is_debug then
-				((match l_o with
-				| Some label -> line := !line ^ "#" ^ label
-				| None -> ());
-				(match b_o with
-				| Some bp -> line := !line ^ "@" ^ bp
-				| None -> ()))
-			else ());
-			Printf.fprintf out_channel "%s\n" !line;
-			output_result rest
-	in output_result result;
-	print_endline ("[asm] output file: ./out/" ^ !filename ^ (if !is_debug then ".dbg" else ""));
-	close_out out_channel;
+	try
+		Arg.parse speclist (fun _ -> ()) usage_msg;
+		let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ !filename ^ ".s"))) in
+		print_endline (head ^ "source file: ./source/" ^ !filename ^ ".s");
+		let raw_result = assemble codes in
+		let result = List.fast_sort (fun (n1, _, _, _) (n2, _, _, _) -> compare n1 n2) raw_result in (* 行番号でソート *)
+		print_endline (head ^ "Succeeded in assembling " ^ !filename ^ ".s\x1b[0m" ^ (if !is_debug then " (in debug-mode)" else ""));
+		let out_channel = open_out ("./out/" ^ !filename ^ (if !is_debug then ".dbg" else "")) in
+		let rec output_result result = (* アセンブルの結果を行ごとにファイルに出力 *)
+			match result with
+			| [] -> ()
+			| (_, c, l_o, b_o) :: rest -> 
+				let line = ref c in
+				(if !is_debug then
+					((match l_o with
+					| Some label -> line := !line ^ "#" ^ label
+					| None -> ());
+					(match b_o with
+					| Some bp -> line := !line ^ "@" ^ bp
+					| None -> ()))
+				else ());
+				Printf.fprintf out_channel "%s\n" !line;
+				output_result rest
+		in output_result result;
+		print_endline (head ^ "output file: ./out/" ^ !filename ^ (if !is_debug then ".dbg" else ""));
+		close_out out_channel
+	with
+	| Failure s -> print_endline (head ^ error ^ s); exit 1
+	| Parsing.Parse_error -> print_endline (head ^ error ^ "parse error"); exit 1
+	| Translate_error s -> print_endline (head ^ error ^ s); exit 1
+	| Argument_error -> print_endline (head ^ error ^ "internal error")

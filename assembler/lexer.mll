@@ -39,7 +39,15 @@ rule token = parse
 | "#" { comment lexbuf; token lexbuf }
 | "!" { comment lexbuf; token lexbuf }
 | eof { Parser.EOF }
-| _ { failwith ("lex error") }
+| _ {
+    let start_pos = Lexing.lexeme_start_p lexbuf in
+        failwith (
+            "unknown token " ^
+            "'" ^ (Lexing.lexeme lexbuf) ^ "'" ^
+            " (in line " ^ (string_of_int start_pos.pos_lnum) ^
+            ", at position " ^ (string_of_int (start_pos.pos_cnum - start_pos.pos_bol)) ^ ")"
+        )
+}
 
 and comment = parse
 | '\n' { () }

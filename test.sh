@@ -19,7 +19,7 @@ if "${IS_DEBUG}"; then
     cd ../
     cp assembler/out/"${FILENAME}.dbg" simulator/code/"${FILENAME}.dbg" || exit 1
     cd simulator || exit 1
-    ./sim -f $FILENAME -d || exit 1
+    rlwrap ./sim -f $FILENAME -d || exit 1
 else
     make -s
     cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1

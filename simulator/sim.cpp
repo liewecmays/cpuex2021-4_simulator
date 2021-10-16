@@ -26,6 +26,10 @@ bool simulation_end = false;
 int op_count = 0;
 int line_count = 0;
 
+std::string head = "\x1b[1m[sim]\x1b[0m ";
+std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
+std::string info = "\x1b[32mInfo: \x1b[0m";
+
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string line, int line_num){
     Operation op;
@@ -86,7 +90,7 @@ Operation parse_op(std::string line, int line_num){
             op.imm = binary_stoi("0" + line.substr(7, 10) + line.substr(22, 10));
             break;
         default:
-            std::cerr << "Error in parsing the code" << std::endl;
+            std::cerr << error << "error in parsing the code" << std::endl;
             std::exit(EXIT_FAILURE);
     }
 
@@ -103,7 +107,7 @@ Operation parse_op(std::string line, int line_num){
                 bp_to_line.insert(bimap_value_t(match[2].str(), line_num));
             }
         }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
-            std::cerr << "Error: Could not parse the code (maybe it is encoded in debug-style)" << std::endl;
+            std::cerr << error << "could not parse the code (maybe it is encoded in debug-style)" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -232,7 +236,7 @@ void exec_op(Operation &op){
         default: break;
     }
 
-    std::cerr << "Error in executing the code" << std::endl;
+    std::cerr << error << "error in executing the code" << std::endl;
     std::exit(EXIT_FAILURE);
 }
 
@@ -250,7 +254,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << "No operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated." << std::endl;
         }else{
             bool end_flag = false;
             if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
@@ -264,13 +268,13 @@ bool exec_command(std::string cmd){
 
             if(end_flag){
                 simulation_end = true;
-                std::cout << "All operations have been simulated successfully!" << std::endl;
+                std::cout << info << "all operations have been simulated successfully!" << std::endl;
             }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << "No operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated." << std::endl;
         }else{
             bool end_flag = false;
             for(int i=0; i<std::stoi(match[3].str()); i++){
@@ -281,7 +285,7 @@ bool exec_command(std::string cmd){
                 
                 if(end_flag){
                     simulation_end = true;
-                    std::cout << "All operations have been simulated successfully!" << std::endl;
+                    std::cout << info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
@@ -289,7 +293,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(r|(run))\\s*$"))){ // run
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << "No operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated." << std::endl;
         }else{
             bool end_flag = false;
             while(true){
@@ -300,14 +304,14 @@ bool exec_command(std::string cmd){
                 
                 if(end_flag){
                     simulation_end = true;
-                    std::cout << "All operations have been simulated successfully!" << std::endl;
+                    std::cout << info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
         if(simulation_end){
-            std::cout << "No operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated." << std::endl;
         }else{
             bool end_flag = false;
             while(true){
@@ -315,7 +319,7 @@ bool exec_command(std::string cmd){
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << "halt before breakpoint: " + bp_to_line.right.at(current_pc) << "(@line " << current_pc + 1 << ")" << std::endl;
+                        std::cout << info << "halt before breakpoint: " + bp_to_line.right.at(current_pc) << "(@line " << current_pc + 1 << ")" << std::endl;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
@@ -328,14 +332,14 @@ bool exec_command(std::string cmd){
                 
                 if(end_flag){
                     simulation_end = true;
-                    std::cout << "All operations have been simulated successfully!" << std::endl;
+                    std::cout << info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
         if(simulation_end){
-            std::cout << "No operation is left to be simulated." << std::endl;
+            std::cout << info << "no operation is left to be simulated." << std::endl;
         }else{
             std::string bp = match[3].str();
             if(bp_to_line.left.find(bp) != bp_to_line.left.end()){
@@ -346,7 +350,7 @@ bool exec_command(std::string cmd){
                         if(breakpoint_skip){
                             breakpoint_skip = false;
                         }else{
-                            std::cout << "halt before breakpoint: " + bp << "(@line " << current_pc + 1 << ")" << std::endl;
+                            std::cout << info << "halt before breakpoint: " + bp << "(@line " << current_pc + 1 << ")" << std::endl;
                             breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                             break;
                         }
@@ -359,8 +363,8 @@ bool exec_command(std::string cmd){
                     
                     if(end_flag){
                         simulation_end = true;
-                        std::cout << "did not encounter breakpoint '" << bp << "'" << std::endl;
-                        std::cout << "All operations have been simulated successfully!" << std::endl;
+                        std::cout << info << "did not encounter breakpoint '" << bp << "'" << std::endl;
+                        std::cout << info << "all operations have been simulated successfully!" << std::endl;
                         break;
                     }
                 }
@@ -374,12 +378,12 @@ bool exec_command(std::string cmd){
             if(bp_to_line.left.find(label) == bp_to_line.left.end()){
                 int line_no = label_to_line.left.at(label); // 0-indexed
                 bp_to_line.insert(bimap_value_t(label, line_no));
-                std::cout << "breakpoint '" << label << "' is now set to line " << line_no + 1 << std::endl;
+                std::cout << info << "breakpoint '" << label << "' is now set to line " << line_no + 1 << std::endl;
             }else{
-                std::cout << "breakpoint '" << label << "' has already been set" << std::endl;  
+                std::cout << error << "breakpoint '" << label << "' has already been set" << std::endl;  
             }
         }else{
-            std::cout << "label '" << label << "' is not found" << std::endl;
+            std::cout << error << "label '" << label << "' is not found" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break N id
         int line_no = std::stoi(match[3].str()); // 1-indexed
@@ -390,33 +394,33 @@ bool exec_command(std::string cmd){
                     if(bp_to_line.left.find(bp_id) == bp_to_line.left.end()){
                         if(label_to_line.left.find(bp_id) == label_to_line.left.end()){
                             bp_to_line.insert(bimap_value_t(bp_id, line_no-1));
-                            std::cout << "breakpoint '" << bp_id << "' is now set to line " << line_no << std::endl;
+                            std::cout << info << "breakpoint '" << bp_id << "' is now set to line " << line_no << std::endl;
                         }else{
-                            std::cout << "'" << bp_id << "' is a label name and cannot be used as a breakpoint id" << std::endl;
+                            std::cout << error << "'" << bp_id << "' is a label name and cannot be used as a breakpoint id" << std::endl;
                         }
                     }else{
-                        std::cout << "breakpoint id '" << bp_id << "' has already been used for another line" << std::endl;
+                        std::cout << error << "breakpoint id '" << bp_id << "' has already been used for another line" << std::endl;
                     } 
                 }else{
                     std::string label = label_to_line.right.at(line_no-1);
-                    std::cout << "line " << line_no << " is labeled '" << label << "' (hint: exec 'break " << label << "')" << std::endl;
+                    std::cout << error << "line " << line_no << " is labeled '" << label << "' (hint: exec 'break " << label << "')" << std::endl;
                 }   
             }else{
-                std::cout << "breakpoint has already been set to line " << line_no << " (id: " << bp_to_line.right.at(line_no-1) << ")" << std::endl;
+                std::cout << error << "breakpoint has already been set to line " << line_no << " (id: " << bp_to_line.right.at(line_no-1) << ")" << std::endl;
             }
         }else{
-            std::cout << "invalid line number" << std::endl;
+            std::cout << error << "invalid line number" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(delete))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // delete id
         std::string bp_id = match[3].str();
         if(bp_to_line.left.find(bp_id) != bp_to_line.left.end()){
             bp_to_line.left.erase(bp_id);
-            std::cout << "breakpoint '" << bp_id << "' is now deleted" << std::endl;
+            std::cout << info << "breakpoint '" << bp_id << "' is now deleted" << std::endl;
         }else{
-            std::cout << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
+            std::cout << error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
         }
     }else{
-        std::cout << "Error: invalid command" << std::endl;
+        std::cout << error << "invalid command" << std::endl;
     }
 
     return res;
@@ -425,8 +429,8 @@ bool exec_command(std::string cmd){
 
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
-    
-    std::cout << "[sim] simulation start" << std::endl;
+
+    std::cout << head << "simulation start" << std::endl;
 
     // コマンドライン引数をパース
     int option;
@@ -438,10 +442,10 @@ int main(int argc, char *argv[]){
                 break;
             case 'd':
                 is_debug = true;
-                std::cout << "[sim] entering debug mode ..." << std::endl;
+                std::cout << head << "entering debug mode ..." << std::endl;
                 break;
             default:
-                std::cerr << "Invalid command-line argument" << std::endl;
+                std::cerr << error << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
         }
     }
@@ -453,7 +457,7 @@ int main(int argc, char *argv[]){
     filename += is_debug ? ".dbg" : "";
     std::ifstream input_file(filename);
     if(!input_file.is_open()){
-        std::cerr << "Could not open ./code/" << filename << std::endl;
+        std::cerr << error << "could not open ./code/" << filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
