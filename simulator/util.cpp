@@ -5,7 +5,7 @@
 #include <iostream>
 #include <iomanip>
 
-unsigned int line_of_pc(unsigned int n){
+unsigned int id_of_pc(unsigned int n){
     if(n % 4 == 0){
         return n / 4;
     }else{
