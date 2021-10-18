@@ -2,6 +2,7 @@
 #include "sim.hpp"
 #include <string>
 
+unsigned int line_of_pc(unsigned int n);
 int read_reg(int i);
 void write_reg(int i, int v);
 int read_reg_fp(int i);

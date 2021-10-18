@@ -5,6 +5,15 @@
 #include <iostream>
 #include <iomanip>
 
+unsigned int line_of_pc(unsigned int n){
+    if(n % 4 == 0){
+        return n / 4;
+    }else{
+        std::cerr << error << "error with program counter" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 // 整数レジスタを読む
 int read_reg(int i){
     return i == 0 ? 0 : reg_list[i];

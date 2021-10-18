@@ -13,22 +13,25 @@ typedef boost::bimaps::bimap<std::string, unsigned int> bimap_t;
 typedef bimap_t::value_type bimap_value_t;
 
 // グローバル変数
-std::vector<Operation> op_list;
-std::vector<int> reg_list(32);
-std::vector<float> reg_fp_list(32);
-std::vector<int> memory;
-bimap_t bp_to_line;
-bimap_t label_to_line;
-unsigned int current_pc = 0; // 注意: 行番号と異なり0-indexed
+std::vector<Operation> op_list; // 命令のリスト(PC順)
+std::vector<int> reg_list(32); // 整数レジスタのリスト
+std::vector<float> reg_fp_list(32); // 浮動小数レジスタのリスト
+std::vector<int> memory; // メモリ領域
+
+unsigned int pc = 0;
 bool is_debug = false;
 bool breakpoint_skip = false;
 bool simulation_end = false;
 int op_count = 0;
 int line_count = 0;
 
+bimap_t bp_to_line;
+bimap_t label_to_line;
+
 std::string head = "\x1b[1m[sim]\x1b[0m ";
 std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
 std::string info = "\x1b[32mInfo: \x1b[0m";
+
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string line, int line_num){
@@ -124,23 +127,23 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // add
                     write_reg(op.rd, read_reg(op.rs1) + read_reg(op.rs2));
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 1: // sub
                     write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 2: // sll
                     write_reg(op.rd, read_reg(op.rs1) << read_reg(op.rs2));
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 3: // srl
                     write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> read_reg(op.rs2));
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 4: // sra
                     write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
-                    current_pc++;
+                    pc += 4;
                     return;
                 default: break;
             }
@@ -150,13 +153,13 @@ void exec_op(Operation &op){
         case 2: // branch
             switch(op.funct){
                 case 0: // beq
-                    read_reg(op.rs1) == read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
+                    read_reg(op.rs1) == read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
                     return;
                 case 1: // blt
-                    read_reg(op.rs1) < read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
+                    read_reg(op.rs1) < read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
                     return;
                 case 2: // ble
-                    read_reg(op.rs1) <= read_reg(op.rs2) ? current_pc += op.imm : current_pc++;
+                    read_reg(op.rs1) <= read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
                     return;
                 default: break;
             }
@@ -167,31 +170,31 @@ void exec_op(Operation &op){
                     for(int i=0; i<4; i++){
                         memory[read_reg(op.rs1) + op.imm + i] = (read_reg(op.rs2) & (255 << (8 * i))) / (1 << (8 * i));
                     }
-                    current_pc++;
+                    pc += 4;
                     return;
                 default: break;
             }
             break;
         // case 4: // store_fp
-        //     current_pc++;
+        //     pc += 4;
         //     break;
         case 5: // op_imm
             switch(op.funct){
                 case 0: // addi
                     write_reg(op.rd, read_reg(op.rs1) + op.imm);
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 2: // slli
                     write_reg(op.rd, read_reg(op.rs1) << op.imm);
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 3: // srli
                     write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> op.imm);
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 4: // srai
                     write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
-                    current_pc++;
+                    pc += 4;
                     return;
                 default: break;
             }
@@ -203,32 +206,31 @@ void exec_op(Operation &op){
                         load += memory[read_reg(op.rs1) + op.imm + i] << (8 * i);
                     }
                     write_reg(op.rd, load);
-                    current_pc++;
+                    pc += 4;
                     return;
                 default: break;
             }
             break;
         // case 7: // load_fp
-        //     current_pc++;
+        //     pc += 4;
         //     return;
         case 8: // jalr
-            write_reg(op.rd, current_pc + 1);
-            current_pc = read_reg(op.rs1) + op.imm;
-            // todo: current_pc = read_reg(op.rs1) + op.imm * 4;
+            write_reg(op.rd, pc + 4);
+            pc = read_reg(op.rs1) + op.imm * 4;
             return;
         case 9: // jal
-            write_reg(op.rd, current_pc + 1);
-            current_pc = current_pc + op.imm;
+            write_reg(op.rd, pc + 4);
+            pc += op.imm * 4;
             return;
         case 10: // long_imm
             switch(op.funct){
                 case 0: // lui
                     write_reg(op.rd, op.imm << 12);
-                    current_pc++;
+                    pc += 4;
                     return;
                 case 1: // auipc
-                    write_reg(op.rd, (op.imm << 12) + current_pc * 4);
-                    current_pc++;
+                    write_reg(op.rd, pc + (op.imm << 12));
+                    pc += 4;
                     return;
                 default: break;
             }
@@ -257,10 +259,10 @@ bool exec_command(std::string cmd){
             std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
-            if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-            std::cout << "line " << current_pc + 1 << ": " << string_of_op (op_list[current_pc]) << std::endl;
-            exec_op(op_list[current_pc]);
-            if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+            if(is_end(op_list[line_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+            std::cout << "line " << line_of_pc(pc) + 1 << ": " << string_of_op (op_list[line_of_pc(pc)]) << std::endl;
+            exec_op(op_list[line_of_pc(pc)]);
+            if(line_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
             op_count++;
 
             if(end_flag){
@@ -275,9 +277,9 @@ bool exec_command(std::string cmd){
         }else{
             bool end_flag = false;
             for(int i=0; i<std::stoi(match[3].str()); i++){
-                if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                exec_op(op_list[current_pc]);
-                if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(is_end(op_list[line_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                exec_op(op_list[line_of_pc(pc)]);
+                if(line_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 op_count++;
                 
                 if(end_flag){
@@ -294,9 +296,9 @@ bool exec_command(std::string cmd){
         }else{
             bool end_flag = false;
             while(true){
-                if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                exec_op(op_list[current_pc]);
-                if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(is_end(op_list[line_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                exec_op(op_list[line_of_pc(pc)]);
+                if(line_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 op_count++;
                 
                 if(end_flag){
@@ -309,7 +311,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
         breakpoint_skip = false;
         simulation_end = false;
-        current_pc = 0; // PCを0にする
+        pc = 0; // PCを0にする
         for(int i=0; i<32; i++){ // レジスタをクリア
             reg_list[i] = 0;
             reg_fp_list[i] = 0;
@@ -325,19 +327,19 @@ bool exec_command(std::string cmd){
         }else{
             bool end_flag = false;
             while(true){
-                if(bp_to_line.right.find(current_pc) != bp_to_line.right.end()){ // ブレークポイントに当たった場合は停止
+                if(bp_to_line.right.find(line_of_pc(pc)) != bp_to_line.right.end()){ // ブレークポイントに当たった場合は停止
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << info << "halt before breakpoint '" + bp_to_line.right.at(current_pc) << "' (line " << current_pc + 1 << ")" << std::endl;
+                        std::cout << info << "halt before breakpoint '" + bp_to_line.right.at(line_of_pc(pc)) << "' (line " << line_of_pc(pc) + 1 << ")" << std::endl;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
                 }
 
-                if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                exec_op(op_list[current_pc]);
-                if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(is_end(op_list[line_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                exec_op(op_list[line_of_pc(pc)]);
+                if(line_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 op_count++;
                 
                 if(end_flag){
@@ -352,7 +354,7 @@ bool exec_command(std::string cmd){
         if(simulation_end){
             std::cout << "next: (no operation left to be simulated)" << std::endl;
         }else{
-            std::cout << "next: line " << current_pc + 1 << " (" << string_of_op (op_list[current_pc]) << ")" << std::endl;
+            std::cout << "next: line " << line_of_pc(pc) + 1 << " (" << string_of_op (op_list[line_of_pc(pc)]) << ")" << std::endl;
         }
         if(bp_to_line.empty()){
             std::cout << "breakpoints: (no breakpoint found)" << std::endl;
@@ -382,19 +384,19 @@ bool exec_command(std::string cmd){
                 unsigned int bp_line = bp_to_line.left.at(bp);
                 bool end_flag = false;
                 while(true){
-                    if(current_pc == bp_line){
+                    if(line_of_pc(pc) == bp_line){
                         if(breakpoint_skip){
                             breakpoint_skip = false;
                         }else{
-                            std::cout << info << "halt before breakpoint '" + bp << "' (line " << current_pc + 1 << ")" << std::endl;
+                            std::cout << info << "halt before breakpoint '" + bp << "' (line " << line_of_pc(pc) + 1 << ")" << std::endl;
                             breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                             break;
                         }
                     }
 
-                    if(is_end(op_list[current_pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                    exec_op(op_list[current_pc]);
-                    if(current_pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                    if(is_end(op_list[line_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                    exec_op(op_list[line_of_pc(pc)]);
+                    if(line_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                     op_count++;
                     
                     if(end_flag){
