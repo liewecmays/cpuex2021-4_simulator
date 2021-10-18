@@ -14,7 +14,7 @@ rule token = parse
 | "," { Parser.COMMA }
 | "." { Parser.PERIOD }
 | "-" { Parser.MINUS }
-| "@" { Parser.AT }
+| "!" { Parser.EXCLAM }
 | "add" { Parser.ADD }
 | "sub" { Parser.SUB }
 | "sll" { Parser.SLL }
@@ -39,7 +39,6 @@ rule token = parse
 | ident as id { Parser.ID id }
 | label as l { Parser.LABEL l }
 | "#" { comment lexbuf; token lexbuf }
-| "!" { comment lexbuf; token lexbuf }
 | eof { Parser.EOF }
 | _ {
     let start_pos = Lexing.lexeme_start_p lexbuf in

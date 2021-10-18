@@ -106,13 +106,13 @@ Operation parse_op(std::string line, int line_num){
     if (line.size() > 32){
         if(is_debug){ // デバッグモード
             std::smatch match;
-            if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))$"))){
-                label_to_line.insert(bimap_value_t(match[1].str(), line_num));                
-            }else if(std::regex_match(line, match, std::regex("^\\d{32}@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
-                bp_to_line.insert(bimap_value_t(match[1].str(), line_num));
-            }else if(std::regex_match(line, match, std::regex("^\\d{32}#(([a-zA-Z_]\\w*(.\\d+)?))@(([a-zA-Z_]\\w*(.\\d+)?))$"))){
-                label_to_line.insert(bimap_value_t(match[1].str(), line_num));
+            if(std::regex_match(line, match, std::regex("^\\d{32}@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                label_to_line.insert(bimap_value_t(match[2].str(), line_num));                
+            }else if(std::regex_match(line, match, std::regex("^\\d{32}@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
                 bp_to_line.insert(bimap_value_t(match[2].str(), line_num));
+            }else if(std::regex_match(line, match, std::regex("^\\d{32}@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                label_to_line.insert(bimap_value_t(match[2].str(), line_num));
+                bp_to_line.insert(bimap_value_t(match[3].str(), line_num));
             }
         }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
             std::cerr << error << "could not parse the code (maybe it is encoded in debug-style)" << std::endl;
