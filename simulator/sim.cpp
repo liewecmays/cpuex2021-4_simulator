@@ -8,6 +8,7 @@
 #include <sstream>
 #include <regex>
 #include <unistd.h>
+#include <iomanip>
 
 typedef boost::bimaps::bimap<std::string, unsigned int> bimap_t;
 typedef bimap_t::value_type bimap_value_t;
@@ -19,7 +20,6 @@ std::vector<float> reg_fp_list(32); // 浮動小数レジスタのリスト
 std::vector<int> memory; // メモリ領域
 
 unsigned int pc = 0;
-bool is_debug = false;
 bool breakpoint_skip = false;
 bool simulation_end = false;
 int op_count = 0;
@@ -27,6 +27,11 @@ int line_count = 0;
 
 bimap_t bp_to_line;
 bimap_t label_to_line;
+
+bool is_debug = false;
+bool is_out = false;
+std::string output_filename;
+std::stringstream output;
 
 std::string head = "\x1b[1m[sim]\x1b[0m ";
 std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
@@ -121,6 +126,10 @@ Operation parse_op(std::string line, int line_num){
 
 // 命令を実行し、PCを変化させる
 void exec_op(Operation &op){
+    if(is_out){
+        output << op_count << ": pc=" << pc << " (" << string_of_op(op) << ")\n";
+    }
+
     int load = 0;
     switch(op.opcode){
         case 0: // op
@@ -481,10 +490,14 @@ int main(int argc, char *argv[]){
     // コマンドライン引数をパース
     int option;
     std::string filename;
-    while ((option = getopt(argc, argv, "f:d")) != -1){
+    while ((option = getopt(argc, argv, "f:od")) != -1){
         switch(option){
             case 'f':
-                filename = "./code/" + std::string(optarg);
+                filename = std::string(optarg);
+                break;
+            case 'o':
+                is_out = true;
+                std::cout << head << "output mode enabled" << std::endl;
                 break;
             case 'd':
                 is_debug = true;
@@ -500,10 +513,10 @@ int main(int argc, char *argv[]){
     memory.reserve(1000); // todo: サイズを入力で変更できるようにする
 
     // ファイルを読む
-    filename += is_debug ? ".dbg" : "";
-    std::ifstream input_file(filename);
+    std::string input_filename = "./code/" + filename + (is_debug ? ".dbg" : "");
+    std::ifstream input_file(input_filename);
     if(!input_file.is_open()){
-        std::cerr << error << "could not open ./code/" << filename << std::endl;
+        std::cerr << error << "could not open " << input_filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
@@ -528,5 +541,27 @@ int main(int argc, char *argv[]){
         }
     }else{ // デバッグなしモード
         exec_command("run");
+    }
+
+    // 実行結果の情報を出力
+    if(is_out){
+        time_t t = time(nullptr);
+        tm* time = localtime(&t);
+        std::stringstream timestamp;
+        timestamp << "20" << time -> tm_year - 100;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+        output_filename = "./result/" + filename + "_" + timestamp.str() + ".txt";
+
+        std::ofstream output_file(output_filename);
+        if(!output_file){
+            std::cerr << error << "could not open " << output_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        output_file << output.str();
     }
 }
