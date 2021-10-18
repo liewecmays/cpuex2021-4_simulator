@@ -1,11 +1,13 @@
 let digit = ['0'-'9']
-let space = ' ' | '\t' | '\r' | '\n'
+let space = ' ' | '\t' | '\r'
+let newline = '\n'
 let alpha = ['a'-'z' 'A'-'Z' '_' ]
 let ident = alpha (alpha | digit)*
 let label = alpha (alpha | digit)* ('.' (digit)+)
 
 rule token = parse
 | space+ { token lexbuf }
+| newline { Lexing.new_line lexbuf; token lexbuf }
 | "(" { Parser.LPAR }
 | ")" { Parser.RPAR }
 | ":" { Parser.COLON }

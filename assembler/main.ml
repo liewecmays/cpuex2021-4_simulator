@@ -1,5 +1,6 @@
 open Syntax
 open Util
+open Parser
 
 let line_no = ref 0 (* 現在見ている行番号を保持 *)
 let label_bp_list = ref [] (* ラベルorブレークポイント、および出現した行番号を保持 *)
@@ -285,6 +286,6 @@ let () =
 		close_out out_channel
 	with
 	| Failure s -> print_endline (head ^ error ^ s); exit 1
-	| Parsing.Parse_error -> print_endline (head ^ error ^ "parse error"); exit 1
+	| Sys_error s -> print_endline (head ^ error ^ s); exit 1
 	| Translate_error s -> print_endline (head ^ error ^ s); exit 1
-	| Argument_error -> print_endline (head ^ error ^ "internal error")
+	| Argument_error -> print_endline (head ^ error ^ "internal error"); exit 1

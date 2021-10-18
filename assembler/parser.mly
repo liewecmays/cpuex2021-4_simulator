@@ -1,5 +1,6 @@
 %{
 	open Syntax
+	let current_line () = (Parsing.symbol_start_pos ()).pos_lnum		
 %}
 
 %token <int> INT
@@ -15,6 +16,15 @@
 
 toplevel:
 	| code_list EOF { $1 }
+	| error {
+		let pos_start = Parsing.symbol_start_pos () in
+		let start = pos_start.pos_cnum - pos_start.pos_bol in
+			failwith(
+				"parse error " ^
+				"near line " ^ string_of_int (current_line ()) ^ ", " ^
+				"position " ^ string_of_int start
+			)
+	}
 
 code_list:
 	| operation code_list { Operation ($1, None) :: $2 }
