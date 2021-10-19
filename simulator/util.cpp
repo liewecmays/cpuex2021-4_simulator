@@ -270,5 +270,5 @@ void print_memory_word(int start, int end){
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
 bool is_end(Operation op){
-    return (op.opcode == 9) && (op.funct == -1) && (op.rs1 = -1) && (op.rs2 == -1) && (op.rd == 0) && (op.imm == 0);
+    return (op.opcode == 10) && (op.funct == -1) && (op.rs1 = -1) && (op.rs2 == -1) && (op.rd == 0) && (op.imm == 0);
 }
