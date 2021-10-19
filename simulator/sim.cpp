@@ -153,6 +153,7 @@ void exec_op(Operation &op){
     }
 
     int load = 0;
+    Int_float u = { 0 };
     switch(op.opcode){
         case 0: // op
             switch(op.funct){
@@ -235,9 +236,18 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        // case 5: // store_fp
-        //     pc += 4;
-        //     break;
+        case 5: // store_fp
+            switch(op.funct){
+                case 0: // fsw
+                    u.f = read_reg_fp(op.rs2);
+                    for(int i=0; i<4; i++){
+                        memory[read_reg(op.rs1) + op.imm + i] = (u.i & (255 << (8 * i))) / (1 << (8 * i));
+                    }
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
         case 6: // op_imm
             switch(op.funct){
                 case 0: // addi
@@ -271,9 +281,18 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        // case 8: // load_fp
-        //     pc += 4;
-        //     return;
+        case 8: // load_fp
+            switch(op.funct){
+                case 0: // flw
+                    for(int i=0; i<4; i++){
+                        u.i += memory[read_reg(op.rs1) + op.imm + i] << (8 * i);
+                    }
+                    write_reg_fp(op.rd, u.f);
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
         case 9: // jalr
             write_reg(op.rd, pc + 4);
             pc = read_reg(op.rs1) + op.imm * 4;
@@ -453,7 +472,7 @@ bool exec_command(std::string cmd){
             if(match[1].str() == "x"){ // int
                 std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
             }else{ // float
-                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp_list[reg_no] << std::endl;
+                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << std::setprecision(10) << reg_fp_list[reg_no] << std::endl;
             }
             cmd = match.suffix();
         }

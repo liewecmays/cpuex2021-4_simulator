@@ -8,7 +8,7 @@
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
-%token ADD SUB FADD FSUB FMUL FDIV SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL LUI AUIPC FMVIF FMVFI
+%token ADD SUB FADD FSUB FMUL FDIV SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW FSW ADDI SLLI SRLI SRAI LW FLW JALR JAL LUI AUIPC FMVIF FMVFI
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -57,11 +57,13 @@ operation: // 命令とその行番号の組を返す
 	| FBEQ reg COMMA reg COMMA label { (Fbeq ($2, $4, $6), current_line ()) } // fbeq rs1,rs2,label
 	| FBLT reg COMMA reg COMMA label { (Fblt ($2, $4, $6), current_line ()) } // fblt rs1,rs2,label
 	| SW reg COMMA integer LPAR reg RPAR { (Sw ($6, $2, $4), current_line ()) } // sw rs2,offset(rs1)
+	| FSW reg COMMA integer LPAR reg RPAR { (Fsw ($6, $2, $4), current_line ()) } // fsw rs2,offset(rs1)
 	| ADDI reg COMMA reg COMMA integer { (Addi ($4, $2, $6), current_line ()) } // addi rd,rs1,imm
 	| SLLI reg COMMA reg COMMA integer { (Slli ($4, $2, $6), current_line ()) } // slli rd,rs1,imm
 	| SRLI reg COMMA reg COMMA integer { (Srli ($4, $2, $6), current_line ()) } // srli rd,rs1,imm
 	| SRAI reg COMMA reg COMMA integer { (Srai ($4, $2, $6), current_line ()) } // srai rd,rs1,imm
 	| LW reg COMMA integer LPAR reg RPAR { (Lw ($6, $2, $4), current_line ()) } // lw rd,offset(rs1)
+	| FLW reg COMMA integer LPAR reg RPAR { (Flw ($6, $2, $4), current_line ()) } // flw rd,offset(rs1)
 	| JALR reg COMMA reg COMMA integer { (Jalr ($4, $2, $6), current_line ()) } // jalr rd,rs,offset
 	| JAL reg COMMA label { (Jal ($2, $4), current_line ()) } // jal rd,label
 	| LUI reg COMMA integer { (Lui($2, $4), current_line ()) } // lui rd,imm

@@ -30,11 +30,13 @@ rule token = parse
 | "fbeq" { Parser.FBEQ }
 | "fblt" { Parser.FBLT }
 | "sw" { Parser.SW }
+| "fsw" { Parser.FSW }
 | "addi" { Parser.ADDI }
 | "slli" { Parser.SLLI }
 | "srli" { Parser.SRLI }
 | "srai" { Parser.SRAI }
 | "lw" { Parser.LW }
+| "flw" { Parser.FLW }
 | "jalr" { Parser.JALR }
 | "jal" { Parser.JAL }
 | "lui" { Parser.LUI }
@@ -59,6 +61,6 @@ rule token = parse
 }
 
 and comment = parse
-| '\n' { () }
+| '\n' { Lexing.new_line lexbuf; () }
 | _ { comment lexbuf }
 (* note: 最後の行がコメント付きだとエラーを起こす(最後の行は空行にした方が良い) *)

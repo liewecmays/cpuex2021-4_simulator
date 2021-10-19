@@ -148,14 +148,17 @@ std::string string_of_op(Operation &op){
             res += ("rs2=x" + std::to_string(op.rs2) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        // case 5: // store_fp
-        //     switch(op.funct){
-        //         case 0: // sw
-        //             res += "fsw "
-        //             break;
-        //         default: return "";
-        //     }
-        //     return res;
+        case 5: // store_fp
+            switch(op.funct){
+                case 0: // fsw
+                    res += "fsw ";
+                    break;
+                default: return "";
+            }
+            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
+            res += ("rs2=f" + std::to_string(op.rs2) + ", ");
+            res += ("imm=" + std::to_string(op.imm));
+            return res;
         case 6: // op_imm
             switch(op.funct){
                 case 0: // addi
@@ -187,14 +190,17 @@ std::string string_of_op(Operation &op){
             res += ("rd=x" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        // case 8: // load_fp
-        //     switch(op.funct){
-        //         case 0: // lw
-        //             res += "flw ";
-        //             break;
-        //         default: return "";
-        //     }
-        //     return res;
+        case 8: // load_fp
+            switch(op.funct){
+                case 0: // lw
+                    res += "flw ";
+                    break;
+                default: return "";
+            }
+            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
+            res += ("rd=f" + std::to_string(op.rd) + ", ");
+            res += ("imm=" + std::to_string(op.imm));
+            return res;
         case 9: // jalr
             res = "jalr ";
             res += ("rs1=x" + std::to_string(op.rs1) + ", ");

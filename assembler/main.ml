@@ -217,6 +217,15 @@ let rec translate_code code untranslated op_id label_option =
 			let imm = binary_of_int_signed offset 15 in
 			let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		(* store_fp *)
+		| Fsw (rs1, rs2, offset) ->
+			let opcode = binary_of_int 5 4 in
+			let funct = binary_of_int 0 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let imm = binary_of_int_signed offset 15 in
+			let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
+				Code (op_id, code, line_no, label_option, bp_option)
 		(* op_imm *)
 		| Addi (rs1, rd, imm) ->
 			let opcode = binary_of_int 6 4 in
@@ -253,6 +262,15 @@ let rec translate_code code untranslated op_id label_option =
 		(* load *)
 		| Lw (rs1, rd, offset) ->
 			let opcode = binary_of_int 7 4 in
+			let funct = binary_of_int 0 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let imm = binary_of_int_signed offset 15 in
+			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		(* load_fp *)
+		| Flw (rs1, rd, offset) ->
+			let opcode = binary_of_int 8 4 in
 			let funct = binary_of_int 0 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
