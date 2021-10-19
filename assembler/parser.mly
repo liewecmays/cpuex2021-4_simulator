@@ -8,7 +8,7 @@
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
-%token ADD SUB SLL SRL SRA BEQ BLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL LUI AUIPC
+%token ADD SUB FADD FSUB FMUL FDIV SLL SRL SRA BEQ BLT BLE SW ADDI SLLI SRLI SRAI LW JALR JAL LUI AUIPC
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -44,6 +44,10 @@ code_list:
 operation: // 命令とその行番号の組を返す
 	| ADD reg COMMA reg COMMA reg { (Add ($4, $6, $2), current_line ()) } // add rd,rs1,rs2
 	| SUB reg COMMA reg COMMA reg { (Sub ($4, $6, $2), current_line ()) } // sub rd,rs1,rs2
+	| FADD reg COMMA reg COMMA reg { (Fadd ($4, $6, $2), current_line ()) } // fadd rd,rs1,rs2
+	| FSUB reg COMMA reg COMMA reg { (Fsub ($4, $6, $2), current_line ()) } // fsub rd,rs1,rs2
+	| FMUL reg COMMA reg COMMA reg { (Fmul ($4, $6, $2), current_line ()) } // fmul rd,rs1,rs2
+	| FDIV reg COMMA reg COMMA reg { (Fdiv ($4, $6, $2), current_line ()) } // fdiv rd,rs1,rs2
 	| SLL reg COMMA reg COMMA reg { (Sll ($4, $6, $2), current_line ()) } // sll rd,rs1,rs2
 	| SRL reg COMMA reg COMMA reg { (Srl ($4, $6, $2), current_line ()) } // srl rd,rs1,rs2
 	| SRA reg COMMA reg COMMA reg { (Sra ($4, $6, $2), current_line ()) } // sra rd,rs1,rs2

@@ -26,12 +26,12 @@ void write_reg(int i, int v){
 }
 
 // 浮動小数レジスタを読む
-int read_reg_fp(int i){
+float read_reg_fp(int i){
     return i == 0 ? 0 : reg_fp_list[i];
 }
 
 // 浮動小数レジスタに書く
-void write_reg_fp(int i, int v){
+void write_reg_fp(int i, float v){
     if (i != 0) reg_fp_list[i] = v;
     return;
 }
@@ -223,9 +223,18 @@ void print_reg(){
     return;
 }
 
-// void print_reg_fp(){
-//     return;
-// }
+void print_reg_fp(){
+    for(int i=0; i<32; i++){
+        std::cout << "\x1b[1mf" << i << "\x1b[0m:" << std::ends;
+        if(i < 10) std::cout << " " << std::ends;
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::cout.fill('0');
+        std::cout << std::setw(8) << *((int*)&(reg_fp_list[i])) << " " << std::ends;
+        std::cout.setf(std::ios::dec, std::ios::basefield);
+        if(i % 4 == 3) std::cout << std::endl;
+    }
+    return;
+}
 
 void print_memory(int start, int end){
     for(int i=start; i<end; i++)

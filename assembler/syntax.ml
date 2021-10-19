@@ -5,6 +5,10 @@ type reg =
 type operation =
 	| Add of reg * reg * reg (* rs1, rs2, rd *)
 	| Sub of reg * reg * reg (* rs1, rs2, rd *)
+	| Fadd of reg * reg * reg (* rs1, rs2, rd *)
+	| Fsub of reg * reg * reg (* rs1, rs2, rd *)
+	| Fmul of reg * reg * reg (* rs1, rs2, rd *)
+	| Fdiv of reg * reg * reg (* rs1, rs2, rd *)
 	| Sll of reg * reg * reg (* rs1, rs2, rd *)
 	| Srl of reg * reg * reg (* rs1, rs2, rd *)
 	| Sra of reg * reg * reg (* rs1, rs2, rd *)

@@ -86,6 +86,42 @@ let rec translate_code code untranslated op_id label_option =
 			let margin = "0000000000" in
 			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		| Fadd (rs1, rs2, rd) ->
+			let opcode = binary_of_int 1 4 in
+			let funct = binary_of_int 0 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		| Fsub (rs1, rs2, rd) ->
+			let opcode = binary_of_int 1 4 in
+			let funct = binary_of_int 1 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		| Fmul (rs1, rs2, rd) ->
+			let opcode = binary_of_int 1 4 in
+			let funct = binary_of_int 2 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		| Fdiv (rs1, rs2, rd) ->
+			let opcode = binary_of_int 1 4 in
+			let funct = binary_of_int 3 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
 		| Sll (rs1, rs2, rd) ->
 			let opcode = binary_of_int 0 4 in
 			let funct = binary_of_int 2 3 in

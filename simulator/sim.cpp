@@ -167,8 +167,26 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        // case 1: // op_fp
-        //     break;
+        case 1: // op_fp todo: 仕様に沿っていないので注意
+            switch(op.funct){
+                case 0: // fadd
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 1: // fsub
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 2: // fmul
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 3: // fdiv
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+            }
+            break;
         case 2: // branch
             switch(op.funct){
                 case 0: // beq
@@ -388,11 +406,16 @@ bool exec_command(std::string cmd){
     //
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print)) reg\\s*$"))){ // print reg
         print_reg();
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+x(\\d+))+\\s*$"))){ // print reg
+        print_reg_fp();
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(x|f)(\\d+))+\\s*$"))){ // print reg
         int reg_no;
-        while(std::regex_search(cmd, match, std::regex("x(\\d+)"))){
-            reg_no = std::stoi(match[1].str());
-            std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
+        while(std::regex_search(cmd, match, std::regex("(x|f)(\\d+)"))){
+            reg_no = std::stoi(match[2].str());
+            if(match[1].str() == "x"){ // int
+                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
+            }else{ // float
+                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp_list[reg_no] << std::endl;
+            }
             cmd = match.suffix();
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
@@ -545,6 +568,8 @@ int main(int argc, char *argv[]){
     }
     
     if(is_debug){ // デバッグモード
+        reg_fp_list[1] = 0.5;
+        reg_fp_list[2] = 0.25;
         std::string cmd;
         while(true){
             std::cout << "# " << std::ends;    

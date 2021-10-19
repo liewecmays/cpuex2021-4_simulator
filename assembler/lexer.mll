@@ -17,6 +17,10 @@ rule token = parse
 | "!" { Parser.EXCLAM }
 | "add" { Parser.ADD }
 | "sub" { Parser.SUB }
+| "fadd" { Parser.FADD }
+| "fsub" { Parser.FSUB }
+| "fmul" { Parser.FMUL }
+| "fdiv" { Parser.FDIV }
 | "sll" { Parser.SLL }
 | "srl" { Parser.SRL }
 | "sra" { Parser.SRA }
