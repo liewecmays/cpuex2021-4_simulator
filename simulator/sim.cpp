@@ -145,7 +145,11 @@ Operation parse_op(std::string code, int code_id){
 // 命令を実行し、PCを変化させる
 void exec_op(Operation &op){
     if(is_out){
-        output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << string_of_op(op) << ")\n";
+        if(is_debug){
+            output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << string_of_op(op) << ")\n";
+        }else{
+            output << op_count << ": pc " << pc << " (" << string_of_op(op) << ")\n";
+        }
     }
 
     int load = 0;
@@ -624,7 +628,7 @@ int main(int argc, char *argv[]){
         timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
         timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
         timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-        output_filename = "./result/" + filename + "_" + timestamp.str() + ".txt";
+        output_filename = "./result/" + filename + (is_debug ? "_dbg" : "") + "_" + timestamp.str() + ".txt";
 
         std::ofstream output_file(output_filename);
         if(!output_file){
