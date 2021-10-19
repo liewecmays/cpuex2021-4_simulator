@@ -27,6 +27,8 @@ type operation =
 	| Jal of reg * string (* rd, label *)
 	| Lui of reg * int (* rd, imm *)
 	| Auipc of reg * int (* rd, imm *)
+	| Fmvif of reg * reg (* rs1, rd *)
+	| Fmvfi of reg * reg (* rs1, rd *)
 
 type code =
 	| Label of string

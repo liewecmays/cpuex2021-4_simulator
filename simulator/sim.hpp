@@ -11,6 +11,11 @@ struct Operation{
     int imm;
 };
 
+union Int_float{
+    int i;
+    float f;
+};
+
 extern std::vector<Operation> op_list;
 extern std::vector<int> reg_list;
 extern std::vector<float> reg_fp_list;

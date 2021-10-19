@@ -39,6 +39,8 @@ rule token = parse
 | "jal" { Parser.JAL }
 | "lui" { Parser.LUI }
 | "auipc" { Parser.AUIPC }
+| "fmv.i.f" { Parser.FMVIF }
+| "fmv.f.i" { Parser.FMVFI }
 | "%x" { Parser.INTREG }
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }

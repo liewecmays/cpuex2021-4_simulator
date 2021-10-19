@@ -100,6 +100,13 @@ Operation parse_op(std::string code, int code_id){
             op.rd = rd;
             op.imm = binary_stoi("0" + code.substr(7, 10) + code.substr(22, 10));
             break;
+        case 12: // mv_fp
+            op.funct = funct;
+            op.rs1 = rs1;
+            op.rs2 = -1;
+            op.rd = rd;
+            op.imm = -1;
+            break;
         default:
             std::cerr << error << "could not parse the code" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -279,6 +286,22 @@ void exec_op(Operation &op){
                     return;
                 case 1: // auipc
                     write_reg(op.rd, pc + (op.imm << 12));
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 12: // mv_fp
+            switch(op.funct){
+                Int_float u;
+                case 0: // fmv.i.f
+                    u.i = read_reg(op.rs1);
+                    write_reg_fp(op.rd, u.f);
+                    pc += 4;
+                    return;
+                case 1: // fmv.f.i
+                    u.f = read_reg(op.rs1);
+                    write_reg_fp(op.rd, u.i);
                     pc += 4;
                     return;
                 default: break;
@@ -580,8 +603,6 @@ int main(int argc, char *argv[]){
     }
     
     if(is_debug){ // デバッグモード
-        reg_fp_list[1] = 0.5;
-        reg_fp_list[2] = 0.5;
         std::string cmd;
         while(true){
             std::cout << "# " << std::ends;    

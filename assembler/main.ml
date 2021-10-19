@@ -294,6 +294,25 @@ let rec translate_code code untranslated op_id label_option =
 			let imm = binary_of_int_signed imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
 			let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		(* mv_fp *)
+		| Fmvif (rs1, rd) ->
+			let opcode = binary_of_int 12 4 in
+			let funct = binary_of_int 0 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let margin1 = "00000" in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin2 = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		| Fmvfi (rs1, rd) ->
+			let opcode = binary_of_int 12 4 in
+			let funct = binary_of_int 1 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let margin1 = "00000" in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin2 = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
+				Code (op_id, code, line_no, label_option, bp_option)		
 
 (* コードのリストをアセンブルする *)
 let assemble codes =
