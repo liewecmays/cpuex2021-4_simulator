@@ -41,35 +41,38 @@ code_list:
 	// | PERIOD ID {}
 ;
 
-operation: // 命令とその行番号の組を返す
-	| ADD reg COMMA reg COMMA reg { (Add ($4, $6, $2), current_line ()) } // add rd,rs1,rs2
-	| SUB reg COMMA reg COMMA reg { (Sub ($4, $6, $2), current_line ()) } // sub rd,rs1,rs2
-	| FADD reg COMMA reg COMMA reg { (Fadd ($4, $6, $2), current_line ()) } // fadd rd,rs1,rs2
-	| FSUB reg COMMA reg COMMA reg { (Fsub ($4, $6, $2), current_line ()) } // fsub rd,rs1,rs2
-	| FMUL reg COMMA reg COMMA reg { (Fmul ($4, $6, $2), current_line ()) } // fmul rd,rs1,rs2
-	| FDIV reg COMMA reg COMMA reg { (Fdiv ($4, $6, $2), current_line ()) } // fdiv rd,rs1,rs2
-	| SLL reg COMMA reg COMMA reg { (Sll ($4, $6, $2), current_line ()) } // sll rd,rs1,rs2
-	| SRL reg COMMA reg COMMA reg { (Srl ($4, $6, $2), current_line ()) } // srl rd,rs1,rs2
-	| SRA reg COMMA reg COMMA reg { (Sra ($4, $6, $2), current_line ()) } // sra rd,rs1,rs2
-	| BEQ reg COMMA reg COMMA label { (Beq ($2, $4, $6), current_line ()) } // beq rs1,rs2,label
-	| BLT reg COMMA reg COMMA label { (Blt ($2, $4, $6), current_line ()) } // blt rs1,rs2,label
-	| BLE reg COMMA reg COMMA label { (Ble ($2, $4, $6), current_line ()) } // ble rs1,rs2,label
-	| FBEQ reg COMMA reg COMMA label { (Fbeq ($2, $4, $6), current_line ()) } // fbeq rs1,rs2,label
-	| FBLT reg COMMA reg COMMA label { (Fblt ($2, $4, $6), current_line ()) } // fblt rs1,rs2,label
-	| SW reg COMMA integer LPAR reg RPAR { (Sw ($6, $2, $4), current_line ()) } // sw rs2,offset(rs1)
-	| FSW reg COMMA integer LPAR reg RPAR { (Fsw ($6, $2, $4), current_line ()) } // fsw rs2,offset(rs1)
-	| ADDI reg COMMA reg COMMA integer { (Addi ($4, $2, $6), current_line ()) } // addi rd,rs1,imm
-	| SLLI reg COMMA reg COMMA integer { (Slli ($4, $2, $6), current_line ()) } // slli rd,rs1,imm
-	| SRLI reg COMMA reg COMMA integer { (Srli ($4, $2, $6), current_line ()) } // srli rd,rs1,imm
-	| SRAI reg COMMA reg COMMA integer { (Srai ($4, $2, $6), current_line ()) } // srai rd,rs1,imm
-	| LW reg COMMA integer LPAR reg RPAR { (Lw ($6, $2, $4), current_line ()) } // lw rd,offset(rs1)
-	| FLW reg COMMA integer LPAR reg RPAR { (Flw ($6, $2, $4), current_line ()) } // flw rd,offset(rs1)
-	| JALR reg COMMA reg COMMA integer { (Jalr ($4, $2, $6), current_line ()) } // jalr rd,rs,offset
-	| JAL reg COMMA label { (Jal ($2, $4), current_line ()) } // jal rd,label
-	| LUI reg COMMA integer { (Lui($2, $4), current_line ()) } // lui rd,imm
-	| AUIPC reg COMMA integer { (Auipc($2, $4), current_line ()) } // auipc rd,imm
-	| FMVIF reg COMMA reg { (Fmvif ($4, $2), current_line ()) } // fmv.i.f rd,rs1
-	| FMVFI reg COMMA reg { (Fmvfi ($4, $2), current_line ()) } // fmv.f.i rd,rs1
+operation:
+	| operation_ { ($1, current_line ()) }
+
+operation_: // 命令とその行番号の組を返す
+	| ADD reg COMMA reg COMMA reg { Add ($4, $6, $2) } // add rd,rs1,rs2
+	| SUB reg COMMA reg COMMA reg { Sub ($4, $6, $2) } // sub rd,rs1,rs2
+	| FADD reg COMMA reg COMMA reg { Fadd ($4, $6, $2) } // fadd rd,rs1,rs2
+	| FSUB reg COMMA reg COMMA reg { Fsub ($4, $6, $2) } // fsub rd,rs1,rs2
+	| FMUL reg COMMA reg COMMA reg { Fmul ($4, $6, $2) } // fmul rd,rs1,rs2
+	| FDIV reg COMMA reg COMMA reg { Fdiv ($4, $6, $2) } // fdiv rd,rs1,rs2
+	| SLL reg COMMA reg COMMA reg { Sll ($4, $6, $2) } // sll rd,rs1,rs2
+	| SRL reg COMMA reg COMMA reg { Srl ($4, $6, $2) } // srl rd,rs1,rs2
+	| SRA reg COMMA reg COMMA reg { Sra ($4, $6, $2) } // sra rd,rs1,rs2
+	| BEQ reg COMMA reg COMMA label { Beq ($2, $4, $6) } // beq rs1,rs2,label
+	| BLT reg COMMA reg COMMA label { Blt ($2, $4, $6) } // blt rs1,rs2,label
+	| BLE reg COMMA reg COMMA label { Ble ($2, $4, $6) } // ble rs1,rs2,label
+	| FBEQ reg COMMA reg COMMA label { Fbeq ($2, $4, $6) } // fbeq rs1,rs2,label
+	| FBLT reg COMMA reg COMMA label { Fblt ($2, $4, $6) } // fblt rs1,rs2,label
+	| SW reg COMMA integer LPAR reg RPAR { Sw ($6, $2, $4) } // sw rs2,offset(rs1)
+	| FSW reg COMMA integer LPAR reg RPAR { Fsw ($6, $2, $4) } // fsw rs2,offset(rs1)
+	| ADDI reg COMMA reg COMMA integer { Addi ($4, $2, $6) } // addi rd,rs1,imm
+	| SLLI reg COMMA reg COMMA integer { Slli ($4, $2, $6) } // slli rd,rs1,imm
+	| SRLI reg COMMA reg COMMA integer { Srli ($4, $2, $6) } // srli rd,rs1,imm
+	| SRAI reg COMMA reg COMMA integer { Srai ($4, $2, $6) } // srai rd,rs1,imm
+	| LW reg COMMA integer LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
+	| FLW reg COMMA integer LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
+	| JALR reg COMMA reg COMMA integer { Jalr ($4, $2, $6) } // jalr rd,rs,offset
+	| JAL reg COMMA label { Jal ($2, $4) } // jal rd,label
+	| LUI reg COMMA integer { Lui($2, $4) } // lui rd,imm
+	| AUIPC reg COMMA integer { Auipc($2, $4) } // auipc rd,imm
+	| FMVIF reg COMMA reg { Fmvif ($4, $2) } // fmv.i.f rd,rs1
+	| FMVFI reg COMMA reg { Fmvfi ($4, $2) } // fmv.f.i rd,rs1
 ;
 
 reg:
