@@ -1,4 +1,5 @@
 let digit = ['0'-'9']
+let hex = "0x" (['0'-'9' 'a'-'f' 'A'-'F'])+
 let space = ' ' | '\t' | '\r'
 let newline = '\n'
 let alpha = ['a'-'z' 'A'-'Z' '_' ]
@@ -48,6 +49,7 @@ rule token = parse
 | "%x" { Parser.INTREG }
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }
+| hex as h { Parser.HEX (Str.string_after h 2) }
 | ident as id { Parser.ID id }
 | label as l { Parser.LABEL l }
 | "#" { comment lexbuf; token lexbuf }

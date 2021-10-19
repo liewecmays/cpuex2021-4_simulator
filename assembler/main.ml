@@ -262,7 +262,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rs2 = binary_of_int (int_of_reg rs2) 5 in
-				let imm = binary_of_int_signed offset 15 in
+				let imm = binary_of_imm offset 15 in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -274,7 +274,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rs2 = binary_of_int (int_of_reg rs2) 5 in
-				let imm = binary_of_int_signed offset 15 in
+				let imm = binary_of_imm offset 15 in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -286,7 +286,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed imm 15 in
+				let imm = binary_of_imm imm 15 in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -297,7 +297,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 2 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed imm 15 in
+				let imm = binary_of_imm imm 15 in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -308,7 +308,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 3 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed imm 15 in
+				let imm = binary_of_imm imm 15 in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -319,7 +319,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 4 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed imm 15 in
+				let imm = binary_of_imm imm 15 in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -331,7 +331,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed offset 15 in
+				let imm = binary_of_imm offset 15 in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -343,7 +343,7 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed offset 15 in
+				let imm = binary_of_imm offset 15 in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -354,7 +354,7 @@ let rec translate_code code untranslated op_id label_option =
 				let opcode = binary_of_int 9 4 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_int_signed offset 18 in
+				let imm = binary_of_imm offset 18 in
 				let code = String.concat "" [opcode; String.sub imm 0 3; rs1; String.sub imm 3 5; rd; String.sub imm 8 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -379,8 +379,12 @@ let rec translate_code code untranslated op_id label_option =
 				let opcode = binary_of_int 11 4 in
 				let funct = binary_of_int 0 3 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				if imm < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else
-				let imm = binary_of_int_signed imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+				(match imm with
+				| Dec i ->
+					if i < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else ()
+				| Hex h -> ()
+				| Neghex _ -> raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")));
+				let imm = binary_of_imm imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
 				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -390,8 +394,12 @@ let rec translate_code code untranslated op_id label_option =
 				let opcode = binary_of_int 11 4 in
 				let funct = binary_of_int 1 3 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				if imm < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else
-				let imm = binary_of_int_signed imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+				(match imm with
+				| Dec i ->
+					if i < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else ()
+				| Hex h -> ()
+				| Neghex _ -> raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")));
+				let imm = binary_of_imm imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
 				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else

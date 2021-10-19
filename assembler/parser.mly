@@ -4,6 +4,7 @@
 %}
 
 %token <int> INT
+%token <string> HEX
 %token <string> ID
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
@@ -25,6 +26,7 @@ toplevel:
 				"position " ^ string_of_int start
 			)
 	}
+;
 
 code_list:
 	| operation code_list { let (op, line_no) = $1 in Operation (op, line_no, None) :: $2 }
@@ -43,6 +45,7 @@ code_list:
 
 operation:
 	| operation_ { ($1, current_line ()) }
+;
 
 operation_: // 命令とその行番号の組を返す
 	| ADD reg COMMA reg COMMA reg { Add ($4, $6, $2) } // add rd,rs1,rs2
@@ -59,18 +62,18 @@ operation_: // 命令とその行番号の組を返す
 	| BLE reg COMMA reg COMMA label { Ble ($2, $4, $6) } // ble rs1,rs2,label
 	| FBEQ reg COMMA reg COMMA label { Fbeq ($2, $4, $6) } // fbeq rs1,rs2,label
 	| FBLT reg COMMA reg COMMA label { Fblt ($2, $4, $6) } // fblt rs1,rs2,label
-	| SW reg COMMA integer LPAR reg RPAR { Sw ($6, $2, $4) } // sw rs2,offset(rs1)
-	| FSW reg COMMA integer LPAR reg RPAR { Fsw ($6, $2, $4) } // fsw rs2,offset(rs1)
-	| ADDI reg COMMA reg COMMA integer { Addi ($4, $2, $6) } // addi rd,rs1,imm
-	| SLLI reg COMMA reg COMMA integer { Slli ($4, $2, $6) } // slli rd,rs1,imm
-	| SRLI reg COMMA reg COMMA integer { Srli ($4, $2, $6) } // srli rd,rs1,imm
-	| SRAI reg COMMA reg COMMA integer { Srai ($4, $2, $6) } // srai rd,rs1,imm
-	| LW reg COMMA integer LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
-	| FLW reg COMMA integer LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
-	| JALR reg COMMA reg COMMA integer { Jalr ($4, $2, $6) } // jalr rd,rs,offset
+	| SW reg COMMA immediate LPAR reg RPAR { Sw ($6, $2, $4) } // sw rs2,offset(rs1)
+	| FSW reg COMMA immediate LPAR reg RPAR { Fsw ($6, $2, $4) } // fsw rs2,offset(rs1)
+	| ADDI reg COMMA reg COMMA immediate { Addi ($4, $2, $6) } // addi rd,rs1,imm
+	| SLLI reg COMMA reg COMMA immediate { Slli ($4, $2, $6) } // slli rd,rs1,imm
+	| SRLI reg COMMA reg COMMA immediate { Srli ($4, $2, $6) } // srli rd,rs1,imm
+	| SRAI reg COMMA reg COMMA immediate { Srai ($4, $2, $6) } // srai rd,rs1,imm
+	| LW reg COMMA immediate LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
+	| FLW reg COMMA immediate LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
+	| JALR reg COMMA reg COMMA immediate { Jalr ($4, $2, $6) } // jalr rd,rs,offset
 	| JAL reg COMMA label { Jal ($2, $4) } // jal rd,label
-	| LUI reg COMMA integer { Lui($2, $4) } // lui rd,imm
-	| AUIPC reg COMMA integer { Auipc($2, $4) } // auipc rd,imm
+	| LUI reg COMMA immediate { Lui($2, $4) } // lui rd,imm
+	| AUIPC reg COMMA immediate { Auipc($2, $4) } // auipc rd,imm
 	| FMVIF reg COMMA reg { Fmvif ($4, $2) } // fmv.i.f rd,rs1
 	| FCVTIF reg COMMA reg { Fcvtif ($4, $2) } // fcvt.i.f rd,rs1
 	| FMVFI reg COMMA reg { Fmvfi ($4, $2) } // fmv.f.i rd,rs1
@@ -86,6 +89,12 @@ label:
 	| ID { $1 }
 	| LABEL { $1 }
 ;
+
+
+immediate:
+	| integer { Dec $1 }
+	| HEX { Hex $1 }
+	| MINUS HEX { Neghex $2 }
 
 integer:
 	| INT { $1 }
