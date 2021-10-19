@@ -30,7 +30,9 @@ type operation =
 	| Lui of reg * int (* rd, imm *)
 	| Auipc of reg * int (* rd, imm *)
 	| Fmvif of reg * reg (* rs1, rd *)
+	| Fcvtif of reg * reg (* rs1, rd *)
 	| Fmvfi of reg * reg (* rs1, rd *)
+	| Fcvtfi of reg * reg (* rs1, rd *)
 
 type code =
 	| Label of string

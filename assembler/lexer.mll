@@ -42,7 +42,9 @@ rule token = parse
 | "lui" { Parser.LUI }
 | "auipc" { Parser.AUIPC }
 | "fmv.i.f" { Parser.FMVIF }
+| "fcvt.i.f" { Parser.FCVTIF }
 | "fmv.f.i" { Parser.FMVFI }
+| "fcvt.f.i" { Parser.FCVTFI }
 | "%x" { Parser.INTREG }
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }

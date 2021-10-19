@@ -225,15 +225,30 @@ std::string string_of_op(Operation &op){
             res += ("rd=x" + std::to_string(op.rd) + ", ");
             res += ("imm=" + std::to_string(op.imm));
             return res;
-        case 12: // mv_fp
+        case 12: // itof
             switch(op.funct){
                 case 0: // fmv.i.f
                     res += "fmv.i.f ";
                     res += ("rs1=x" + std::to_string(op.rs1) + ", ");
                     res += ("rd=f" + std::to_string(op.rd));
                     break;
-                case 1: // fmv.f.i
+                case 5: // fcvt.i.f
+                    res += "fcvt.i.f ";
+                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
+                    res += ("rd=f" + std::to_string(op.rd));
+                    break;
+                default: return "";
+            }
+            return res;
+        case 13: // ftoi
+            switch(op.funct){
+                case 0: // fmv.f.i
                     res += "fmv.f.i ";
+                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
+                    res += ("rd=x" + std::to_string(op.rd));
+                    break;
+                case 6: // fcvt.f.i
+                    res += "fcvt.f.i ";
                     res += ("rs1=f" + std::to_string(op.rs1) + ", ");
                     res += ("rd=x" + std::to_string(op.rd));
                     break;

@@ -100,7 +100,8 @@ Operation parse_op(std::string code, int code_id){
             op.rd = rd;
             op.imm = binary_stoi("0" + code.substr(7, 10) + code.substr(22, 10));
             break;
-        case 12: // mv_fp
+        case 12: // itof
+        case 13: // ftoi
             op.funct = funct;
             op.rs1 = rs1;
             op.rs2 = -1;
@@ -314,7 +315,7 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        case 12: // mv_fp
+        case 12: // itof
             switch(op.funct){
                 Int_float u;
                 case 0: // fmv.i.f
@@ -322,9 +323,23 @@ void exec_op(Operation &op){
                     write_reg_fp(op.rd, u.f);
                     pc += 4;
                     return;
+                case 5: // fcvt.i.f
+                    write_reg_fp(op.rd, static_cast<float>(read_reg(op.rs1)));
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 13: // ftoi
+            switch(op.funct){
+                Int_float u;
                 case 1: // fmv.f.i
-                    u.f = read_reg(op.rs1);
-                    write_reg_fp(op.rd, u.i);
+                    u.f = read_reg_fp(op.rs1);
+                    write_reg(op.rd, u.i);
+                    pc += 4;
+                    return;
+                case 6: // fcvt.f.i
+                    write_reg(op.rd, static_cast<int>(read_reg_fp(op.rs1)));
                     pc += 4;
                     return;
                 default: break;

@@ -396,7 +396,7 @@ let rec translate_code code untranslated op_id label_option =
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		(* mv_fp *)
+		(* itof *)
 		| Fmvif (rs1, rd) ->
 			if (is_int rs1) && (is_float rd) then
 				let opcode = binary_of_int 12 4 in
@@ -409,10 +409,35 @@ let rec translate_code code untranslated op_id label_option =
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
+		| Fcvtif (rs1, rd) ->
+			if (is_int rs1) && (is_float rd) then
+				let opcode = binary_of_int 12 4 in
+				let funct = binary_of_int 5 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let margin1 = "00000" in
+				let rd = binary_of_int (int_of_reg rd) 5 in
+				let margin2 = "0000000000" in
+				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
+					Code (op_id, code, line_no, label_option, bp_option)
+			else
+				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
+		(* ftoi *)
 		| Fmvfi (rs1, rd) ->
 			if (is_float rs1) && (is_int rd) then
-				let opcode = binary_of_int 12 4 in
+				let opcode = binary_of_int 13 0 in
 				let funct = binary_of_int 1 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let margin1 = "00000" in
+				let rd = binary_of_int (int_of_reg rd) 5 in
+				let margin2 = "0000000000" in
+				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
+					Code (op_id, code, line_no, label_option, bp_option)
+			else
+				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
+		| Fcvtfi (rs1, rd) ->
+			if (is_float rs1) && (is_int rd) then
+				let opcode = binary_of_int 13 0 in
+				let funct = binary_of_int 6 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let margin1 = "00000" in
 				let rd = binary_of_int (int_of_reg rd) 5 in
