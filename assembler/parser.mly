@@ -1,6 +1,6 @@
 %{
 	open Syntax
-	let current_line () = (Parsing.symbol_start_pos ()).pos_lnum		
+	let current_line () = (Parsing.symbol_start_pos ()).pos_lnum	
 %}
 
 %token <int> INT

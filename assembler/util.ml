@@ -6,6 +6,18 @@ let int_of_reg r =
 	| Int_reg i -> i
 	| Float_reg i -> i
 
+(* 整数レジスタか否かを判定 *)
+let is_int r =
+	match r with
+	| Int_reg _ -> true
+	| Float_reg _ -> false
+
+(* 浮動小数レジスタか否かを判定 *)
+let is_float r =
+	match r with
+	| Int_reg _ -> false
+	| Float_reg _ -> true
+
 (* 整数を指定された桁数の二進数に変換 *)
 exception Argument_error
 let binary_of_int n len =
