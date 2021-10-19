@@ -61,38 +61,39 @@ Operation parse_op(std::string code, int code_id){
             op.imm = -1;
             break;
         case 2: // branch
-        case 3: // store
-        case 4: // store_fp
+        case 3: // branch_fp
+        case 4: // store
+        case 5: // store_fp
             op.funct = funct;
             op.rs1 = rs1;
             op.rs2 = rs2;
             op.rd = -1;
             op.imm = binary_stoi(code.substr(17, 15));
             break;
-        case 5: // op_imm
-        case 6: // load
-        case 7: // load_fp
+        case 6: // op_imm
+        case 7: // load
+        case 8: // load_fp
             op.funct = funct;
             op.rs1 = rs1;
             op.rs2 = -1;
             op.rd = rd;
             op.imm = binary_stoi(code.substr(12, 5) + code.substr(22, 10));
             break;
-        case 8: // jalr
+        case 9: // jalr
             op.funct = -1;
             op.rs1 = rs1;
             op.rs2 = -1;
             op.rd = rd;
             op.imm = binary_stoi(code.substr(4, 3) + code.substr(12, 5) + code.substr(22, 10));
             break;
-        case 9: // jal
+        case 10: // jal
             op.funct = -1;
             op.rs1 = -1;
             op.rs2 = -1;
             op.rd = rd;
             op.imm = binary_stoi(code.substr(4, 13) + code.substr(22, 10));
             break;
-        case 10: // long_imm
+        case 11: // long_imm
             op.funct = funct;
             op.rs1 = -1;
             op.rs2 = -1;
@@ -201,7 +202,18 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        case 3: // store
+        case 3: // branch_fp
+            switch(op.funct){
+                case 0: // fbeq
+                    read_reg_fp(op.rs1) == read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                case 1: // fblt
+                    read_reg_fp(op.rs1) < read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 4: // store
             switch(op.funct){
                 case 0: // sw
                     for(int i=0; i<4; i++){
@@ -212,10 +224,10 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        // case 4: // store_fp
+        // case 5: // store_fp
         //     pc += 4;
         //     break;
-        case 5: // op_imm
+        case 6: // op_imm
             switch(op.funct){
                 case 0: // addi
                     write_reg(op.rd, read_reg(op.rs1) + op.imm);
@@ -236,7 +248,7 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        case 6: // load
+        case 7: // load
             switch(op.funct){
                 case 0: // lw
                     for(int i=0; i<4; i++){
@@ -248,18 +260,18 @@ void exec_op(Operation &op){
                 default: break;
             }
             break;
-        // case 7: // load_fp
+        // case 8: // load_fp
         //     pc += 4;
         //     return;
-        case 8: // jalr
+        case 9: // jalr
             write_reg(op.rd, pc + 4);
             pc = read_reg(op.rs1) + op.imm * 4;
             return;
-        case 9: // jal
+        case 10: // jal
             write_reg(op.rd, pc + 4);
             pc += op.imm * 4;
             return;
-        case 10: // long_imm
+        case 11: // long_imm
             switch(op.funct){
                 case 0: // lui
                     write_reg(op.rd, op.imm << 12);
@@ -569,7 +581,7 @@ int main(int argc, char *argv[]){
     
     if(is_debug){ // デバッグモード
         reg_fp_list[1] = 0.5;
-        reg_fp_list[2] = 0.25;
+        reg_fp_list[2] = 0.5;
         std::string cmd;
         while(true){
             std::cout << "# " << std::ends;    
@@ -577,7 +589,7 @@ int main(int argc, char *argv[]){
             if(exec_command(cmd)) break;
         }
     }else{ // デバッグなしモード
-        exec_command("run");
+        exec_command("f");
     }
 
     // 実行結果の情報を出力

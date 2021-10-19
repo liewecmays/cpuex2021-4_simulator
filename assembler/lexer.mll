@@ -27,6 +27,8 @@ rule token = parse
 | "beq" { Parser.BEQ }
 | "blt" { Parser.BLT }
 | "ble" { Parser.BLE }
+| "fbeq" { Parser.FBEQ }
+| "fblt" { Parser.FBLT }
 | "sw" { Parser.SW }
 | "addi" { Parser.ADDI }
 | "slli" { Parser.SLLI }

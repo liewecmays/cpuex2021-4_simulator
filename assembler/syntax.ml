@@ -15,6 +15,8 @@ type operation =
 	| Beq of reg * reg * string (* rs1, rs2, label *)
 	| Blt of reg * reg * string (* rs1, rs2, label *)
 	| Ble of reg * reg * string (* rs1, rs2, label *)
+	| Fbeq of reg * reg * string (* rs1, rs2, label *)
+	| Fblt of reg * reg * string (* rs1, rs2, label *)
 	| Sw of reg * reg * int (* rs1, rs2, offset *)
 	| Addi of reg * reg * int (* rs1, rd, imm *)
 	| Slli of reg * reg * int (* rs1, rd, imm *)

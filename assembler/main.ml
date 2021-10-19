@@ -68,6 +68,7 @@ let rec translate_code code untranslated op_id label_option =
 			else ()
 		| None -> ());
 		match op with
+		(* op *)
 		| Add (rs1, rs2, rd) ->
 			let opcode = binary_of_int 0 4 in
 			let funct = binary_of_int 0 3 in
@@ -86,6 +87,34 @@ let rec translate_code code untranslated op_id label_option =
 			let margin = "0000000000" in
 			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		| Sll (rs1, rs2, rd) ->
+			let opcode = binary_of_int 0 4 in
+			let funct = binary_of_int 2 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		| Srl (rs1, rs2, rd) ->
+			let opcode = binary_of_int 0 4 in
+			let funct = binary_of_int 3 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		| Sra (rs1, rs2, rd) ->
+			let opcode = binary_of_int 0 4 in
+			let funct = binary_of_int 4 3 in
+			let rs1 = binary_of_int (int_of_reg rs1) 5 in
+			let rs2 = binary_of_int (int_of_reg rs2) 5 in
+			let rd = binary_of_int (int_of_reg rd) 5 in
+			let margin = "0000000000" in
+			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+				Code (op_id, code, line_no, label_option, bp_option)
+		(* op_fp *)
 		| Fadd (rs1, rs2, rd) ->
 			let opcode = binary_of_int 1 4 in
 			let funct = binary_of_int 0 3 in
@@ -122,33 +151,7 @@ let rec translate_code code untranslated op_id label_option =
 			let margin = "0000000000" in
 			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
 				Code (op_id, code, line_no, label_option, bp_option)
-		| Sll (rs1, rs2, rd) ->
-			let opcode = binary_of_int 0 4 in
-			let funct = binary_of_int 2 3 in
-			let rs1 = binary_of_int (int_of_reg rs1) 5 in
-			let rs2 = binary_of_int (int_of_reg rs2) 5 in
-			let rd = binary_of_int (int_of_reg rd) 5 in
-			let margin = "0000000000" in
-			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-				Code (op_id, code, line_no, label_option, bp_option)
-		| Srl (rs1, rs2, rd) ->
-			let opcode = binary_of_int 0 4 in
-			let funct = binary_of_int 3 3 in
-			let rs1 = binary_of_int (int_of_reg rs1) 5 in
-			let rs2 = binary_of_int (int_of_reg rs2) 5 in
-			let rd = binary_of_int (int_of_reg rd) 5 in
-			let margin = "0000000000" in
-			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-				Code (op_id, code, line_no, label_option, bp_option)
-		| Sra (rs1, rs2, rd) ->
-			let opcode = binary_of_int 0 4 in
-			let funct = binary_of_int 4 3 in
-			let rs1 = binary_of_int (int_of_reg rs1) 5 in
-			let rs2 = binary_of_int (int_of_reg rs2) 5 in
-			let rd = binary_of_int (int_of_reg rd) 5 in
-			let margin = "0000000000" in
-			let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-				Code (op_id, code, line_no, label_option, bp_option)
+		(* branch *)
 		| Beq (rs1, rs2, label) ->
 			(try
 				let label_id = List.assoc label !label_to_id
@@ -182,16 +185,41 @@ let rec translate_code code untranslated op_id label_option =
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			with Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option)))
+		(* branch_fp *)
+		| Fbeq (rs1, rs2, label) ->
+			(try
+				let label_id = List.assoc label !label_to_id
+				in let opcode = binary_of_int 3 4 in
+				let funct = binary_of_int 0 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let rs2 = binary_of_int (int_of_reg rs2) 5 in
+				let imm = binary_of_int_signed (label_id - op_id) 15 in
+				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
+					Code (op_id, code, line_no, label_option, bp_option)
+			with Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option)))
+		| Fblt (rs1, rs2, label) ->
+			(try
+				let label_id = List.assoc label !label_to_id
+				in let opcode = binary_of_int 3 4 in
+				let funct = binary_of_int 1 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let rs2 = binary_of_int (int_of_reg rs2) 5 in
+				let imm = binary_of_int_signed (label_id - op_id) 15 in
+				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
+					Code (op_id, code, line_no, label_option, bp_option)
+			with Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option)))
+		(* store *)
 		| Sw (rs1, rs2, offset) ->
-			let opcode = binary_of_int 3 4 in
+			let opcode = binary_of_int 4 4 in
 			let funct = binary_of_int 0 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rs2 = binary_of_int (int_of_reg rs2) 5 in
 			let imm = binary_of_int_signed offset 15 in
 			let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		(* op_imm *)
 		| Addi (rs1, rd, imm) ->
-			let opcode = binary_of_int 5 4 in
+			let opcode = binary_of_int 6 4 in
 			let funct = binary_of_int 0 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
@@ -199,7 +227,7 @@ let rec translate_code code untranslated op_id label_option =
 			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
 		| Slli (rs1, rd, imm) ->
-			let opcode = binary_of_int 5 4 in
+			let opcode = binary_of_int 6 4 in
 			let funct = binary_of_int 2 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
@@ -207,7 +235,7 @@ let rec translate_code code untranslated op_id label_option =
 			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
 		| Srli (rs1, rd, imm) ->
-			let opcode = binary_of_int 5 4 in
+			let opcode = binary_of_int 6 4 in
 			let funct = binary_of_int 3 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
@@ -215,39 +243,43 @@ let rec translate_code code untranslated op_id label_option =
 			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
 		| Srai (rs1, rd, imm) ->
-			let opcode = binary_of_int 5 4 in
+			let opcode = binary_of_int 6 4 in
 			let funct = binary_of_int 4 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
 			let imm = binary_of_int_signed imm 15 in
 			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		(* load *)
 		| Lw (rs1, rd, offset) ->
-			let opcode = binary_of_int 6 4 in
+			let opcode = binary_of_int 7 4 in
 			let funct = binary_of_int 0 3 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
 			let imm = binary_of_int_signed offset 15 in
 			let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		(* jalr *)
 		| Jalr (rs1, rd, offset) ->
-			let opcode = binary_of_int 8 4 in
+			let opcode = binary_of_int 9 4 in
 			let rs1 = binary_of_int (int_of_reg rs1) 5 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
 			let imm = binary_of_int_signed offset 18 in
 			let code = String.concat "" [opcode; String.sub imm 0 3; rs1; String.sub imm 3 5; rd; String.sub imm 8 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
+		(* jal *)
 		| Jal (rd, label) ->
 			(try
 				let label_id = List.assoc label !label_to_id in
-				let opcode = binary_of_int 9 4 in
+				let opcode = binary_of_int 10 4 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let imm = binary_of_int_signed (label_id - op_id) 23 in
 				let code = String.concat "" [opcode; String.sub imm 0 13; rd; String.sub imm 13 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			with Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option)))
+		(* long_imm *)
 		| Lui (rd, imm) ->
-			let opcode = binary_of_int 10 4 in
+			let opcode = binary_of_int 11 4 in
 			let funct = binary_of_int 0 3 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
 			if imm < 0 then raise (Translate_error "long_imm operations does not accept negative immdediates") else
@@ -255,7 +287,7 @@ let rec translate_code code untranslated op_id label_option =
 			let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 				Code (op_id, code, line_no, label_option, bp_option)
 		| Auipc (rd, imm) ->
-			let opcode = binary_of_int 10 4 in
+			let opcode = binary_of_int 11 4 in
 			let funct = binary_of_int 1 3 in
 			let rd = binary_of_int (int_of_reg rd) 5 in
 			if imm < 0 then raise (Translate_error "long_imm operations does not accept negative immdediates") else
