@@ -351,7 +351,7 @@ bool exec_command(std::string cmd){
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(pc)) << "' (id " << id_of_pc(pc) + 1 << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
+                        std::cout << info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(pc)) << "' (line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
