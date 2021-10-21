@@ -55,7 +55,7 @@ operation_: // 命令とその行番号の組を返す
 	| FSUB reg COMMA reg COMMA reg { Fsub ($4, $6, $2) } // fsub rd,rs1,rs2
 	| FMUL reg COMMA reg COMMA reg { Fmul ($4, $6, $2) } // fmul rd,rs1,rs2
 	| FDIV reg COMMA reg COMMA reg { Fdiv ($4, $6, $2) } // fdiv rd,rs1,rs2
-	| FSQRT reg COMMA reg COMMA reg { Fsqrt ($4, $6, $2) } // fsqrt rd,rs1,rs2
+	| FSQRT reg COMMA reg { Fsqrt ($4, $2) } // fsqrt rd,rs1
 	| SLL reg COMMA reg COMMA reg { Sll ($4, $6, $2) } // sll rd,rs1,rs2
 	| SRL reg COMMA reg COMMA reg { Srl ($4, $6, $2) } // srl rd,rs1,rs2
 	| SRA reg COMMA reg COMMA reg { Sra ($4, $6, $2) } // sra rd,rs1,rs2

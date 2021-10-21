@@ -190,13 +190,12 @@ let rec translate_code code untranslated op_id label_option =
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Fsqrt (rs1, rs2, rd) ->
-			if (is_float rs1) && (is_float rs2) && (is_float rd) then
+		| Fsqrt (rs1, rd) ->
+			if (is_float rs1) && (is_float rd) then
 				let opcode = binary_of_int 1 4 in
 				let funct = binary_of_int 4 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
-				(if int_of_reg rs2 = 0 then () else raise (Translate_error ("rs2 of fsqrt is not %f0 (at line " ^ (string_of_int line_no) ^ ")")));
-				let rs2 = binary_of_int (int_of_reg rs2) 5 in
+				let rs2 = "00000" in
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
