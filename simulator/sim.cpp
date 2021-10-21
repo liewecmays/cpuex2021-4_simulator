@@ -472,37 +472,6 @@ bool exec_command(std::string cmd){
                 }
             }
         }
-    }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
-        std::cout << "operations executed: " << op_count << std::endl;
-        if(simulation_end){
-            std::cout << "next: (no operation left to be simulated)" << std::endl;
-        }else{
-            std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << string_of_op(op_list[id_of_pc(pc)]) << std::endl;
-        }
-        if(bp_to_id.empty()){
-            std::cout << "breakpoints: (no breakpoint found)" << std::endl;
-        }else{
-            std::cout << "breakpoints:" << std::endl;
-            for(auto x : bp_to_id.left) {
-                std::cout << "  " << x.first << " (line " << id_to_line.left.at(x.second) << ")" << std::endl;
-            }
-        }
-    // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
-    //
-    }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print)) reg\\s*$"))){ // print reg
-        print_reg();
-        print_reg_fp();
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(x|f)(\\d+))+\\s*$"))){ // print reg
-        int reg_no;
-        while(std::regex_search(cmd, match, std::regex("(x|f)(\\d+)"))){
-            reg_no = std::stoi(match[2].str());
-            if(match[1].str() == "x"){ // int
-                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
-            }else{ // float
-                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << std::setprecision(10) << reg_fp_list[reg_no] << std::endl;
-            }
-            cmd = match.suffix();
-        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
         if(simulation_end){
             std::cout << info << "no operation is left to be simulated" << std::endl;
@@ -538,6 +507,41 @@ bool exec_command(std::string cmd){
                 std::cout << "breakpoint '" << bp << "' has not been set" << std::endl;
             }
         }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
+        std::cout << "operations executed: " << op_count << std::endl;
+        if(simulation_end){
+            std::cout << "next: (no operation left to be simulated)" << std::endl;
+        }else{
+            std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << string_of_op(op_list[id_of_pc(pc)]) << std::endl;
+        }
+        if(bp_to_id.empty()){
+            std::cout << "breakpoints: (no breakpoint found)" << std::endl;
+        }else{
+            std::cout << "breakpoints:" << std::endl;
+            for(auto x : bp_to_id.left) {
+                std::cout << "  " << x.first << " (line " << id_to_line.left.at(x.second) << ")" << std::endl;
+            }
+        }
+    // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
+    //
+    }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
+        print_reg();
+        print_reg_fp();
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(x|f)(\\d+))+\\s*$"))){ // print reg
+        int reg_no;
+        while(std::regex_search(cmd, match, std::regex("(x|f)(\\d+)"))){
+            reg_no = std::stoi(match[2].str());
+            if(match[1].str() == "x"){ // int
+                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
+            }else{ // float
+                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << std::setprecision(10) << reg_fp_list[reg_no] << std::endl;
+            }
+            cmd = match.suffix();
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
+        int start = std::stoi(match[4].str());
+        int width = std::stoi(match[5].str());
+        print_memory_word(start, start + width);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
