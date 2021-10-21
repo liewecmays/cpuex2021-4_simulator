@@ -203,6 +203,10 @@ void exec_op(Operation &op){
                     write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
                     pc += 4;
                     return;
+                case 4: // fsqrt
+                    write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
+                    pc += 4;
+                    return;
             }
             break;
         case 2: // branch

@@ -104,6 +104,9 @@ std::string string_of_op(Operation &op){
                 case 3: // fdiv
                     res += "fdiv ";
                     break;
+                case 4: // fsqrt
+                    res += "fsqrt ";
+                    break;
                 default: return "";
             }
             res += ("rs1=f" + std::to_string(op.rs1) + ", ");

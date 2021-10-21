@@ -23,6 +23,7 @@ rule token = parse
 | "fsub" { Parser.FSUB }
 | "fmul" { Parser.FMUL }
 | "fdiv" { Parser.FDIV }
+| "fsqrt" { Parser.FSQRT }
 | "sll" { Parser.SLL }
 | "srl" { Parser.SRL }
 | "sra" { Parser.SRA }
