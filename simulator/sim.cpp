@@ -235,8 +235,8 @@ void exec_op(Operation &op){
         case 4: // store
             switch(op.funct){
                 case 0: // sw
-                    if(op.imm % 4 == 0){
-                        memory[read_reg(op.rs1) + op.imm / 4].i = read_reg(op.rs2);
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
                     }
@@ -248,8 +248,8 @@ void exec_op(Operation &op){
         case 5: // store_fp
             switch(op.funct){
                 case 0: // fsw
-                    if(op.imm % 4 == 0){
-                        memory[read_reg(op.rs1) + op.imm / 4].f = read_reg_fp(op.rs2);
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        memory[(read_reg(op.rs1) + op.imm) / 4].f = read_reg_fp(op.rs2);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
                     }
@@ -286,8 +286,8 @@ void exec_op(Operation &op){
         case 7: // load
             switch(op.funct){
                 case 0: // lw
-                    if(op.imm % 4 == 0){
-                        write_reg(op.rd, memory[read_reg(op.rs1) + op.imm / 4].i);
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
                     }else{
                         std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
                     }
@@ -299,8 +299,8 @@ void exec_op(Operation &op){
         case 8: // load_fp
             switch(op.funct){
                 case 0: // flw
-                    if(op.imm % 4 == 0){
-                        write_reg_fp(op.rd, memory[read_reg(op.rs1) + op.imm / 4].f);
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
                     }else{
                         std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
                     }
