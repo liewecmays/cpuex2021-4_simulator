@@ -9,7 +9,7 @@
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
-%token ADD SUB FADD FSUB FMUL FDIV SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW FSW ADDI SLLI SRLI SRAI LW FLW JALR JAL LUI AUIPC FMVIF FCVTIF FMVFI FCVTFI
+%token ADD SUB AND FADD FSUB FMUL FDIV SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW FSW ADDI SLLI SRLI SRAI ANDI LW FLW JALR JAL LUI AUIPC FMVIF FCVTIF FMVFI FCVTFI
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -50,6 +50,7 @@ operation:
 operation_: // 命令とその行番号の組を返す
 	| ADD reg COMMA reg COMMA reg { Add ($4, $6, $2) } // add rd,rs1,rs2
 	| SUB reg COMMA reg COMMA reg { Sub ($4, $6, $2) } // sub rd,rs1,rs2
+	| AND reg COMMA reg COMMA reg { And ($4, $6, $2) } // and rd,rs1,rs2
 	| FADD reg COMMA reg COMMA reg { Fadd ($4, $6, $2) } // fadd rd,rs1,rs2
 	| FSUB reg COMMA reg COMMA reg { Fsub ($4, $6, $2) } // fsub rd,rs1,rs2
 	| FMUL reg COMMA reg COMMA reg { Fmul ($4, $6, $2) } // fmul rd,rs1,rs2
@@ -68,6 +69,7 @@ operation_: // 命令とその行番号の組を返す
 	| SLLI reg COMMA reg COMMA immediate { Slli ($4, $2, $6) } // slli rd,rs1,imm
 	| SRLI reg COMMA reg COMMA immediate { Srli ($4, $2, $6) } // srli rd,rs1,imm
 	| SRAI reg COMMA reg COMMA immediate { Srai ($4, $2, $6) } // srai rd,rs1,imm
+	| ANDI reg COMMA reg COMMA immediate { Andi ($4, $2, $6) } // andi rd,rs1,imm
 	| LW reg COMMA immediate LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
 	| FLW reg COMMA immediate LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
 	| JALR reg COMMA reg COMMA immediate { Jalr ($4, $2, $6) } // jalr rd,rs,offset

@@ -81,6 +81,9 @@ std::string string_of_op(Operation &op){
                 case 4: // sra
                     res += "sra ";
                     break;
+                case 5: // and
+                    res += "and ";
+                    break;
                 default: return "";
             }
             res += ("rs1=x" + std::to_string(op.rs1) + ", ");
@@ -172,6 +175,9 @@ std::string string_of_op(Operation &op){
                     break;
                 case 4: // srai
                     res += "srai ";
+                    break;
+                case 5: // andi
+                    res += "andi ";
                     break;
                 default: return "";
             }

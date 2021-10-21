@@ -11,6 +11,7 @@ type imm =
 type operation =
 	| Add of reg * reg * reg (* rs1, rs2, rd *)
 	| Sub of reg * reg * reg (* rs1, rs2, rd *)
+	| And of reg * reg * reg (* rs1, rs2, rd *)
 	| Fadd of reg * reg * reg (* rs1, rs2, rd *)
 	| Fsub of reg * reg * reg (* rs1, rs2, rd *)
 	| Fmul of reg * reg * reg (* rs1, rs2, rd *)
@@ -28,6 +29,7 @@ type operation =
 	| Addi of reg * reg * imm (* rs1, rd, imm *)
 	| Slli of reg * reg * imm (* rs1, rd, imm *)
 	| Srli of reg * reg * imm (* rs1, rd, imm *)
+	| Andi of reg * reg * imm (* rs1, rd, imm *)
 	| Srai of reg * reg * imm (* rs1, rd, imm *)
 	| Lw of reg * reg * imm (* rs1, rd, offset *)
 	| Flw of reg * reg * imm (* rs1, rd, offset *)

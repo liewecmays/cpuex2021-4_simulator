@@ -178,6 +178,10 @@ void exec_op(Operation &op){
                     write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
                     pc += 4;
                     return;
+                case 5: // andi
+                    write_reg(op.rd, read_reg(op.rs1) & read_reg(op.rs2));
+                    pc += 4;
+                    return;
                 default: break;
             }
             break;
@@ -265,6 +269,10 @@ void exec_op(Operation &op){
                     return;
                 case 4: // srai
                     write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
+                    pc += 4;
+                    return;
+                case 5: // andi
+                    write_reg(op.rd, read_reg(op.rs1) & op.imm);
                     pc += 4;
                     return;
                 default: break;

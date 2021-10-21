@@ -18,6 +18,7 @@ rule token = parse
 | "!" { Parser.EXCLAM }
 | "add" { Parser.ADD }
 | "sub" { Parser.SUB }
+| "and" { Parser.AND }
 | "fadd" { Parser.FADD }
 | "fsub" { Parser.FSUB }
 | "fmul" { Parser.FMUL }
@@ -36,6 +37,7 @@ rule token = parse
 | "slli" { Parser.SLLI }
 | "srli" { Parser.SRLI }
 | "srai" { Parser.SRAI }
+| "andi" { Parser.ANDI }
 | "lw" { Parser.LW }
 | "flw" { Parser.FLW }
 | "jalr" { Parser.JALR }
