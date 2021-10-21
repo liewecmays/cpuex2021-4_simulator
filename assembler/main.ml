@@ -505,7 +505,7 @@ let rec translate_code code untranslated op_id label_option =
 		| Fmvfi (rs1, rd) ->
 			if (is_float rs1) && (is_int rd) then
 				let opcode = binary_of_int 13 4 in
-				let funct = binary_of_int 1 3 in
+				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let margin1 = "00000" in
 				let rd = binary_of_int (int_of_reg rd) 5 in

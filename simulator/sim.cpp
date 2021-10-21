@@ -348,7 +348,7 @@ void exec_op(Operation &op){
         case 13: // ftoi
             switch(op.funct){
                 Int_float u;
-                case 1: // fmv.f.i
+                case 0: // fmv.f.i
                     u.f = read_reg_fp(op.rs1);
                     write_reg(op.rd, u.i);
                     pc += 4;
