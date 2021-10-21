@@ -522,7 +522,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << "breakpoints:" << std::endl;
             for(auto x : bp_to_id.left) {
-                std::cout << "  " << x.first << " (line " << id_to_line.left.at(x.second) << ")" << std::endl;
+                std::cout << "  " << x.first << " (pc " << x.second * 4 << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
             }
         }
     // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
