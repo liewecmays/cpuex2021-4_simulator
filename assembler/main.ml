@@ -212,7 +212,9 @@ let rec translate_code code untranslated op_id label_option =
 					let funct = binary_of_int 0 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
-					let imm = binary_of_int_signed (label_id - op_id) 15 in
+					let imm =
+						try binary_of_int_signed (label_id - op_id) 15 with
+						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 						Code (op_id, code, line_no, label_option, bp_option)
 				with
@@ -227,7 +229,9 @@ let rec translate_code code untranslated op_id label_option =
 					let funct = binary_of_int 1 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
-					let imm = binary_of_int_signed (label_id - op_id) 15 in
+					let imm =
+						try binary_of_int_signed (label_id - op_id) 15 with
+						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 						Code (op_id, code, line_no, label_option, bp_option)
 				with
@@ -242,7 +246,9 @@ let rec translate_code code untranslated op_id label_option =
 					let funct = binary_of_int 2 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
-					let imm = binary_of_int_signed (label_id - op_id) 15 in
+					let imm =
+						try binary_of_int_signed (label_id - op_id) 15 with
+						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 						Code (op_id, code, line_no, label_option, bp_option)
 				with
@@ -258,7 +264,9 @@ let rec translate_code code untranslated op_id label_option =
 					let funct = binary_of_int 0 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
-					let imm = binary_of_int_signed (label_id - op_id) 15 in
+					let imm =
+						try binary_of_int_signed (label_id - op_id) 15 with
+						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 						Code (op_id, code, line_no, label_option, bp_option)
 				with
@@ -273,7 +281,9 @@ let rec translate_code code untranslated op_id label_option =
 					let funct = binary_of_int 1 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
-					let imm = binary_of_int_signed (label_id - op_id) 15 in
+					let imm =
+						try binary_of_int_signed (label_id - op_id) 15 with
+						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 						Code (op_id, code, line_no, label_option, bp_option)
 				with
@@ -281,25 +291,29 @@ let rec translate_code code untranslated op_id label_option =
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* store *)
-		| Sw (rs1, rs2, offset) ->
+		| Sw (rs1, rs2, imm) ->
 			if (is_int rs1) && (is_int rs2) then
 				let opcode = binary_of_int 4 4 in
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rs2 = binary_of_int (int_of_reg rs2) 5 in
-				let imm = binary_of_imm offset 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* store_fp *)
-		| Fsw (rs1, rs2, offset) ->
+		| Fsw (rs1, rs2, imm) ->
 			if (is_int rs1) && (is_float rs2) then
 				let opcode = binary_of_int 5 4 in
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rs2 = binary_of_int (int_of_reg rs2) 5 in
-				let imm = binary_of_imm offset 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -311,7 +325,9 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm imm 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -322,7 +338,9 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 2 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm imm 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -333,7 +351,9 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 3 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm imm 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -344,7 +364,9 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 4 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm imm 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -355,42 +377,50 @@ let rec translate_code code untranslated op_id label_option =
 				let funct = binary_of_int 5 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm imm 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* load *)
-		| Lw (rs1, rd, offset) ->
+		| Lw (rs1, rd, imm) ->
 			if (is_int rs1) && (is_int rd) then
 				let opcode = binary_of_int 7 4 in
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm offset 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* load_fp *)
-		| Flw (rs1, rd, offset) ->
+		| Flw (rs1, rd, imm) ->
 			if (is_int rs1) && (is_float rd) then
 				let opcode = binary_of_int 8 4 in
 				let funct = binary_of_int 0 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm offset 15 in
+				let imm =
+					try binary_of_imm imm 15 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* jalr *)
-		| Jalr (rs1, rd, offset) ->
+		| Jalr (rs1, rd, imm) ->
 			if (is_int rs1) && (is_int rd) then
 				let opcode = binary_of_int 9 4 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = binary_of_imm offset 18 in
+				let imm =
+					try binary_of_imm imm 18 with
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; String.sub imm 0 3; rs1; String.sub imm 3 5; rd; String.sub imm 8 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -402,7 +432,9 @@ let rec translate_code code untranslated op_id label_option =
 					let label_id = List.assoc label !label_to_id in
 					let opcode = binary_of_int 10 4 in
 					let rd = binary_of_int (int_of_reg rd) 5 in
-					let imm = binary_of_int_signed (label_id - op_id) 23 in
+					let imm =
+						try binary_of_int_signed (label_id - op_id) 23 with
+						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; String.sub imm 0 13; rd; String.sub imm 13 10] in
 						Code (op_id, code, line_no, label_option, bp_option)
 				with
@@ -420,7 +452,9 @@ let rec translate_code code untranslated op_id label_option =
 					if i < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else ()
 				| Hex h -> ()
 				| Neghex _ -> raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")));
-				let imm = binary_of_imm imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+				let imm =
+					try binary_of_imm imm 21 with (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
@@ -435,7 +469,9 @@ let rec translate_code code untranslated op_id label_option =
 					if i < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else ()
 				| Hex h -> ()
 				| Neghex _ -> raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")));
-				let imm = binary_of_imm imm 21 in (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+				let imm =
+					try binary_of_imm imm 21 with (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
+					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
