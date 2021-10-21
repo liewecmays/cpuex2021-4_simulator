@@ -14,7 +14,7 @@
 std::vector<Operation> op_list; // 命令のリスト(PC順)
 std::vector<int> reg_list(32); // 整数レジスタのリスト
 std::vector<float> reg_fp_list(32); // 浮動小数レジスタのリスト
-std::vector<int> memory; // メモリ領域
+std::vector<Int_float> memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 bool breakpoint_skip = false;
@@ -153,8 +153,6 @@ void exec_op(Operation &op){
         }
     }
 
-    int load = 0;
-    Int_float u = { 0 };
     switch(op.opcode){
         case 0: // op
             switch(op.funct){
@@ -237,8 +235,10 @@ void exec_op(Operation &op){
         case 4: // store
             switch(op.funct){
                 case 0: // sw
-                    for(int i=0; i<4; i++){
-                        memory[read_reg(op.rs1) + op.imm + i] = (read_reg(op.rs2) & (255 << (8 * i))) / (1 << (8 * i));
+                    if(op.imm % 4 == 0){
+                        memory[read_reg(op.rs1) + op.imm / 4].i = read_reg(op.rs2);
+                    }else{
+                        std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
                     }
                     pc += 4;
                     return;
@@ -248,9 +248,10 @@ void exec_op(Operation &op){
         case 5: // store_fp
             switch(op.funct){
                 case 0: // fsw
-                    u.f = read_reg_fp(op.rs2);
-                    for(int i=0; i<4; i++){
-                        memory[read_reg(op.rs1) + op.imm + i] = (u.i & (255 << (8 * i))) / (1 << (8 * i));
+                    if(op.imm % 4 == 0){
+                        memory[read_reg(op.rs1) + op.imm / 4].f = read_reg_fp(op.rs2);
+                    }else{
+                        std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
                     }
                     pc += 4;
                     return;
@@ -285,10 +286,11 @@ void exec_op(Operation &op){
         case 7: // load
             switch(op.funct){
                 case 0: // lw
-                    for(int i=0; i<4; i++){
-                        load += memory[read_reg(op.rs1) + op.imm + i] << (8 * i);
+                    if(op.imm % 4 == 0){
+                        write_reg(op.rd, memory[read_reg(op.rs1) + op.imm / 4].i);
+                    }else{
+                        std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
                     }
-                    write_reg(op.rd, load);
                     pc += 4;
                     return;
                 default: break;
@@ -297,10 +299,11 @@ void exec_op(Operation &op){
         case 8: // load_fp
             switch(op.funct){
                 case 0: // flw
-                    for(int i=0; i<4; i++){
-                        u.i += memory[read_reg(op.rs1) + op.imm + i] << (8 * i);
+                    if(op.imm % 4 == 0){
+                        write_reg_fp(op.rd, memory[read_reg(op.rs1) + op.imm / 4].f);
+                    }else{
+                        std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
                     }
-                    write_reg_fp(op.rd, u.f);
                     pc += 4;
                     return;
                 default: break;
@@ -440,7 +443,7 @@ bool exec_command(std::string cmd){
             reg_fp_list[i] = 0;
         }
         for(int i=0; i<1000; i++){ // メモリをクリア
-            memory[i] = 0;
+            // memory[i] = 0;
         }
 
         std::cout << info << "simulation environment is now initialized" << std::endl;
@@ -541,7 +544,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
         int start = std::stoi(match[4].str());
         int width = std::stoi(match[5].str());
-        print_memory_word(start, start + width);
+        print_memory(start, width);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
@@ -678,14 +681,22 @@ int main(int argc, char *argv[]){
         timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
         timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
         timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-        output_filename = "./result/" + filename + (is_debug ? "_dbg" : "") + "_" + timestamp.str() + ".txt";
-
+        output_filename = "./result/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp.str() + ".txt";
         std::ofstream output_file(output_filename);
         if(!output_file){
             std::cerr << error << "could not open " << output_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }
-
         output_file << output.str();
+
+        std::string output_filename2 = "./result/" + filename + (is_debug ? "-dbg" : "") + "_dump_" + timestamp.str() + ".txt";
+        std::ofstream output_file2(output_filename2);
+        if(!output_file){
+            std::cerr << error << "could not open " << output_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        std::streambuf* strbuf = std::cout.rdbuf(output_file2.rdbuf());
+        print_memory(0, 1000);
+        std::cout.rdbuf(strbuf);
     }
 }

@@ -294,21 +294,13 @@ void print_reg_fp(){
     return;
 }
 
-void print_memory(int start, int end){
-    for(int i=start; i<end; i++)
-        std::cout << i << ":" << memory[i] << std::endl;
-    return;
-}
-
 // 4byteごとに出力
-void print_memory_word(int start, int end){
-    int v;
-    for(int i=start; i<end; i++){
-        v = 0;
-        for(int j=0; j<4; j++){
-            v += memory[4 * i + j] << (8 * j);  
-        }
-        std::cout << "mem[" << i << "]: " << v << std::endl;
+void print_memory(int start, int width){
+    for(int i=start; i<start+width; i++){
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::cout.fill('0');
+        std::cout << "mem[" << i << "]: " << memory[i].i << std::endl;
+        std::cout.setf(std::ios::dec, std::ios::basefield);
     }
     return;
 }

@@ -19,7 +19,7 @@ union Int_float{
 extern std::vector<Operation> op_list;
 extern std::vector<int> reg_list;
 extern std::vector<float> reg_fp_list;
-extern std::vector<int> memory;
+extern std::vector<Int_float> memory;
 
 extern std::string head;
 extern std::string error;
