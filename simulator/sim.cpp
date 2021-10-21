@@ -9,6 +9,7 @@
 #include <regex>
 #include <unistd.h>
 #include <iomanip>
+#include <bitset>
 
 // グローバル変数
 std::vector<Operation> op_list; // 命令のリスト(PC順)
@@ -41,7 +42,7 @@ std::string info = "\x1b[32mInfo: \x1b[0m";
 
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
-Operation parse_op(std::string code, int code_id){
+Operation parse_op(std::string code, int code_id, bool is_init){
     Operation op;
     int opcode, funct, rs1, rs2, rd;    
     opcode = std::stoi(code.substr(0, 4), 0, 2);
@@ -114,7 +115,7 @@ Operation parse_op(std::string code, int code_id){
     }
 
     // ラベル・ブレークポイントの処理
-    if (code.size() > 32){
+    if(is_init && code.size() > 32){
         if(is_debug){ // デバッグモード
             std::smatch match;
             if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)$"))){
@@ -237,6 +238,16 @@ void exec_op(Operation &op){
                 case 0: // sw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
+                    }else{
+                        std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                    }
+                    pc += 4;
+                    return;
+                case 1: // si
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        std::stringstream code;
+                        code << std::bitset<32>(read_reg(op.rs2));
+                        op_list[(read_reg(op.rs1) + op.imm) / 4] = parse_op(code.str(), 0, false);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
                     }
@@ -654,7 +665,7 @@ int main(int argc, char *argv[]){
         if(std::regex_match(code, std::regex("^\\s*\\r?\\n?$"))){ // 空行は無視
             continue;
         }else{
-            op_list.emplace_back(parse_op(code, code_id));
+            op_list.emplace_back(parse_op(code, code_id, true));
             code_id++;
         }
     }
