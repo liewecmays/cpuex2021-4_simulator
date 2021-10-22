@@ -316,12 +316,12 @@ let rec translate_code code untranslated op_id label_option =
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Std rs1 ->
-			if is_int rs1 then
+		| Std rs2 ->
+			if is_int rs2 then
 				let opcode = binary_of_int 4 4 in
 				let funct = binary_of_int 2 3 in
-				let rs1 = binary_of_int (int_of_reg rs1) 5 in
-				let rs2 = "00000" in
+				let rs1 = "00000" in
+				let rs2 = binary_of_int (int_of_reg rs2) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
@@ -341,12 +341,12 @@ let rec translate_code code untranslated op_id label_option =
 					Code (op_id, code, line_no, label_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Fstd rs1 ->
-			if is_float rs1 then
+		| Fstd rs2 ->
+			if is_float rs2 then
 				let opcode = binary_of_int 5 4 in
 				let funct = binary_of_int 2 3 in
-				let rs1 = binary_of_int (int_of_reg rs1) 5 in
-				let rs2 = "00000" in
+				let rs1 = "00000" in
+				let rs2 = binary_of_int (int_of_reg rs2) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, label_option, bp_option)
