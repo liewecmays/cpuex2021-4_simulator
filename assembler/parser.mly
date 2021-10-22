@@ -68,6 +68,7 @@ operation_: // 命令とその行番号の組を返す
 	| SI reg COMMA immediate LPAR reg RPAR { Si ($6, $2, $4) } // si rs2,offset(rs1)
 	| STD reg { Std $2 } // std rs1
 	| FSW reg COMMA immediate LPAR reg RPAR { Fsw ($6, $2, $4) } // fsw rs2,offset(rs1)
+	| FSTD reg { Fstd $2 } // fstd rs1
 	| ADDI reg COMMA reg COMMA immediate { Addi ($4, $2, $6) } // addi rd,rs1,imm
 	| SLLI reg COMMA reg COMMA immediate { Slli ($4, $2, $6) } // slli rd,rs1,imm
 	| SRLI reg COMMA reg COMMA immediate { Srli ($4, $2, $6) } // srli rd,rs1,imm

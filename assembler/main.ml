@@ -342,7 +342,7 @@ let rec translate_code code untranslated op_id label_option =
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fstd rs1 ->
-			if is_int rs1 then
+			if is_float rs1 then
 				let opcode = binary_of_int 5 4 in
 				let funct = binary_of_int 2 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
