@@ -2,6 +2,7 @@
 #include "util.hpp"
 #include <string>
 #include <vector>
+#include <queue>
 #include <boost/bimap/bimap.hpp>
 #include <iostream>
 #include <fstream>
@@ -10,6 +11,9 @@
 #include <unistd.h>
 #include <iomanip>
 #include <bitset>
+#include <thread>
+#include <boost/asio.hpp>
+
 
 // グローバル変数
 std::vector<Operation> op_list; // 命令のリスト(PC順)
@@ -22,6 +26,8 @@ bool breakpoint_skip = false;
 bool simulation_end = false; // シミュレーション終了判定
 int op_count = 0; // 命令のカウント
 int op_total = 0; // 命令の総数
+
+std::queue<int> receive_buffer; // 外部通信での受信バッファ
 
 typedef boost::bimaps::bimap<std::string, unsigned int> bimap_t;
 typedef bimap_t::value_type bimap_value_t;
@@ -40,6 +46,8 @@ std::string head = "\x1b[1m[sim]\x1b[0m ";
 std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
 std::string info = "\x1b[32mInfo: \x1b[0m";
 
+namespace asio = boost::asio;
+using asio::ip::tcp;
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string code, int code_id, bool is_init){
@@ -240,6 +248,7 @@ void exec_op(Operation &op){
                         memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
                     return;
@@ -250,8 +259,28 @@ void exec_op(Operation &op){
                         op_list[(read_reg(op.rs1) + op.imm) / 4] = parse_op(code.str(), 0, false);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
+                    return;
+                case 2: // std
+                    {
+                        asio::io_service io_service;
+                        tcp::socket socket(io_service);
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
+
+                        boost::system::error_code error;
+                        std::cout << read_reg(op.rs2) << std::endl;
+                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), error);
+
+                        if(error){
+                            std::cout << error << "send failed: " << error.message() << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+
+                        socket.close();
+                        pc += 4;
+                    }
                     return;
                 default: break;
             }
@@ -263,6 +292,7 @@ void exec_op(Operation &op){
                         memory[(read_reg(op.rs1) + op.imm) / 4].f = read_reg_fp(op.rs2);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
                     return;
@@ -301,7 +331,26 @@ void exec_op(Operation &op){
                         write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
                     }else{
                         std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
+                    pc += 4;
+                    return;
+                case 1: // lre
+                    write_reg(op.rd, receive_buffer.empty() ? 1 : 0);
+                    pc += 4;
+                    return;
+                case 2: // lrd
+                    if(!receive_buffer.empty()){
+                        write_reg(op.rd, receive_buffer.front());
+                        receive_buffer.pop();
+                    }else{
+                        std::cerr << error << "receive buffer is empty" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 3: // ltf
+                    write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
                     pc += 4;
                     return;
                 default: break;
@@ -619,6 +668,52 @@ bool exec_command(std::string cmd){
     return res;
 }
 
+// データの受信
+void receive(){
+    asio::io_service io_service;
+    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), 8000));
+    tcp::socket socket(io_service);
+
+    boost::system::error_code error;
+    while(true){
+        acc.accept(socket);
+
+        asio::streambuf buf;
+        asio::read(socket, buf, asio::transfer_all(), error);
+
+        if(error && error != asio::error::eof){
+            std::cerr << error << "receive failed (" << error.message() << ")" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }else{
+            std::string data = asio::buffer_cast<const char*>(buf.data());
+            if(is_debug){
+                std::cout << info << "received data: " << std::stoi(data) << std::endl;
+            }
+            receive_buffer.push(std::stoi(data));
+        }
+
+        socket.close();
+    }
+    
+    return;
+}
+
+// シミュレーションの本体処理
+void simulate(){
+    if(is_debug){ // デバッグモード
+        std::string cmd;
+        while(true){
+            std::cout << "# " << std::ends;    
+            std::getline(std::cin, cmd);
+            if(exec_command(cmd)) break;
+        }
+    }else{ // デバッグなしモード
+        exec_command("f");
+    }
+
+    return;
+}
+
 
 int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
@@ -669,17 +764,12 @@ int main(int argc, char *argv[]){
             code_id++;
         }
     }
-    
-    if(is_debug){ // デバッグモード
-        std::string cmd;
-        while(true){
-            std::cout << "# " << std::ends;    
-            std::getline(std::cin, cmd);
-            if(exec_command(cmd)) break;
-        }
-    }else{ // デバッグなしモード
-        exec_command("f");
-    }
+
+    // シミュレーションの処理と受信処理を別々のスレッドで起動
+    std::thread t1(simulate);
+    std::thread t2(receive);
+    t1.join();
+    t2.detach();
 
     // 実行結果の情報を出力
     if(is_out){
