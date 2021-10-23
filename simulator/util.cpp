@@ -170,7 +170,7 @@ std::string string_of_op(Operation &op){
                     break;
                 case 2: // std
                     res += "std ";
-                    res += ("rs1=x" + std::to_string(op.rs1));
+                    res += ("rs2=x" + std::to_string(op.rs2));
                     break;
                 default: return "";
             }
@@ -225,12 +225,15 @@ std::string string_of_op(Operation &op){
                 case 1: // lre
                     res += "lre ";
                     res += ("rd=x" + std::to_string(op.rd));
+                    break;
                 case 2: // lrd
                     res += "lrd ";
                     res += ("rd=x" + std::to_string(op.rd));
+                    break;
                 case 3: // ltf
                     res += "ltf ";
                     res += ("rd=x" + std::to_string(op.rd));
+                    break;
                 default: return "";
             }
             return res;

@@ -270,12 +270,13 @@ void exec_op(Operation &op){
                         socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
 
                         boost::system::error_code error;
-                        std::cout << read_reg(op.rs2) << std::endl;
                         asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), error);
 
                         if(error){
                             std::cout << error << "send failed: " << error.message() << std::endl;
                             std::exit(EXIT_FAILURE);
+                        }else{
+                            std::cout << "\x1b[44m[data sent: " << read_reg(op.rs2) << "]\x1b[0m" << std::endl;
                         }
 
                         socket.close();
@@ -687,7 +688,7 @@ void receive(){
         }else{
             std::string data = asio::buffer_cast<const char*>(buf.data());
             if(is_debug){
-                std::cout << info << "received data: " << std::stoi(data) << std::endl;
+                std::cout << "\x1b[44m[data received: " << data << "]\x1b[0m" << std::endl;
             }
             receive_buffer.push(std::stoi(data));
         }
