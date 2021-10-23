@@ -246,6 +246,7 @@ void exec_op(Operation &op){
                         memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
                     return;
@@ -256,6 +257,7 @@ void exec_op(Operation &op){
                         op_list[(read_reg(op.rs1) + op.imm) / 4] = parse_op(code.str(), 0, false);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
                     return;
@@ -269,6 +271,7 @@ void exec_op(Operation &op){
                         memory[(read_reg(op.rs1) + op.imm) / 4].f = read_reg_fp(op.rs2);
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
                     return;
@@ -307,7 +310,26 @@ void exec_op(Operation &op){
                         write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
                     }else{
                         std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
+                    pc += 4;
+                    return;
+                case 1: // lre
+                    write_reg(op.rd, receive_buffer.empty() ? 1 : 0);
+                    pc += 4;
+                    return;
+                case 2: // lrd
+                    if(!receive_buffer.empty()){
+                        write_reg(op.rd, receive_buffer.front());
+                        receive_buffer.pop();
+                    }else{
+                        std::cerr << error << "receive buffer is empty" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 3: // ltf
+                    write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
                     pc += 4;
                     return;
                 default: break;
@@ -647,7 +669,7 @@ void receive(){
         }else{
             std::string data = asio::buffer_cast<const char*>(buf.data());
             if(is_debug){
-                std::cout << "\n" << info << "received data: " << std::stoi(data) << "\n# " << std::ends;
+                std::cout << info << "received data:" << std::stoi(data) << std::endl;
             }
             receive_buffer.push(std::stoi(data));
         }
