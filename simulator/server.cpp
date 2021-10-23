@@ -34,7 +34,7 @@ void receive(){
             std::exit(EXIT_FAILURE);
         }else{
             std::string data = asio::buffer_cast<const char*>(buf.data());
-            std::cout << "\x1b[44m[data received: " << data << "]\x1b[0m" << std::endl;
+            std::cout << "\x1b[34m[data received: " << data << "]\x1b[0m" << std::endl;
             data_received.emplace_back(std::stoi(data));
         }
 

@@ -269,19 +269,19 @@ void exec_op(Operation &op){
                         tcp::socket socket(io_service);
                         socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
 
-                        boost::system::error_code error;
-                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), error);
+                        boost::system::error_code e;
+                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), e);
 
-                        if(error){
-                            std::cout << error << "send failed: " << error.message() << std::endl;
+                        if(e){
+                            std::cout << error << "send failed: " << e.message() << std::endl;
                             std::exit(EXIT_FAILURE);
                         }else{
-                            std::cout << "\x1b[44m[data sent: " << read_reg(op.rs2) << "]\x1b[0m" << std::endl;
+                            std::cout << "\x1b[34m[data sent: " << read_reg(op.rs2) << "]\x1b[0m" << std::endl;
                         }
 
                         socket.close();
-                        pc += 4;
                     }
+                    pc += 4;
                     return;
                 default: break;
             }
@@ -294,6 +294,28 @@ void exec_op(Operation &op){
                     }else{
                         std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 2: // fstd
+                    {
+                        asio::io_service io_service;
+                        tcp::socket socket(io_service);
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
+
+                        boost::system::error_code e;
+                        Int_float u;
+                        u.f = read_reg_fp(op.rs2);
+                        asio::write(socket, asio::buffer(std::to_string(u.i)), e);
+
+                        if(e){
+                            std::cout << error << "send failed: " << e.message() << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }else{
+                            std::cout << "\x1b[34m[data sent: " << u.f << "]\x1b[0m" << std::endl;
+                        }
+
+                        socket.close();
                     }
                     pc += 4;
                     return;
@@ -364,6 +386,18 @@ void exec_op(Operation &op){
                         write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
                     }else{
                         std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
+                    }
+                    pc += 4;
+                    return;
+                case 2: // lrd
+                    if(!receive_buffer.empty()){
+                        Int_float u;
+                        u.i = receive_buffer.front();
+                        write_reg_fp(op.rd, u.f);
+                        receive_buffer.pop();
+                    }else{
+                        std::cerr << error << "receive buffer is empty" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
                     return;
@@ -688,7 +722,7 @@ void receive(){
         }else{
             std::string data = asio::buffer_cast<const char*>(buf.data());
             if(is_debug){
-                std::cout << "\x1b[44m[data received: " << data << "]\x1b[0m" << std::endl;
+                std::cout << "\x1b[34m[data received: " << data << "]\x1b[0m" << std::endl;
             }
             receive_buffer.push(std::stoi(data));
         }
@@ -705,7 +739,7 @@ void simulate(){
         std::string cmd;
         while(true){
             std::cout << "# " << std::ends;    
-            std::getline(std::cin, cmd);
+            if(!std::getline(std::cin, cmd)) break;
             if(exec_command(cmd)) break;
         }
     }else{ // デバッグなしモード
