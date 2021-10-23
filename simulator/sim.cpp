@@ -41,10 +41,12 @@ bool is_debug = false;
 bool is_out = false;
 std::string output_filename;
 std::stringstream output;
+bool loop_flag = false;
 
 std::string head = "\x1b[1m[sim]\x1b[0m ";
-std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
-std::string info = "\x1b[32mInfo: \x1b[0m";
+std::string error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
+std::string info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
+std::string data = "\033[2D\x1b[34mData: \x1b[0m";
 
 namespace asio = boost::asio;
 using asio::ip::tcp;
@@ -276,7 +278,12 @@ void exec_op(Operation &op){
                             std::cout << error << "send failed: " << e.message() << std::endl;
                             std::exit(EXIT_FAILURE);
                         }else{
-                            std::cout << "\x1b[34m[data sent: " << read_reg(op.rs2) << "]\x1b[0m" << std::endl;
+                            if(is_debug){
+                                std::cout << data << "sent " << read_reg(op.rs2) << std::endl;
+                                if(!loop_flag){
+                                    std::cout << "# " << std::flush;
+                                }
+                            }
                         }
 
                         socket.close();
@@ -312,7 +319,12 @@ void exec_op(Operation &op){
                             std::cout << error << "send failed: " << e.message() << std::endl;
                             std::exit(EXIT_FAILURE);
                         }else{
-                            std::cout << "\x1b[34m[data sent: " << u.f << "]\x1b[0m" << std::endl;
+                            if(is_debug){
+                                std::cout << data << "sent " << u.f << std::endl;
+                                if(!loop_flag){
+                                    std::cout << "# " << std::flush;
+                                }
+                            }
                         }
 
                         socket.close();
@@ -510,6 +522,7 @@ bool exec_command(std::string cmd){
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(f|(finish))\\s*$"))){ // finish
+        loop_flag = true;
         breakpoint_skip = false;
         if(simulation_end){
             std::cout << info << "no operation is left to be simulated" << std::endl;
@@ -546,6 +559,7 @@ bool exec_command(std::string cmd){
         if(simulation_end){
             std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
+            loop_flag = true;
             bool end_flag = false;
             while(true){
                 if(bp_to_id.right.find(id_of_pc(pc)) != bp_to_id.right.end()){ // ブレークポイントに当たった場合は停止
@@ -553,6 +567,7 @@ bool exec_command(std::string cmd){
                         breakpoint_skip = false;
                     }else{
                         std::cout << info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(pc)) << "' (line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
+                        loop_flag = false;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
@@ -574,6 +589,7 @@ bool exec_command(std::string cmd){
         if(simulation_end){
             std::cout << info << "no operation is left to be simulated" << std::endl;
         }else{
+            loop_flag = true;
             std::string bp = match[3].str();
             if(bp_to_id.left.find(bp) != bp_to_id.left.end()){
                 unsigned int bp_id = bp_to_id.left.at(bp);
@@ -584,6 +600,7 @@ bool exec_command(std::string cmd){
                             breakpoint_skip = false;
                         }else{
                             std::cout << info << "halt before breakpoint '" + bp << "' (line " << id_of_pc(pc) + 1 << ")" << std::endl;
+                            loop_flag = false;
                             breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                             break;
                         }
@@ -720,11 +737,14 @@ void receive(){
             std::cerr << error << "receive failed (" << error.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            std::string data = asio::buffer_cast<const char*>(buf.data());
+            std::string res = asio::buffer_cast<const char*>(buf.data());
             if(is_debug){
-                std::cout << "\x1b[34m[data received: " << data << "]\x1b[0m" << std::endl;
+                std::cout << data << "received " << res << std::endl;
+                if(!loop_flag){
+                    std::cout << "# " << std::flush;
+                }
             }
-            receive_buffer.push(std::stoi(data));
+            receive_buffer.push(std::stoi(res));
         }
 
         socket.close();

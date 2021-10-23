@@ -9,8 +9,8 @@
 std::vector<int> data_received;
 
 std::string head = "\x1b[1m[server]\x1b[0m ";
-std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
-std::string info = "\x1b[32mInfo: \x1b[0m";
+std::string error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
+std::string data = "\033[2D\x1b[34mdata: \x1b[0m";
 
 namespace asio = boost::asio;
 using asio::ip::tcp;
@@ -29,13 +29,13 @@ void receive(){
         asio::read(socket, buf, asio::transfer_all(), e);
 
         if(e && e != asio::error::eof){
-            std::cout << "\033[1K" << "\033[2D" << std::ends;
             std::cerr << "receive failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            std::string data = asio::buffer_cast<const char*>(buf.data());
-            std::cout << "\x1b[34m[data received: " << data << "]\x1b[0m" << std::endl;
-            data_received.emplace_back(std::stoi(data));
+            std::string res = asio::buffer_cast<const char*>(buf.data());
+            std::cout << data << "received " << res << std::endl;
+            std::cout << "# " << std::flush;
+            data_received.emplace_back(std::stoi(res));
         }
 
         socket.close();
@@ -70,13 +70,13 @@ void server(){
 
             socket.close();
         }else if(std::regex_match(cmd, match, std::regex("^\\s*(info)\\s*$"))){
-            std::cout << "data: ";
+            std::cout << "data list: ";
             for(auto i : data_received){
                 std::cout << i << "; ";
             }
             std::cout << std::endl;
         }else{
-            std::cout << "invalid command" << std::endl;
+            std::cout << "invalid dataand" << std::endl;
         }
     }
 
