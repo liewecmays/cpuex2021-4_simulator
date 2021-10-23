@@ -46,6 +46,8 @@ std::string head = "\x1b[1m[sim]\x1b[0m ";
 std::string error = "\x1b[1m\x1b[31mError: \x1b[0m";
 std::string info = "\x1b[32mInfo: \x1b[0m";
 
+namespace asio = boost::asio;
+using asio::ip::tcp;
 
 // 機械語命令をパースする (ラベルやブレークポイントがある場合は処理する)
 Operation parse_op(std::string code, int code_id, bool is_init){
@@ -260,6 +262,25 @@ void exec_op(Operation &op){
                         std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
+                    return;
+                case 2: // std
+                    {
+                        asio::io_service io_service;
+                        tcp::socket socket(io_service);
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
+
+                        boost::system::error_code error;
+                        std::cout << read_reg(op.rs2) << std::endl;
+                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), error);
+
+                        if(error){
+                            std::cout << error << "send failed: " << error.message() << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+
+                        socket.close();
+                        pc += 4;
+                    }
                     return;
                 default: break;
             }
@@ -649,9 +670,6 @@ bool exec_command(std::string cmd){
 
 // データの受信
 void receive(){
-    namespace asio = boost::asio;
-    using asio::ip::tcp;
-    
     asio::io_service io_service;
     tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), 8000));
     tcp::socket socket(io_service);
@@ -669,7 +687,7 @@ void receive(){
         }else{
             std::string data = asio::buffer_cast<const char*>(buf.data());
             if(is_debug){
-                std::cout << info << "received data:" << std::stoi(data) << std::endl;
+                std::cout << info << "received data: " << std::stoi(data) << std::endl;
             }
             receive_buffer.push(std::stoi(data));
         }
