@@ -1,3 +1,5 @@
+all: sim server
+
 sim: util.hpp util.cpp sim.hpp sim.cpp
 	g++ -std=c++17 -Wall -O2 -pthread -o sim util.cpp sim.cpp -lboost_system
 
