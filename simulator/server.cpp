@@ -5,9 +5,11 @@
 #include <fstream>
 #include <sstream>
 #include <regex>
+#include <unistd.h>
 #include <thread>
 #include <boost/asio.hpp>
 
+int port = 8000; // 通信に使うポート番号
 std::vector<int> data_received; // 受け取ったデータのリスト
 
 std::string head = "\x1b[1m[server]\x1b[0m ";
@@ -20,7 +22,7 @@ using asio::ip::tcp;
 // データの受信
 void receive(){
     asio::io_service io_service;
-    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), 8001));
+    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), port+1));
     tcp::socket socket(io_service);
 
     boost::system::error_code e;
@@ -63,7 +65,7 @@ bool exec_command(std::string cmd){
         tcp::socket socket(io_service);
         boost::system::error_code e;
 
-        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8000), e);
+        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port), e);
         if(e){
             std::cout << error << "connection failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -127,7 +129,24 @@ void server(){
 }
 
 
-int main(){
+int main(int argc, char *argv[]){
+    // コマンドライン引数をパース
+    int option;
+    std::string filename;
+    while ((option = getopt(argc, argv, "dp:")) != -1){
+        switch(option){
+            case 'd':
+                // todo: debug mode
+                break;
+            case 'p':
+                port = std::stoi(std::string(optarg));
+                break;
+            default:
+                std::cerr << error << "Invalid command-line argument" << std::endl;
+                std::exit(EXIT_FAILURE);
+        }
+    }
+
     std::thread t1(server);
     std::thread t2(receive);
     t1.join();

@@ -27,6 +27,7 @@ bool simulation_end = false; // シミュレーション終了判定
 int op_count = 0; // 命令のカウント
 int op_total = 0; // 命令の総数
 
+int port = 8000; // 通信に使うポート番号
 std::queue<int> receive_buffer; // 外部通信での受信バッファ
 
 typedef boost::bimaps::bimap<std::string, unsigned int> bimap_t;
@@ -271,7 +272,7 @@ void exec_op(Operation &op){
                         tcp::socket socket(io_service);
                         boost::system::error_code e;
 
-                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001), e);
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port+1), e);
                         if(e){
                             std::cout << error << "connection failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
@@ -731,7 +732,7 @@ bool exec_command(std::string cmd){
 // データの受信
 void receive(){
     asio::io_service io_service;
-    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), 8000));
+    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), port));
     tcp::socket socket(io_service);
 
     boost::system::error_code e;
@@ -790,7 +791,7 @@ int main(int argc, char *argv[]){
     // コマンドライン引数をパース
     int option;
     std::string filename;
-    while ((option = getopt(argc, argv, "f:od")) != -1){
+    while ((option = getopt(argc, argv, "f:odp:")) != -1){
         switch(option){
             case 'f':
                 filename = std::string(optarg);
@@ -802,6 +803,9 @@ int main(int argc, char *argv[]){
             case 'd':
                 is_debug = true;
                 std::cout << head << "entering debug mode ..." << std::endl;
+                break;
+            case 'p':
+                port = std::stoi(std::string(optarg));
                 break;
             default:
                 std::cerr << error << "Invalid command-line argument" << std::endl;
