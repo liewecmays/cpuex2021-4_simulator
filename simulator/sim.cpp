@@ -249,7 +249,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
                     }else{
-                        std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::cerr << error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
@@ -260,7 +260,7 @@ void exec_op(Operation &op){
                         code << std::bitset<32>(read_reg(op.rs2));
                         op_list[(read_reg(op.rs1) + op.imm) / 4] = parse_op(code.str(), 0, false);
                     }else{
-                        std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::cerr << error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
@@ -269,20 +269,24 @@ void exec_op(Operation &op){
                     {
                         asio::io_service io_service;
                         tcp::socket socket(io_service);
-                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
-
                         boost::system::error_code e;
-                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), e);
 
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001), e);
                         if(e){
-                            std::cout << error << "send failed: " << e.message() << std::endl;
+                            std::cout << error << "connection failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
-                        }else{
-                            if(is_debug){
-                                std::cout << data << "sent " << read_reg(op.rs2) << std::endl;
-                                if(!loop_flag){
-                                    std::cout << "# " << std::flush;
-                                }
+                        }
+                        
+                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), e);
+                        if(e){
+                            std::cout << error << "data transmission failed (" << e.message() << ")" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+
+                        if(is_debug){
+                            std::cout << data << "sent " << read_reg(op.rs2) << std::endl;
+                            if(!loop_flag){
+                                std::cout << "# " << std::flush;
                             }
                         }
 
@@ -299,7 +303,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         memory[(read_reg(op.rs1) + op.imm) / 4].f = read_reg_fp(op.rs2);
                     }else{
-                        std::cerr << error << "immediate of store operation should be multiple of 4" << std::endl;
+                        std::cerr << error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
@@ -308,22 +312,26 @@ void exec_op(Operation &op){
                     {
                         asio::io_service io_service;
                         tcp::socket socket(io_service);
-                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
-
                         boost::system::error_code e;
+
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
+                        if(e){
+                            std::cout << error << "connection failed (" << e.message() << ")" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+                        
                         Int_float u;
                         u.f = read_reg_fp(op.rs2);
                         asio::write(socket, asio::buffer(std::to_string(u.i)), e);
-
                         if(e){
-                            std::cout << error << "send failed: " << e.message() << std::endl;
+                            std::cout << error << "data transmission failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
-                        }else{
-                            if(is_debug){
-                                std::cout << data << "sent " << u.f << std::endl;
-                                if(!loop_flag){
-                                    std::cout << "# " << std::flush;
-                                }
+                        }
+
+                        if(is_debug){
+                            std::cout << data << "sent " << u.f << std::endl;
+                            if(!loop_flag){
+                                std::cout << "# " << std::flush;
                             }
                         }
 
@@ -365,7 +373,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
                     }else{
-                        std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
+                        std::cerr << error << "address of load operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     pc += 4;
@@ -397,7 +405,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
                     }else{
-                        std::cerr << error << "immediate of load operation should be multiple of 4" << std::endl;
+                        std::cerr << error << "address of load operation should be multiple of 4" << std::endl;
                     }
                     pc += 4;
                     return;
@@ -726,26 +734,30 @@ void receive(){
     tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), 8000));
     tcp::socket socket(io_service);
 
-    boost::system::error_code error;
+    boost::system::error_code e;
     while(true){
-        acc.accept(socket);
+        acc.accept(socket, e);
+        if(e){
+            std::cerr << error << "connection failed (" << e.message() << ")" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
 
         asio::streambuf buf;
-        asio::read(socket, buf, asio::transfer_all(), error);
+        asio::read(socket, buf, asio::transfer_all(), e);
 
-        if(error && error != asio::error::eof){
-            std::cerr << error << "receive failed (" << error.message() << ")" << std::endl;
+        if(e && e != asio::error::eof){
+            std::cerr << error << "data reception failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
-        }else{
-            std::string res = asio::buffer_cast<const char*>(buf.data());
-            if(is_debug){
-                std::cout << data << "received " << res << std::endl;
-                if(!loop_flag){
-                    std::cout << "# " << std::flush;
-                }
-            }
-            receive_buffer.push(std::stoi(res));
         }
+
+        std::string res = asio::buffer_cast<const char*>(buf.data());
+        if(is_debug){
+            std::cout << data << "received " << res << std::endl;
+            if(!loop_flag){
+                std::cout << "# " << std::flush;
+            }
+        }
+        receive_buffer.push(std::stoi(res));
 
         socket.close();
     }
