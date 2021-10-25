@@ -1,7 +1,6 @@
 #pragma once
-#include "sim.hpp"
+#include "common.hpp"
 #include <string>
 
-Operation parse_op(std::string code, int code_id, bool is_init);
-void exec_op(Operation &op);
-std::string string_of_op(Operation &op);
+Operation parse_op(std::string code); // 機械語命令をパースする
+std::string string_of_op(Operation &op); // 命令を文字列に変換

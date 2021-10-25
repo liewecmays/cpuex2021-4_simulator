@@ -1,3 +1,5 @@
+#include "server.hpp"
+#include "util.hpp"
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -14,18 +16,7 @@ using asio::ip::tcp;
 /* グローバル変数 */
 int port = 8000; // 通信に使うポート番号
 std::vector<int> data_received; // 受け取ったデータのリスト
-
-// ターミナルへの出力用
-std::string head = "\x1b[1m[server]\x1b[0m ";
-std::string error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
-std::string info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
-std::string data = "\033[2D\x1b[34mData: \x1b[0m";
-
-
-/* プロトタイプ宣言 */
-void server(); // コマンド入力をもとにデータを送信
-bool exec_command(std::string cmd); // コマンドを読み、実行
-void receive(); // データの受信
+std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
 
 
 int main(int argc, char *argv[]){
@@ -41,7 +32,7 @@ int main(int argc, char *argv[]){
                 port = std::stoi(std::string(optarg));
                 break;
             default:
-                std::cerr << error << "Invalid command-line argument" << std::endl;
+                std::cerr << head_error << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
         }
     }
@@ -82,13 +73,13 @@ bool exec_command(std::string cmd){
 
         socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port), e);
         if(e){
-            std::cout << error << "connection failed (" << e.message() << ")" << std::endl;
+            std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
         asio::write(socket, asio::buffer(match[2].str()), e);
         if(e){
-            std::cout << error << "transmission failed (" << e.message() << ")" << std::endl;
+            std::cout << head_error << "transmission failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
@@ -98,7 +89,7 @@ bool exec_command(std::string cmd){
         std::string input_filename = "./data/" + filename + ".dat";
         std::ifstream input_file(input_filename);
         if(!input_file.is_open()){
-            std::cerr << error << "could not open " << input_filename << std::endl;
+            std::cerr << head_error << "could not open " << input_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
             std::cout << "opened file: ./data/" << filename << ".dat" << std::endl;
@@ -141,7 +132,7 @@ void receive(){
     while(true){
         acc.accept(socket, e);
         if(e){
-            std::cerr << error << "connection failed (" << e.message() << ")" << std::endl;
+            std::cerr << head_error << "connection failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
@@ -153,7 +144,7 @@ void receive(){
         }
 
         std::string res = asio::buffer_cast<const char*>(buf.data());
-        std::cout << data << "received " << res << std::endl;
+        std::cout << head_data << "received " << res << std::endl;
         std::cout << "# " << std::flush;
         data_received.emplace_back(std::stoi(res));
 

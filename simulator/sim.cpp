@@ -1,4 +1,5 @@
 #include "sim.hpp"
+#include "common.hpp"
 #include "util.hpp"
 #include "op.hpp"
 #include <string>
@@ -27,7 +28,6 @@ std::vector<Int_float> memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 int op_count = 0; // 命令のカウント
-int op_total = 0; // 命令の総数
 
 int port = 8000; // 通信に使うポート番号
 std::queue<int> receive_buffer; // 外部通信での受信バッファ
@@ -50,15 +50,6 @@ bool loop_flag = false;
 
 // ターミナルへの出力用
 std::string head = "\x1b[1m[sim]\x1b[0m ";
-std::string error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
-std::string info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
-std::string data = "\033[2D\x1b[34mData: \x1b[0m";
-
-
-/* プロトタイプ宣言 */
-void simulate(); // シミュレーションの本体処理
-bool exec_command(std::string cmd); // デバッグモードのコマンドを認識して実行
-void receive(); // データの受信
 
 
 int main(int argc, char *argv[]){
@@ -86,7 +77,7 @@ int main(int argc, char *argv[]){
                 port = std::stoi(std::string(optarg));
                 break;
             default:
-                std::cerr << error << "Invalid command-line argument" << std::endl;
+                std::cerr << head_error << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
         }
     }
@@ -98,7 +89,7 @@ int main(int argc, char *argv[]){
     std::string input_filename = "./code/" + filename + (is_debug ? ".dbg" : "");
     std::ifstream input_file(input_filename);
     if(!input_file.is_open()){
-        std::cerr << error << "could not open " << input_filename << std::endl;
+        std::cerr << head_error << "could not open " << input_filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
@@ -109,7 +100,34 @@ int main(int argc, char *argv[]){
         if(std::regex_match(code, std::regex("^\\s*\\r?\\n?$"))){ // 空行は無視
             continue;
         }else{
-            op_list.emplace_back(parse_op(code, code_id, true));
+            op_list.emplace_back(parse_op(code));
+            
+            // ラベル・ブレークポイントの処理
+            if(code.size() > 32){
+                if(is_debug){ // デバッグモード
+                    std::smatch match;
+                    if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)$"))){
+                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                        label_to_id.insert(bimap_value_t(match[2].str(), code_id));             
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                        bp_to_id.insert(bimap_value_t(match[2].str(), code_id));
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                        label_to_id.insert(bimap_value_t(match[2].str(), code_id));
+                        bp_to_id.insert(bimap_value_t(match[3].str(), code_id));
+                    }else{
+                        std::cerr << head_error << "could not parse the code" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
+                    std::cerr << head_error << "could not parse the code (maybe it is encoded in debug-style)" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+            }
+
             code_id++;
         }
     }
@@ -134,7 +152,7 @@ int main(int argc, char *argv[]){
         output_filename = "./result/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp.str() + ".txt";
         std::ofstream output_file(output_filename);
         if(!output_file){
-            std::cerr << error << "could not open " << output_filename << std::endl;
+            std::cerr << head_error << "could not open " << output_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }
         output_file << output.str();
@@ -142,7 +160,7 @@ int main(int argc, char *argv[]){
         std::string output_filename2 = "./result/" + filename + (is_debug ? "-dbg" : "") + "_dump_" + timestamp.str() + ".txt";
         std::ofstream output_file2(output_filename2);
         if(!output_file){
-            std::cerr << error << "could not open " << output_filename << std::endl;
+            std::cerr << head_error << "could not open " << output_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }
         std::streambuf* strbuf = std::cout.rdbuf(output_file2.rdbuf());
@@ -182,7 +200,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated" << std::endl;
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
@@ -193,13 +211,13 @@ bool exec_command(std::string cmd){
 
             if(end_flag){
                 simulation_end = true;
-                std::cout << info << "all operations have been simulated successfully!" << std::endl;
+                std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
             }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated" << std::endl;
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             for(int i=0; i<std::stoi(match[3].str()); i++){
@@ -210,7 +228,7 @@ bool exec_command(std::string cmd){
                 
                 if(end_flag){
                     simulation_end = true;
-                    std::cout << info << "all operations have been simulated successfully!" << std::endl;
+                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
@@ -219,7 +237,7 @@ bool exec_command(std::string cmd){
         loop_flag = true;
         breakpoint_skip = false;
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated" << std::endl;
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
             while(true){
@@ -230,7 +248,7 @@ bool exec_command(std::string cmd){
                 
                 if(end_flag){
                     simulation_end = true;
-                    std::cout << info << "all operations have been simulated successfully!" << std::endl;
+                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
@@ -248,10 +266,10 @@ bool exec_command(std::string cmd){
             // memory[i] = 0;
         }
 
-        std::cout << info << "simulation environment is now initialized" << std::endl;
+        std::cout << head_info << "simulation environment is now initialized" << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated" << std::endl;
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             loop_flag = true;
             bool end_flag = false;
@@ -260,7 +278,7 @@ bool exec_command(std::string cmd){
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(pc)) << "' (line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
+                        std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(pc)) << "' (line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         loop_flag = false;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
@@ -274,14 +292,14 @@ bool exec_command(std::string cmd){
                 
                 if(end_flag){
                     simulation_end = true;
-                    std::cout << info << "all operations have been simulated successfully!" << std::endl;
+                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
         if(simulation_end){
-            std::cout << info << "no operation is left to be simulated" << std::endl;
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             loop_flag = true;
             std::string bp = match[3].str();
@@ -293,7 +311,7 @@ bool exec_command(std::string cmd){
                         if(breakpoint_skip){
                             breakpoint_skip = false;
                         }else{
-                            std::cout << info << "halt before breakpoint '" + bp << "' (line " << id_of_pc(pc) + 1 << ")" << std::endl;
+                            std::cout << head_info << "halt before breakpoint '" + bp << "' (line " << id_of_pc(pc) + 1 << ")" << std::endl;
                             loop_flag = false;
                             breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                             break;
@@ -307,8 +325,8 @@ bool exec_command(std::string cmd){
                     
                     if(end_flag){
                         simulation_end = true;
-                        std::cout << info << "did not encounter breakpoint '" << bp << "'" << std::endl;
-                        std::cout << info << "all operations have been simulated successfully!" << std::endl;
+                        std::cout << head_info << "did not encounter breakpoint '" << bp << "'" << std::endl;
+                        std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                         break;
                     }
                 }
@@ -357,7 +375,7 @@ bool exec_command(std::string cmd){
         if(0 < reg_no && reg_no < 31){
             write_reg(reg_no, val);
         }else{
-            std::cout << error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
+            std::cout << head_error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break label
         std::string label = match[3].str();
@@ -365,12 +383,12 @@ bool exec_command(std::string cmd){
             if(bp_to_id.left.find(label) == bp_to_id.left.end()){
                 int label_id = label_to_id.left.at(label); // 0-indexed
                 bp_to_id.insert(bimap_value_t(label, label_id));
-                std::cout << info << "breakpoint '" << label << "' is now set (at pc " << label_id * 4 << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
+                std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id * 4 << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
             }else{
-                std::cout << error << "breakpoint '" << label << "' has already been set" << std::endl;  
+                std::cout << head_error << "breakpoint '" << label << "' has already been set" << std::endl;  
             }
         }else{
-            std::cout << error << "label '" << label << "' is not found" << std::endl;
+            std::cout << head_error << "label '" << label << "' is not found" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break N id (Nはアセンブリコードの行数)
         unsigned int line_no = std::stoi(match[3].str());
@@ -382,36 +400,364 @@ bool exec_command(std::string cmd){
                     if(bp_to_id.left.find(bp) == bp_to_id.left.end()){ // そのブレークポイント名は使われていない？
                         if(label_to_id.left.find(bp) == label_to_id.left.end()){ // そのブレークポイント名はラベル名と重複していない？
                             bp_to_id.insert(bimap_value_t(bp, id));
-                            std::cout << info << "breakpoint '" << bp << "' is now set to line " << line_no << std::endl;
+                            std::cout << head_info << "breakpoint '" << bp << "' is now set to line " << line_no << std::endl;
                         }else{
-                            std::cout << error << "'" << bp << "' is a label name and cannot be used as a breakpoint id" << std::endl;
+                            std::cout << head_error << "'" << bp << "' is a label name and cannot be used as a breakpoint id" << std::endl;
                         }
                     }else{
-                        std::cout << error << "breakpoint id '" << bp << "' has already been used for another line" << std::endl;
+                        std::cout << head_error << "breakpoint id '" << bp << "' has already been used for another line" << std::endl;
                     } 
                 }else{
                     std::string label = label_to_id.right.at(id);
-                    std::cout << error << "line " << line_no << " is labeled '" << label << "' (hint: exec 'break " << label << "')" << std::endl;
+                    std::cout << head_error << "line " << line_no << " is labeled '" << label << "' (hint: exec 'break " << label << "')" << std::endl;
                 }   
             }else{
-                std::cout << error << "a breakpoint has already been set to line " << line_no << std::endl;
+                std::cout << head_error << "a breakpoint has already been set to line " << line_no << std::endl;
             }
         }else{
-            std::cout << error << "invalid line number" << std::endl;
+            std::cout << head_error << "invalid line number" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(delete))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // delete id
         std::string bp_id = match[3].str();
         if(bp_to_id.left.find(bp_id) != bp_to_id.left.end()){
             bp_to_id.left.erase(bp_id);
-            std::cout << info << "breakpoint '" << bp_id << "' is now deleted" << std::endl;
+            std::cout << head_info << "breakpoint '" << bp_id << "' is now deleted" << std::endl;
         }else{
-            std::cout << error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
+            std::cout << head_error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
         }
     }else{
-        std::cout << error << "invalid command" << std::endl;
+        std::cout << head_error << "invalid command" << std::endl;
     }
 
     return res;
+}
+
+// 命令を実行し、PCを変化させる
+void exec_op(Operation &op){
+    if(is_out){
+        if(is_debug){
+            output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << string_of_op(op) << ")\n";
+        }else{
+            output << op_count << ": pc " << pc << " (" << string_of_op(op) << ")\n";
+        }
+    }
+
+    switch(op.opcode){
+        case 0: // op
+            switch(op.funct){
+                case 0: // add
+                    write_reg(op.rd, read_reg(op.rs1) + read_reg(op.rs2));
+                    pc += 4;
+                    return;
+                case 1: // sub
+                    write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
+                    pc += 4;
+                    return;
+                case 2: // sll
+                    write_reg(op.rd, read_reg(op.rs1) << read_reg(op.rs2));
+                    pc += 4;
+                    return;
+                case 3: // srl
+                    write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> read_reg(op.rs2));
+                    pc += 4;
+                    return;
+                case 4: // sra
+                    write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
+                    pc += 4;
+                    return;
+                case 5: // andi
+                    write_reg(op.rd, read_reg(op.rs1) & read_reg(op.rs2));
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 1: // op_fp todo: 仕様に沿っていないので注意
+            switch(op.funct){
+                case 0: // fadd
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 1: // fsub
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 2: // fmul
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 3: // fdiv
+                    write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
+                    pc += 4;
+                    return;
+                case 4: // fsqrt
+                    write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
+                    pc += 4;
+                    return;
+            }
+            break;
+        case 2: // branch
+            switch(op.funct){
+                case 0: // beq
+                    read_reg(op.rs1) == read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                case 1: // blt
+                    read_reg(op.rs1) < read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                case 2: // ble
+                    read_reg(op.rs1) <= read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 3: // branch_fp
+            switch(op.funct){
+                case 0: // fbeq
+                    read_reg_fp(op.rs1) == read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                case 1: // fblt
+                    read_reg_fp(op.rs1) < read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 4: // store
+            switch(op.funct){
+                case 0: // sw
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
+                    }else{
+                        std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 1: // si
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        std::stringstream code;
+                        code << std::bitset<32>(read_reg(op.rs2));
+                        op_list[(read_reg(op.rs1) + op.imm) / 4] = parse_op(code.str());
+                    }else{
+                        std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 2: // std
+                    {
+                        asio::io_service io_service;
+                        tcp::socket socket(io_service);
+                        boost::system::error_code e;
+
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port+1), e);
+                        if(e){
+                            std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+                        
+                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), e);
+                        if(e){
+                            std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+
+                        if(is_debug){
+                            std::cout << head_data << "sent " << read_reg(op.rs2) << std::endl;
+                            if(!loop_flag){
+                                std::cout << "# " << std::flush;
+                            }
+                        }
+
+                        socket.close();
+                    }
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 5: // store_fp
+            switch(op.funct){
+                case 0: // fsw
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        memory[(read_reg(op.rs1) + op.imm) / 4].f = read_reg_fp(op.rs2);
+                    }else{
+                        std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 2: // fstd
+                    {
+                        asio::io_service io_service;
+                        tcp::socket socket(io_service);
+                        boost::system::error_code e;
+
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
+                        if(e){
+                            std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+                        
+                        Int_float u;
+                        u.f = read_reg_fp(op.rs2);
+                        asio::write(socket, asio::buffer(std::to_string(u.i)), e);
+                        if(e){
+                            std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+
+                        if(is_debug){
+                            std::cout << head_data << "sent " << u.f << std::endl;
+                            if(!loop_flag){
+                                std::cout << "# " << std::flush;
+                            }
+                        }
+
+                        socket.close();
+                    }
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 6: // op_imm
+            switch(op.funct){
+                case 0: // addi
+                    write_reg(op.rd, read_reg(op.rs1) + op.imm);
+                    pc += 4;
+                    return;
+                case 2: // slli
+                    write_reg(op.rd, read_reg(op.rs1) << op.imm);
+                    pc += 4;
+                    return;
+                case 3: // srli
+                    write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> op.imm);
+                    pc += 4;
+                    return;
+                case 4: // srai
+                    write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
+                    pc += 4;
+                    return;
+                case 5: // andi
+                    write_reg(op.rd, read_reg(op.rs1) & op.imm);
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 7: // load
+            switch(op.funct){
+                case 0: // lw
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
+                    }else{
+                        std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 1: // lre
+                    write_reg(op.rd, receive_buffer.empty() ? 1 : 0);
+                    pc += 4;
+                    return;
+                case 2: // lrd
+                    if(!receive_buffer.empty()){
+                        write_reg(op.rd, receive_buffer.front());
+                        receive_buffer.pop();
+                    }else{
+                        std::cerr << head_error << "receive buffer is empty" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                case 3: // ltf
+                    write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 8: // load_fp
+            switch(op.funct){
+                case 0: // flw
+                    if((read_reg(op.rs1) + op.imm) % 4 == 0){
+                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
+                    }else{
+                        std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
+                    }
+                    pc += 4;
+                    return;
+                case 2: // lrd
+                    if(!receive_buffer.empty()){
+                        Int_float u;
+                        u.i = receive_buffer.front();
+                        write_reg_fp(op.rd, u.f);
+                        receive_buffer.pop();
+                    }else{
+                        std::cerr << head_error << "receive buffer is empty" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 9: // jalr
+            write_reg(op.rd, pc + 4);
+            pc = read_reg(op.rs1) + op.imm * 4;
+            return;
+        case 10: // jal
+            write_reg(op.rd, pc + 4);
+            pc += op.imm * 4;
+            return;
+        case 11: // long_imm
+            switch(op.funct){
+                case 0: // lui
+                    write_reg(op.rd, op.imm << 12);
+                    pc += 4;
+                    return;
+                case 1: // auipc
+                    write_reg(op.rd, pc + (op.imm << 12));
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 12: // itof
+            switch(op.funct){
+                Int_float u;
+                case 0: // fmv.i.f
+                    u.i = read_reg(op.rs1);
+                    write_reg_fp(op.rd, u.f);
+                    pc += 4;
+                    return;
+                case 5: // fcvt.i.f
+                    write_reg_fp(op.rd, static_cast<float>(read_reg(op.rs1)));
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        case 13: // ftoi
+            switch(op.funct){
+                Int_float u;
+                case 0: // fmv.f.i
+                    u.f = read_reg_fp(op.rs1);
+                    write_reg(op.rd, u.i);
+                    pc += 4;
+                    return;
+                case 6: // fcvt.f.i
+                    write_reg(op.rd, static_cast<int>(read_reg_fp(op.rs1)));
+                    pc += 4;
+                    return;
+                default: break;
+            }
+            break;
+        default: break;
+    }
+
+    std::cerr << head_error << "error in executing the code" << std::endl;
+    std::exit(EXIT_FAILURE);
 }
 
 // データの受信
@@ -424,7 +770,7 @@ void receive(){
     while(true){
         acc.accept(socket, e);
         if(e){
-            std::cerr << error << "connection failed (" << e.message() << ")" << std::endl;
+            std::cerr << head_error << "connection failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
@@ -432,13 +778,13 @@ void receive(){
         asio::read(socket, buf, asio::transfer_all(), e);
 
         if(e && e != asio::error::eof){
-            std::cerr << error << "data reception failed (" << e.message() << ")" << std::endl;
+            std::cerr << head_error << "data reception failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
         std::string res = asio::buffer_cast<const char*>(buf.data());
         if(is_debug){
-            std::cout << data << "received " << res << std::endl;
+            std::cout << head_data << "received " << res << std::endl;
             if(!loop_flag){
                 std::cout << "# " << std::flush;
             }
@@ -449,4 +795,80 @@ void receive(){
     }
     
     return;
+}
+
+// PCから命令IDへの変換(4の倍数になっていない場合エラー)
+unsigned int id_of_pc(unsigned int n){
+    if(n % 4 == 0){
+        return n / 4;
+    }else{
+        std::cerr << head_error << "error with program counter" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+// 整数レジスタから読む
+int read_reg(int i){
+    return i == 0 ? 0 : reg_list[i];
+}
+
+// 整数レジスタに書き込む
+void write_reg(int i, int v){
+    if (i != 0) reg_list[i] = v;
+    return;
+}
+
+// 浮動小数点数レジスタから読む
+float read_reg_fp(int i){
+    return i == 0 ? 0 : reg_fp_list[i];
+}
+
+// 浮動小数点数レジスタに書き込む
+void write_reg_fp(int i, float v){
+    if (i != 0) reg_fp_list[i] = v;
+    return;
+}
+
+// 整数レジスタの内容を表示
+void print_reg(){
+    for(int i=0; i<32; i++){
+        std::cout << "\x1b[1mx" << i << "\x1b[0m:" << std::ends;
+        if(i < 10) std::cout << " " << std::ends;
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::cout.fill('0');
+        std::cout << std::setw(8) << reg_list[i] << " " << std::ends;
+        std::cout.setf(std::ios::dec, std::ios::basefield);
+        if(i % 4 == 3) std::cout << std::endl;
+    }
+    return;
+}
+
+// 浮動小数点数レジスタの内容を表示
+void print_reg_fp(){
+    for(int i=0; i<32; i++){
+        std::cout << "\x1b[1mf" << i << "\x1b[0m:" << std::ends;
+        if(i < 10) std::cout << " " << std::ends;
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::cout.fill('0');
+        std::cout << std::setw(8) << *((int*)&(reg_fp_list[i])) << " " << std::ends;
+        std::cout.setf(std::ios::dec, std::ios::basefield);
+        if(i % 4 == 3) std::cout << std::endl;
+    }
+    return;
+}
+
+// startからwidthぶん、4byte単位でメモリの内容を出力
+void print_memory(int start, int width){
+    for(int i=start; i<start+width; i++){
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::cout.fill('0');
+        std::cout << "mem[" << i << "]: " << memory[i].i << std::endl;
+        std::cout.setf(std::ios::dec, std::ios::basefield);
+    }
+    return;
+}
+
+// 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
+bool is_end(Operation op){
+    return (op.opcode == 10) && (op.funct == -1) && (op.rs1 = -1) && (op.rs2 == -1) && (op.rd == 0) && (op.imm == 0);
 }
