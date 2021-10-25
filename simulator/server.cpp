@@ -66,7 +66,7 @@ bool exec_command(std::string cmd){
         // do nothing
     }else if(std::regex_match(cmd, std::regex("^\\s*(q|(quit))\\s*$"))){ // quit
         res = true;
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(\\d+)\\s*$"))){ // send N
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(.+)\\s*$"))){ // send N
         asio::io_service io_service;
         tcp::socket socket(io_service);
         boost::system::error_code e;
@@ -77,7 +77,16 @@ bool exec_command(std::string cmd){
             std::exit(EXIT_FAILURE);
         }
 
-        asio::write(socket, asio::buffer(match[2].str()), e);
+        std::string input = match[2].str();
+        std::string data;
+        if(std::regex_match(input, std::regex("\\d+"))){
+            data = binary_itos(std::stoi(input));
+        }else{
+            std::cout << head_error << "invalud argument for 'send'" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        asio::write(socket, asio::buffer(data), e);
         if(e){
             std::cout << head_error << "transmission failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -116,7 +125,7 @@ bool exec_command(std::string cmd){
         }
         std::cout << std::endl;
     }else{
-        std::cout << "invalid dataand" << std::endl;
+        std::cout << head_error << "invalid command" << std::endl;
     }
 
     return res;
@@ -143,10 +152,10 @@ void receive(){
             std::exit(EXIT_FAILURE);
         }
 
-        std::string res = asio::buffer_cast<const char*>(buf.data());
-        std::cout << head_data << "received " << res << std::endl;
+        std::string data = asio::buffer_cast<const char*>(buf.data());
+        std::cout << head_data << "received " << data << std::endl;
         std::cout << "# " << std::flush;
-        data_received.emplace_back(std::stoi(res));
+        data_received.emplace_back(binary_stoi(data));
 
         socket.close();
     }

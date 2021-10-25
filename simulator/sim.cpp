@@ -555,7 +555,7 @@ void exec_op(Operation &op){
                             std::exit(EXIT_FAILURE);
                         }
                         
-                        asio::write(socket, asio::buffer(std::to_string(read_reg(op.rs2))), e);
+                        asio::write(socket, asio::buffer(binary_itos(read_reg(op.rs2))), e);
                         if(e){
                             std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
@@ -592,22 +592,20 @@ void exec_op(Operation &op){
                         tcp::socket socket(io_service);
                         boost::system::error_code e;
 
-                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), 8001));
+                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port+1));
                         if(e){
                             std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
                         }
                         
-                        Int_float u;
-                        u.f = read_reg_fp(op.rs2);
-                        asio::write(socket, asio::buffer(std::to_string(u.i)), e);
+                        asio::write(socket, asio::buffer(binary_ftos(read_reg_fp(op.rs2))), e);
                         if(e){
                             std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
                         }
 
                         if(is_debug){
-                            std::cout << head_data << "sent " << u.f << std::endl;
+                            std::cout << head_data << "sent " << read_reg_fp(op.rs2) << std::endl;
                             if(!loop_flag){
                                 std::cout << "# " << std::flush;
                             }
@@ -782,14 +780,14 @@ void receive(){
             std::exit(EXIT_FAILURE);
         }
 
-        std::string res = asio::buffer_cast<const char*>(buf.data());
+        std::string data = asio::buffer_cast<const char*>(buf.data());
         if(is_debug){
-            std::cout << head_data << "received " << res << std::endl;
+            std::cout << head_data << "received " << data << std::endl;
             if(!loop_flag){
                 std::cout << "# " << std::flush;
             }
         }
-        receive_buffer.push(std::stoi(res));
+        receive_buffer.push(binary_stoi(data));
 
         socket.close();
     }

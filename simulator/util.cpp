@@ -1,5 +1,8 @@
 #include "util.hpp"
+#include "common.hpp"
 #include <string>
+#include <iostream>
+#include <bitset>
 
 // ターミナルへの出力用
 std::string head_error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
@@ -8,6 +11,11 @@ std::string head_data = "\033[2D\x1b[34mData: \x1b[0m";
 
 // 2進数を表す文字列から整数に変換
 int binary_stoi(std::string s){
+    if(s == ""){
+        std::cerr << head_error << "invalid input to 'binary_stoi'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
     int length = s.size(), res = 0, d;
     if(s[0] == '0'){ // 正数
         d = 1 << (length - 2);
@@ -28,4 +36,18 @@ int binary_stoi(std::string s){
         res = res - (1 << 31);
     }
     return res;
+}
+
+// 10進数を2進数の文字列へと変換
+std::string binary_itos(int i){
+    std::bitset<32> bs(i);
+    return bs.to_string();
+}
+
+// 浮動小数点数を2進数の文字列へと変換
+std::string binary_ftos(float f){
+    Int_float u;
+    u.f = f;
+    std::bitset<32> bs(u.i);
+    return bs.to_string();
 }
