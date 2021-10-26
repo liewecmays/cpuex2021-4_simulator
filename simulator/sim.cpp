@@ -24,13 +24,13 @@ using asio::ip::tcp;
 std::vector<Operation> op_list; // 命令のリスト(PC順)
 std::vector<int> reg_list(32); // 整数レジスタのリスト
 std::vector<float> reg_fp_list(32); // 浮動小数レジスタのリスト
-std::vector<Int_float> memory; // メモリ領域
+std::vector<Bit32> memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 int op_count = 0; // 命令のカウント
 
 int port = 8000; // 通信に使うポート番号
-std::queue<int> receive_buffer; // 外部通信での受信バッファ
+std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
@@ -263,7 +263,7 @@ bool exec_command(std::string cmd){
             reg_fp_list[i] = 0;
         }
         for(int i=0; i<1000; i++){ // メモリをクリア
-            // memory[i] = 0;
+            memory[i] = Bit32(0);
         }
 
         std::cout << head_info << "simulation environment is now initialized" << std::endl;
@@ -525,7 +525,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // sw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        memory[(read_reg(op.rs1) + op.imm) / 4].i = read_reg(op.rs2);
+                        memory[(read_reg(op.rs1) + op.imm) / 4] = Bit32(read_reg(op.rs2));
                     }else{
                         std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -579,7 +579,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // fsw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        memory[(read_reg(op.rs1) + op.imm) / 4].f = read_reg_fp(op.rs2);
+                        memory[(read_reg(op.rs1) + op.imm) / 4] = Bit32(read_reg_fp(op.rs2));
                     }else{
                         std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -647,7 +647,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // lw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
+                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].to_int());
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -660,7 +660,7 @@ void exec_op(Operation &op){
                     return;
                 case 2: // lrd
                     if(!receive_buffer.empty()){
-                        write_reg(op.rd, receive_buffer.front());
+                        write_reg(op.rd, receive_buffer.front().to_int());
                         receive_buffer.pop();
                     }else{
                         std::cerr << head_error << "receive buffer is empty" << std::endl;
@@ -679,7 +679,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // flw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
+                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].to_float());
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
                     }
@@ -687,9 +687,7 @@ void exec_op(Operation &op){
                     return;
                 case 2: // lrd
                     if(!receive_buffer.empty()){
-                        Int_float u;
-                        u.i = receive_buffer.front();
-                        write_reg_fp(op.rd, u.f);
+                        write_reg(op.rd, receive_buffer.front().to_float());
                         receive_buffer.pop();
                     }else{
                         std::cerr << head_error << "receive buffer is empty" << std::endl;
@@ -787,7 +785,7 @@ void receive(){
                 std::cout << "# " << std::flush;
             }
         }
-        receive_buffer.push(binary_stoi(data));
+        receive_buffer.push(Bit32(binary_stoi(data)));
 
         socket.close();
     }
@@ -860,7 +858,7 @@ void print_memory(int start, int width){
     for(int i=start; i<start+width; i++){
         std::cout.setf(std::ios::hex, std::ios::basefield);
         std::cout.fill('0');
-        std::cout << "mem[" << i << "]: " << memory[i].i << std::endl;
+        std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
         std::cout.setf(std::ios::dec, std::ios::basefield);
     }
     return;

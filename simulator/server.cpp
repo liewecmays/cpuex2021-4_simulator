@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "common.hpp"
 #include "util.hpp"
 #include <string>
 #include <iostream>
@@ -15,7 +16,7 @@ using asio::ip::tcp;
 
 /* グローバル変数 */
 int port = 8000; // 通信に使うポート番号
-std::vector<int> data_received; // 受け取ったデータのリスト
+std::vector<Bit32> data_received; // 受け取ったデータのリスト
 std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
 
 
@@ -120,8 +121,8 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(info)\\s*$"))){ // info
         std::cout << "data list: ";
-        for(auto i : data_received){
-            std::cout << i << "; ";
+        for(auto i_f : data_received){
+            std::cout << i_f.to_string() << "; ";
         }
         std::cout << std::endl;
     }else{
@@ -155,7 +156,7 @@ void receive(){
         std::string data = asio::buffer_cast<const char*>(buf.data());
         std::cout << head_data << "received " << data << std::endl;
         std::cout << "# " << std::flush;
-        data_received.emplace_back(binary_stoi(data));
+        data_received.emplace_back(Bit32(binary_stoi(data)));
 
         socket.close();
     }
