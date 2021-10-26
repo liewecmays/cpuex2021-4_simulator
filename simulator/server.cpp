@@ -144,7 +144,7 @@ bool exec_command(std::string cmd){
         while(std::getline(input_file, line)){
             line_count++;
         }
-        std::string line_count_b = binary_of_int(line_count);
+        std::string line_count_b = binary_of_int(line_count*4);
         for(int i=0; i<4; i++){
             exec_command("send 0b" + line_count_b.substr(i*8, 8));
         }

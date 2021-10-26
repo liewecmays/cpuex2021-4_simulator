@@ -27,15 +27,28 @@ enum class Type{
     t_float
 };
 
+// 文字列変換の際に指定対象となる型
+enum class Stype{
+    t_default,
+    t_dec,
+    t_bin,
+    t_hex,
+    t_float,
+    t_op
+};
+
 // 整数と浮動小数の共用体を模したクラス
 class Bit32{
     public:
         int v; // 内部的にはint
         Type t; // 値の(本当の)型
+        Bit32();
         Bit32(int i);
         Bit32(int i, Type t);
         Bit32(float f);
         int to_int();
         float to_float();
         std::string to_string();
+        std::string to_string(Stype t);
+        std::string to_string(Stype t, const int len);
 };

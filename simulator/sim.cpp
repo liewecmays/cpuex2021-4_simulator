@@ -21,8 +21,8 @@ using asio::ip::tcp;
 /* グローバル変数 */
 // 内部処理関係
 std::vector<Operation> op_list; // 命令のリスト(PC順)
-std::vector<int> reg_list(32); // 整数レジスタのリスト
-std::vector<float> reg_fp_list(32); // 浮動小数レジスタのリスト
+std::vector<Bit32> reg_list(32); // 整数レジスタのリスト
+std::vector<Bit32> reg_fp_list(32); // 浮動小数レジスタのリスト
 std::vector<Bit32> memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
@@ -79,6 +79,12 @@ int main(int argc, char *argv[]){
                 std::cerr << head_error << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
         }
+    }
+
+    // レジスタの初期化
+    for(int i=0; i<32; i++){ // レジスタをクリア
+        reg_list[i] = Bit32(0, Type::t_int);
+        reg_fp_list[i] = Bit32(0, Type::t_float);
     }
 
     // メモリ領域の確保
@@ -258,8 +264,8 @@ bool exec_command(std::string cmd){
         pc = 0; // PCを0にする
         op_count = 0; // 総実行命令数を0にする
         for(int i=0; i<32; i++){ // レジスタをクリア
-            reg_list[i] = 0;
-            reg_fp_list[i] = 0;
+            reg_list[i] = Bit32(0, Type::t_int);
+            reg_fp_list[i] = Bit32(0, Type::t_float);
         }
         for(int i=0; i<1000; i++){ // メモリをクリア
             memory[i] = Bit32(0);
@@ -353,14 +359,25 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
         print_reg();
         print_reg_fp();
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(x|f)(\\d+))+\\s*$"))){ // print reg
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
         int reg_no;
+        Stype st = Stype::t_default;
+        char option = match[4].str().front();
+        switch(option){
+            case 'd': st = Stype::t_dec; break;
+            case 'b': st = Stype::t_bin; break;
+            case 'h': st = Stype::t_hex; break;
+            case 'f': st = Stype::t_float; break;
+            case 'o': st = Stype::t_op; break;
+            default: break;
+        }
+
         while(std::regex_search(cmd, match, std::regex("(x|f)(\\d+)"))){
             reg_no = std::stoi(match[2].str());
             if(match[1].str() == "x"){ // int
-                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no] << std::endl;
+                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no].to_string(st) << std::endl;
             }else{ // float
-                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << std::setprecision(10) << reg_fp_list[reg_no] << std::endl;
+                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp_list[reg_no].to_string(st) << std::endl;
             }
             cmd = match.suffix();
         }
@@ -804,23 +821,23 @@ unsigned int id_of_pc(unsigned int n){
 
 // 整数レジスタから読む
 int read_reg(int i){
-    return i == 0 ? 0 : reg_list[i];
+    return i == 0 ? 0 : reg_list[i].to_int();
 }
 
 // 整数レジスタに書き込む
 void write_reg(int i, int v){
-    if (i != 0) reg_list[i] = v;
+    if (i != 0) reg_list[i] = Bit32(v);
     return;
 }
 
 // 浮動小数点数レジスタから読む
 float read_reg_fp(int i){
-    return i == 0 ? 0 : reg_fp_list[i];
+    return i == 0 ? 0 : reg_fp_list[i].to_float();
 }
 
 // 浮動小数点数レジスタに書き込む
 void write_reg_fp(int i, float v){
-    if (i != 0) reg_fp_list[i] = v;
+    if (i != 0) reg_fp_list[i] = Bit32(v);
     return;
 }
 
@@ -831,7 +848,7 @@ void print_reg(){
         if(i < 10) std::cout << " " << std::ends;
         std::cout.setf(std::ios::hex, std::ios::basefield);
         std::cout.fill('0');
-        std::cout << std::setw(8) << reg_list[i] << " " << std::ends;
+        std::cout << reg_list[i].to_string() << " " << std::ends;
         std::cout.setf(std::ios::dec, std::ios::basefield);
         if(i % 4 == 3) std::cout << std::endl;
     }
