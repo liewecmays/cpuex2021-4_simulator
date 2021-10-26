@@ -26,6 +26,7 @@ bool breakpoint_skip = false;
 bool simulation_end = false; // シミュレーション終了判定
 int op_count = 0; // 命令のカウント
 int op_total = 0; // 命令の総数
+int mem_size = 1000; // メモリサイズ
 
 std::queue<int> receive_buffer; // 外部通信での受信バッファ
 
@@ -790,7 +791,7 @@ int main(int argc, char *argv[]){
     // コマンドライン引数をパース
     int option;
     std::string filename;
-    while ((option = getopt(argc, argv, "f:od")) != -1){
+    while ((option = getopt(argc, argv, "f:odm:")) != -1){
         switch(option){
             case 'f':
                 filename = std::string(optarg);
@@ -803,6 +804,9 @@ int main(int argc, char *argv[]){
                 is_debug = true;
                 std::cout << head << "entering debug mode ..." << std::endl;
                 break;
+            case 'm':
+                mem_size = std::stoi(std::string(optarg));
+                break;
             default:
                 std::cerr << error << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -810,7 +814,7 @@ int main(int argc, char *argv[]){
     }
 
     // メモリ領域の確保
-    memory.reserve(1000); // todo: サイズを入力で変更できるようにする
+    memory.resize(mem_size);
 
     // ファイルを読む
     std::string input_filename = "./code/" + filename + (is_debug ? ".dbg" : "");
