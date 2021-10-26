@@ -34,6 +34,7 @@ std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
 bool is_out = false; // 出力モード
+bool is_bootloading = false; // ブートローダ対応モード
 std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
@@ -59,7 +60,7 @@ int main(int argc, char *argv[]){
     // コマンドライン引数をパース
     int option;
     std::string filename;
-    while ((option = getopt(argc, argv, "f:odp:")) != -1){
+    while ((option = getopt(argc, argv, "f:odp:b")) != -1){
         switch(option){
             case 'f':
                 filename = std::string(optarg);
@@ -74,6 +75,9 @@ int main(int argc, char *argv[]){
                 break;
             case 'p':
                 port = std::stoi(std::string(optarg));
+                break;
+            case 'b':
+                is_bootloading = true;
                 break;
             default:
                 std::cerr << head_error << "Invalid command-line argument" << std::endl;
@@ -180,7 +184,7 @@ void simulate(){
     if(is_debug){ // デバッグモード
         std::string cmd;
         while(true){
-            std::cout << "# " << std::ends;    
+            std::cout << "\033[2D# " << std::flush;
             if(!std::getline(std::cin, cmd)) break;
             if(exec_command(cmd)) break;
         }
@@ -448,13 +452,39 @@ bool exec_command(std::string cmd){
     return res;
 }
 
+bool is_waiting_for_lnum = false; // ライン数を待つ
 // 命令を実行し、PCを変化させる
 void exec_op(Operation &op){
+    // 出力用処理
     if(is_out){
         if(is_debug){
             output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << op.to_string() << ")\n";
         }else{
             output << op_count << ": pc " << pc << " (" << op.to_string() << ")\n";
+        }
+    }
+
+    
+    // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
+    if(is_bootloading){
+        if(op.opcode == 4 && op.funct == 2 && op.rs1 == 0 && op.rs2 == 5 && op.rd == -1 && op.imm == 0){ // std %x5
+            int x5 = reg_list[5].to_int();
+            if(x5 == 153){ // 0x99
+                is_waiting_for_lnum = true;
+            }else if(x5 == 170){ // 0xaa
+                is_bootloading = false; // ブートローダ用処理の終了
+                if(is_debug){
+                    std::cout << head_info << "bootloading end" << std::endl;
+                }
+            }
+        }
+
+        if(is_waiting_for_lnum && op.opcode == 6 && op.funct == 0 && op.rs1 == 6 && op.rs2 == -1 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
+            int op_num = 100 + reg_list[6].to_int() / 4;
+            if(is_debug){
+                std::cout << head_info << "operations to be loaded: " << op_num / 4 << std::endl;
+            }
+            op_list.resize(100 + op_num); // 受け取る命令の数に合わせてop_listを拡大
         }
     }
 
@@ -580,7 +610,7 @@ void exec_op(Operation &op){
                         if(is_debug){
                             std::cout << head_data << "sent " << read_reg(op.rs2) << std::endl;
                             if(!loop_flag){
-                                std::cout << "# " << std::flush;
+                                std::cout << "\033[2D# " << std::flush;
                             }
                         }
 
@@ -623,7 +653,7 @@ void exec_op(Operation &op){
                         if(is_debug){
                             std::cout << head_data << "sent " << read_reg_fp(op.rs2) << std::endl;
                             if(!loop_flag){
-                                std::cout << "# " << std::flush;
+                                std::cout << "\033[2D# " << std::flush;
                             }
                         }
 
@@ -796,9 +826,9 @@ void receive(){
 
         std::string data = asio::buffer_cast<const char*>(buf.data());
         if(is_debug){
-            std::cout << head_data << "received " << data << std::endl;
+            // std::cout << head_data << "received " << data << std::endl;
             if(!loop_flag){
-                std::cout << "# " << std::flush;
+                std::cout << "\033[2D# " << std::flush;
             }
         }
         receive_buffer.push(bit32_of_data(data));

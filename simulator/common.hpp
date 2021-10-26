@@ -4,6 +4,7 @@
 // 命令
 class Operation{
     public:
+        Operation();
         Operation(std::string code);
         int opcode;
         int funct;

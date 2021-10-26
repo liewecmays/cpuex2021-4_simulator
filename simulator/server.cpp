@@ -18,7 +18,8 @@ using asio::ip::tcp;
 int port = 8000; // 通信に使うポート番号
 std::vector<Bit32> data_received; // 受け取ったデータのリスト
 std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
-bool start_flag = false; // 通信開始のフラグ
+bool bootloading_start_flag = false; // ブートローダ用通信開始のフラグ
+bool bootloading_end_flag = false; // ブートローダ用通信終了のフラグ
 
 
 int main(int argc, char *argv[]){
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]){
 void server(){
     std::string cmd;
     while(true){
-        std::cout << "\033[2D# " << std::ends;
+        std::cout << "\033[2D# " << std::flush;
         if(!std::getline(std::cin, cmd)) break;
         if(exec_command(cmd)) break;   
     }
@@ -81,7 +82,6 @@ bool exec_command(std::string cmd){
 
         std::string input = match[2].str();
         std::string data;
-        std::cout << input << std::endl;
         if(std::regex_match(input, std::regex("\\d+"))){
             data = data_of_int(std::stoi(input));
         }else if(std::regex_match(input, std::regex("0b(0|1)+"))){
@@ -96,7 +96,7 @@ bool exec_command(std::string cmd){
             std::cout << head_error << "transmission failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            std::cout << head_data << "sent " << input << std::endl;
+            // std::cout << head_data << "sent " << input << std::endl;
         }
 
         socket.close();
@@ -131,12 +131,12 @@ bool exec_command(std::string cmd){
             std::cerr << head_error << "could not open " << input_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            std::cout << "opened file: " << input_filename << std::endl;
-            std::cout << "waiting for start signal (0x99) ..." << std::endl;
+            std::cout << head_info << "opened file: " << input_filename << std::endl;
         }
-
+        
+        std::cout << head_info << "waiting for start signal (0x99) ..." << std::endl;
         while(true){
-            if(start_flag) break;
+            if(bootloading_start_flag) break;
         }
 
         int line_count = 0;
@@ -157,6 +157,14 @@ bool exec_command(std::string cmd){
                 exec_command("send 0b" + line.substr(i*8, 8));
             }
         }
+
+        std::cout << head_info << "waiting for end signal (0xaa) ..." << std::endl;
+        while(true){
+            if(bootloading_end_flag) break;
+        }
+        std::cout << head_info << "bootloading end" << std::endl;
+        bootloading_start_flag = false;
+        bootloading_end_flag = false;
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(info)\\s*$"))){ // info
         std::cout << "data list: ";
         for(auto b32 : data_received){
@@ -195,7 +203,8 @@ void receive(){
         std::cout << head_data << "received " << data << std::endl;
         std::cout << "# " << std::flush;
         Bit32 res = bit32_of_data(data);
-        if(res.to_int() == 153 && res.t == Type::t_int) start_flag = true;
+        if(res.to_int() == 153 && res.t == Type::t_int) bootloading_start_flag = true; // ブートローダ用通信の開始
+        if(res.to_int() == 170 && res.t == Type::t_int) bootloading_end_flag = true; // ブートローダ用通信の終了
         data_received.emplace_back(res);
 
         socket.close();

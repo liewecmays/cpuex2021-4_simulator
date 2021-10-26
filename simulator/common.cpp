@@ -8,6 +8,15 @@
 #include <algorithm>
 
 /* class Operation */
+// デフォルトコンストラクタではnopを指定
+Operation::Operation(){
+    this->opcode = 0;
+    this->funct = 0;
+    this->rs1 = 0;
+    this->rs2 = 0;
+    this->imm = 0;
+}
+
 // stringをパースするコンストラクタ
 Operation::Operation(std::string code){
     int opcode, funct, rs1, rs2, rd;    
