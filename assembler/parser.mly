@@ -95,16 +95,17 @@ reg:
 	| FLOATREG INT { Float_reg $2 }
 ;
 
-label:
-	| ID { $1 }
-	| LABEL { $1 }
-;
-
-
 immediate:
 	| integer { Dec $1 }
 	| HEX { Hex $1 }
 	| MINUS HEX { Neghex $2 }
+	| label { Label $1 }
+;
+
+label:
+	| ID { $1 }
+	| LABEL { $1 }
+;
 
 integer:
 	| INT { $1 }

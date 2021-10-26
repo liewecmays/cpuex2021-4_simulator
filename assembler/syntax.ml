@@ -6,7 +6,7 @@ type imm =
 	| Dec of int (* 10進数 *)
 	| Hex of string (* 16進数 *)
 	| Neghex of string (* マイナスの付いた16進数 *)
-	(* | Label of string (* ラベル(要検討) *) *)
+	| Label of string (* ラベル *)
 
 type operation =
 	| Add of reg * reg * reg (* rs1, rs2, rd *)
