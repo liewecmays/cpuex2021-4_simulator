@@ -555,7 +555,7 @@ void exec_op(Operation &op){
                             std::exit(EXIT_FAILURE);
                         }
                         
-                        asio::write(socket, asio::buffer(binary_itos(read_reg(op.rs2))), e);
+                        asio::write(socket, asio::buffer(data_of_int(read_reg(op.rs2))), e);
                         if(e){
                             std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
@@ -598,7 +598,7 @@ void exec_op(Operation &op){
                             std::exit(EXIT_FAILURE);
                         }
                         
-                        asio::write(socket, asio::buffer(binary_ftos(read_reg_fp(op.rs2))), e);
+                        asio::write(socket, asio::buffer(data_of_float(read_reg_fp(op.rs2))), e);
                         if(e){
                             std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
                             std::exit(EXIT_FAILURE);
@@ -785,7 +785,7 @@ void receive(){
                 std::cout << "# " << std::flush;
             }
         }
-        receive_buffer.push(Bit32(binary_stoi(data)));
+        receive_buffer.push(bit32_of_data(data));
 
         socket.close();
     }

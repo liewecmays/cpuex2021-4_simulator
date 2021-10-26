@@ -32,7 +32,7 @@ Operation parse_op(std::string code){
             op.rs1 = rs1;
             op.rs2 = rs2;
             op.rd = -1;
-            op.imm = binary_stoi(code.substr(17, 15));
+            op.imm = int_of_binary(code.substr(17, 15));
             break;
         case 6: // op_imm
         case 7: // load
@@ -41,28 +41,28 @@ Operation parse_op(std::string code){
             op.rs1 = rs1;
             op.rs2 = -1;
             op.rd = rd;
-            op.imm = binary_stoi(code.substr(12, 5) + code.substr(22, 10));
+            op.imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
             break;
         case 9: // jalr
             op.funct = -1;
             op.rs1 = rs1;
             op.rs2 = -1;
             op.rd = rd;
-            op.imm = binary_stoi(code.substr(4, 3) + code.substr(12, 5) + code.substr(22, 10));
+            op.imm = int_of_binary(code.substr(4, 3) + code.substr(12, 5) + code.substr(22, 10));
             break;
         case 10: // jal
             op.funct = -1;
             op.rs1 = -1;
             op.rs2 = -1;
             op.rd = rd;
-            op.imm = binary_stoi(code.substr(4, 13) + code.substr(22, 10));
+            op.imm = int_of_binary(code.substr(4, 13) + code.substr(22, 10));
             break;
         case 11: // long_imm
             op.funct = funct;
             op.rs1 = -1;
             op.rs2 = -1;
             op.rd = rd;
-            op.imm = binary_stoi("0" + code.substr(7, 10) + code.substr(22, 10));
+            op.imm = int_of_binary("0" + code.substr(7, 10) + code.substr(22, 10));
             break;
         case 12: // itof
         case 13: // ftoi

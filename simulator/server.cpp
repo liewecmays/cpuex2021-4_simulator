@@ -81,7 +81,7 @@ bool exec_command(std::string cmd){
         std::string input = match[2].str();
         std::string data;
         if(std::regex_match(input, std::regex("\\d+"))){
-            data = binary_itos(std::stoi(input));
+            data = data_of_int(std::stoi(input));
         }else{
             std::cout << head_error << "invalud argument for 'send'" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -121,8 +121,8 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(info)\\s*$"))){ // info
         std::cout << "data list: ";
-        for(auto i_f : data_received){
-            std::cout << i_f.to_string() << "; ";
+        for(auto b32 : data_received){
+            std::cout << b32.to_string() << "; ";
         }
         std::cout << std::endl;
     }else{
@@ -156,7 +156,7 @@ void receive(){
         std::string data = asio::buffer_cast<const char*>(buf.data());
         std::cout << head_data << "received " << data << std::endl;
         std::cout << "# " << std::flush;
-        data_received.emplace_back(Bit32(binary_stoi(data)));
+        data_received.emplace_back(bit32_of_data(data));
 
         socket.close();
     }

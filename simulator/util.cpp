@@ -10,9 +10,9 @@ std::string head_info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
 std::string head_data = "\033[2D\x1b[34mData: \x1b[0m";
 
 // 2進数を表す文字列から整数に変換
-int binary_stoi(std::string s){
+int int_of_binary(std::string s){
     if(s == ""){
-        std::cerr << head_error << "invalid input to 'binary_stoi'" << std::endl;
+        std::cerr << head_error << "invalid input to 'int_of_binary'" << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
@@ -39,15 +39,37 @@ int binary_stoi(std::string s){
 }
 
 // 10進数を2進数の文字列へと変換
-std::string binary_itos(int i){
+std::string binary_of_int(int i){
     std::bitset<32> bs(i);
     return bs.to_string();
 }
 
 // 浮動小数点数を2進数の文字列へと変換
-std::string binary_ftos(float f){
+std::string binary_of_float(float f){
     Int_float u;
     u.f = f;
     std::bitset<32> bs(u.i);
     return bs.to_string();
+}
+
+// 整数を送信データへと変換
+std::string data_of_int(int i){
+    return "i" + binary_of_int(i);
+}
+
+// 浮動小数点数を送信データへと変換
+std::string data_of_float(int f){
+    return "f" + binary_of_float(f);
+}
+
+// 送信データをBit32へと変換
+Bit32 bit32_of_data(std::string data){
+    if(data[0] == 'i'){ // int
+        return Bit32(int_of_binary(data.substr(1,32)));
+    }else if(data[0] == 'f'){ // float
+        return Bit32(int_of_binary(data.substr(1,32)), Type::t_float);
+    }else{
+        std::cerr << head_error << "invalid input to 'int_of_data'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
