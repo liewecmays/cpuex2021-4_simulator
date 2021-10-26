@@ -62,6 +62,20 @@ std::string data_of_float(int f){
     return "f" + binary_of_float(f);
 }
 
+// 2進数の文字列を送信データへと変換
+std::string data_of_binary(std::string s){
+    if(s.size() <= 32){
+        while(s.size() < 32){
+            s = "0" + s;
+        }
+    }else{
+        std::cerr << head_error << "invalid input to 'data_of_binary'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return "i" + s;
+}
+
 // 送信データをBit32へと変換
 Bit32 bit32_of_data(std::string data){
     if(data[0] == 'i'){ // int

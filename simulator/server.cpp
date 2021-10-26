@@ -18,6 +18,7 @@ using asio::ip::tcp;
 int port = 8000; // 通信に使うポート番号
 std::vector<Bit32> data_received; // 受け取ったデータのリスト
 std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
+bool start_flag = false; // 通信開始のフラグ
 
 
 int main(int argc, char *argv[]){
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]){
 void server(){
     std::string cmd;
     while(true){
-        std::cout << "# " << std::ends;
+        std::cout << "\033[2D# " << std::ends;
         if(!std::getline(std::cin, cmd)) break;
         if(exec_command(cmd)) break;   
     }
@@ -80,8 +81,11 @@ bool exec_command(std::string cmd){
 
         std::string input = match[2].str();
         std::string data;
+        std::cout << input << std::endl;
         if(std::regex_match(input, std::regex("\\d+"))){
             data = data_of_int(std::stoi(input));
+        }else if(std::regex_match(input, std::regex("0b(0|1)+"))){
+            data = data_of_binary(input.substr(2));
         }else{
             std::cout << head_error << "invalud argument for 'send'" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -91,6 +95,8 @@ bool exec_command(std::string cmd){
         if(e){
             std::cout << head_error << "transmission failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
+        }else{
+            std::cout << head_data << "sent " << input << std::endl;
         }
 
         socket.close();
@@ -102,11 +108,10 @@ bool exec_command(std::string cmd){
             std::cerr << head_error << "could not open " << input_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            std::cout << "opened file: ./data/" << filename << ".dat" << std::endl;
+            std::cout << "opened file: " << input_filename << std::endl;
         }
 
         std::string line;
-        int line_no = 1;
         while(std::getline(input_file, line)){
             if(std::regex_match(line, std::regex("^\\s*\\r?\\n?$"))){
                 continue;
@@ -117,7 +122,40 @@ bool exec_command(std::string cmd){
                     exec_command("send " + buf);
                 }
             }
-            line_no++;
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
+        std::string filename = match[2].str();
+        std::string input_filename = "./code/" + filename + ".dbg"; // todo: non-debug modeへの対応
+        std::ifstream input_file(input_filename);
+        if(!input_file.is_open()){
+            std::cerr << head_error << "could not open " << input_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }else{
+            std::cout << "opened file: " << input_filename << std::endl;
+            std::cout << "waiting for start signal (0x99) ..." << std::endl;
+        }
+
+        while(true){
+            if(start_flag) break;
+        }
+
+        int line_count = 0;
+        std::string line;
+        while(std::getline(input_file, line)){
+            line_count++;
+        }
+        std::string line_count_b = binary_of_int(line_count);
+        for(int i=0; i<4; i++){
+            exec_command("send 0b" + line_count_b.substr(i*8, 8));
+        }
+
+        input_file.clear();
+        input_file.seekg(0, std::ios::beg);
+        while(std::getline(input_file, line)){
+            // Operation(line);
+            for(int i=0; i<4; i++){
+                exec_command("send 0b" + line.substr(i*8, 8));
+            }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(info)\\s*$"))){ // info
         std::cout << "data list: ";
@@ -156,7 +194,9 @@ void receive(){
         std::string data = asio::buffer_cast<const char*>(buf.data());
         std::cout << head_data << "received " << data << std::endl;
         std::cout << "# " << std::flush;
-        data_received.emplace_back(bit32_of_data(data));
+        Bit32 res = bit32_of_data(data);
+        if(res.to_int() == 153 && res.t == Type::t_int) start_flag = true;
+        data_received.emplace_back(res);
 
         socket.close();
     }
