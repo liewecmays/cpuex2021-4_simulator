@@ -1,7 +1,6 @@
 #include "sim.hpp"
 #include "common.hpp"
 #include "util.hpp"
-#include "op.hpp"
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -100,7 +99,7 @@ int main(int argc, char *argv[]){
         if(std::regex_match(code, std::regex("^\\s*\\r?\\n?$"))){ // 空行は無視
             continue;
         }else{
-            op_list.emplace_back(parse_op(code));
+            op_list.emplace_back(Operation(code));
             
             // ラベル・ブレークポイントの処理
             if(code.size() > 32){
@@ -204,7 +203,7 @@ bool exec_command(std::string cmd){
         }else{
             bool end_flag = false;
             if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-            std::cout << "pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << string_of_op(op_list[id_of_pc(pc)]) << std::endl;
+            std::cout << "pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << op_list[id_of_pc(pc)].to_string() << std::endl;
             exec_op(op_list[id_of_pc(pc)]);
             if(id_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
             op_count++;
@@ -339,7 +338,7 @@ bool exec_command(std::string cmd){
         if(simulation_end){
             std::cout << "next: (no operation left to be simulated)" << std::endl;
         }else{
-            std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << string_of_op(op_list[id_of_pc(pc)]) << std::endl;
+            std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << op_list[id_of_pc(pc)].to_string() << std::endl;
         }
         if(bp_to_id.empty()){
             std::cout << "breakpoints: (no breakpoint found)" << std::endl;
@@ -436,9 +435,9 @@ bool exec_command(std::string cmd){
 void exec_op(Operation &op){
     if(is_out){
         if(is_debug){
-            output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << string_of_op(op) << ")\n";
+            output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << op.to_string() << ")\n";
         }else{
-            output << op_count << ": pc " << pc << " (" << string_of_op(op) << ")\n";
+            output << op_count << ": pc " << pc << " (" << op.to_string() << ")\n";
         }
     }
 
@@ -536,7 +535,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         std::stringstream code;
                         code << std::bitset<32>(read_reg(op.rs2));
-                        op_list[(read_reg(op.rs1) + op.imm) / 4] = parse_op(code.str());
+                        op_list[(read_reg(op.rs1) + op.imm) / 4] = Operation(code.str());
                     }else{
                         std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);

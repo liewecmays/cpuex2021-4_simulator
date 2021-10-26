@@ -2,13 +2,17 @@
 #include <string>
 
 // 命令
-struct Operation{
-    int opcode;
-    int funct;
-    int rs1;
-    int rs2;
-    int rd;
-    int imm;
+class Operation{
+    public:
+        Operation(std::string code);
+        int opcode;
+        int funct;
+        int rs1;
+        int rs2;
+        int rd;
+        int imm;
+        std::string to_string();
+        // std::string to_code()
 };
 
 // 整数と浮動小数点数の共用体 (todo: 仕様に合わせる)
