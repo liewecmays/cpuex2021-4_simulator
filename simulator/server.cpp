@@ -18,6 +18,7 @@ using asio::ip::tcp;
 int port = 8000; // 通信に使うポート番号
 std::vector<Bit32> data_received; // 受け取ったデータのリスト
 std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
+bool is_debug = false;
 bool bootloading_start_flag = false; // ブートローダ用通信開始のフラグ
 bool bootloading_end_flag = false; // ブートローダ用通信終了のフラグ
 
@@ -29,7 +30,7 @@ int main(int argc, char *argv[]){
     while ((option = getopt(argc, argv, "dp:")) != -1){
         switch(option){
             case 'd':
-                // todo: debug mode
+                is_debug = true;
                 break;
             case 'p':
                 port = std::stoi(std::string(optarg));
@@ -86,6 +87,8 @@ bool exec_command(std::string cmd){
             data = data_of_int(std::stoi(input));
         }else if(std::regex_match(input, std::regex("0b(0|1)+"))){
             data = data_of_binary(input.substr(2));
+        }else if(std::regex_match(input, std::regex("0t.+"))){
+            data = "t" + input.substr(2);
         }else{
             std::cout << head_error << "invalud argument for 'send'" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -96,7 +99,7 @@ bool exec_command(std::string cmd){
             std::cout << head_error << "transmission failed (" << e.message() << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            // std::cout << head_data << "sent " << input << std::endl;
+            // std::cout << head_data << "sent " << data << std::endl;
         }
 
         socket.close();
@@ -125,7 +128,12 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
         std::string filename = match[2].str();
-        std::string input_filename = "./code/" + filename + ".dbg"; // todo: non-debug modeへの対応
+        std::string input_filename;
+        if(is_debug){
+            input_filename = "./code/" + filename + ".dbg";
+        }else{
+            input_filename = "./code/" + filename; 
+        }
         std::ifstream input_file(input_filename);
         if(!input_file.is_open()){
             std::cerr << head_error << "could not open " << input_filename << std::endl;
@@ -138,6 +146,7 @@ bool exec_command(std::string cmd){
         while(true){
             if(bootloading_start_flag) break;
         }
+        std::cout << head_info << "received start signal (0x99)" << std::endl;
 
         int line_count = 0;
         std::string line;
@@ -152,7 +161,9 @@ bool exec_command(std::string cmd){
         input_file.clear();
         input_file.seekg(0, std::ios::beg);
         while(std::getline(input_file, line)){
-            // Operation(line);
+            if(is_debug){
+                exec_command("send 0t" + line.substr(32));
+            }
             for(int i=0; i<4; i++){
                 exec_command("send 0b" + line.substr(i*8, 8));
             }
@@ -162,6 +173,7 @@ bool exec_command(std::string cmd){
         while(true){
             if(bootloading_end_flag) break;
         }
+        std::cout << head_info << "received end signal (0xaa)" << std::endl;
         std::cout << head_info << "bootloading end" << std::endl;
         bootloading_start_flag = false;
         bootloading_end_flag = false;

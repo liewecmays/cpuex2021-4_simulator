@@ -83,7 +83,7 @@ Bit32 bit32_of_data(std::string data){
     }else if(data[0] == 'f'){ // float
         return Bit32(int_of_binary(data.substr(1,32)), Type::t_float);
     }else{
-        std::cerr << head_error << "invalid input to 'int_of_data'" << std::endl;
+        std::cerr << head_error << "invalid input to 'bit32_of_data'" << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }

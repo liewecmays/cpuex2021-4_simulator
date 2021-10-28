@@ -42,6 +42,9 @@ std::stringstream output; // 出力内容
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
 bimap_t label_to_id; // ラベルと命令idの対応
 bimap_t2 id_to_line; // 命令idと行番号の対応
+bimap_t bp_to_id_loaded; // ロードされたもの専用
+bimap_t label_to_id_loaded;
+bimap_t2 id_to_line_loaded;
 
 // フラグ
 bool simulation_end = false; // シミュレーション終了判定
@@ -452,7 +455,9 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-bool is_waiting_for_lnum = false; // ライン数を待つ
+bool is_waiting_for_lnum = false; // ライン数の受信を待っている途中のフラグ
+bool is_loading_codes = false; // 命令ロード中のフラグ
+int loading_id = 100; // 読み込んでいる命令のid
 // 命令を実行し、PCを変化させる
 void exec_op(Operation &op){
     // 出力用処理
@@ -463,7 +468,6 @@ void exec_op(Operation &op){
             output << op_count << ": pc " << pc << " (" << op.to_string() << ")\n";
         }
     }
-
     
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
     if(is_bootloading){
@@ -472,19 +476,25 @@ void exec_op(Operation &op){
             if(x5 == 153){ // 0x99
                 is_waiting_for_lnum = true;
             }else if(x5 == 170){ // 0xaa
+                is_loading_codes = false;
                 is_bootloading = false; // ブートローダ用処理の終了
                 if(is_debug){
+                    id_to_line = std::move(id_to_line_loaded);
+                    label_to_id = std::move(label_to_id_loaded);
+                    bp_to_id = std::move(bp_to_id_loaded);
                     std::cout << head_info << "bootloading end" << std::endl;
                 }
             }
         }
 
         if(is_waiting_for_lnum && op.opcode == 6 && op.funct == 0 && op.rs1 == 6 && op.rs2 == -1 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
-            int op_num = 100 + reg_list[6].to_int() / 4;
+            is_waiting_for_lnum = false;
+            int loaded_op_num = reg_list[6].to_int() / 4;
             if(is_debug){
-                std::cout << head_info << "operations to be loaded: " << op_num / 4 << std::endl;
+                std::cout << head_info << "operations to be loaded: " << op_num << std::endl;
+                is_loading_codes = true; // 命令のロード開始
             }
-            op_list.resize(100 + op_num); // 受け取る命令の数に合わせてop_listを拡大
+            op_list.resize(100 + loaded_op_num); // 受け取る命令の数に合わせてop_listを拡大
         }
     }
 
@@ -731,7 +741,7 @@ void exec_op(Operation &op){
                     }
                     pc += 4;
                     return;
-                case 2: // lrd
+                case 2: // flrd
                     if(!receive_buffer.empty()){
                         write_reg(op.rd, receive_buffer.front().to_float());
                         receive_buffer.pop();
@@ -831,7 +841,37 @@ void receive(){
                 std::cout << "\033[2D# " << std::flush;
             }
         }
-        receive_buffer.push(bit32_of_data(data));
+
+        if(is_loading_codes && data[0] == 't'){ // 渡されてきたラベル・ブレークポイントを処理
+            // 命令ロード中の場合
+            if(is_debug){
+                std::string text = data.substr(1);
+                std::smatch match;
+                if(std::regex_match(text, match, std::regex("^@(\\d+)$"))){
+                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                    label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
+                }else if(std::regex_match(text, match, std::regex("^@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                    bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
+                }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                    label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
+                    bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
+                }else{
+                    std::cerr << head_error << "could not parse the received code" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+
+                loading_id++;
+            }else{
+                std::cerr << head_error << "invalid data received (maybe: put -d option to ./server)" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+        }else{
+            receive_buffer.push(bit32_of_data(data));
+        }
 
         socket.close();
     }
