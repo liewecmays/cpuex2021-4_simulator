@@ -1,43 +1,21 @@
 #include "util.hpp"
-#include "sim.hpp"
+#include "common.hpp"
 #include <string>
-#include <vector>
 #include <iostream>
-#include <iomanip>
+#include <bitset>
 
-unsigned int id_of_pc(unsigned int n){
-    if(n % 4 == 0){
-        return n / 4;
-    }else{
-        std::cerr << error << "error with program counter" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
-
-// 整数レジスタを読む
-int read_reg(int i){
-    return i == 0 ? 0 : reg_list[i];
-}
-
-// 整数レジスタに書く
-void write_reg(int i, int v){
-    if (i != 0) reg_list[i] = v;
-    return;
-}
-
-// 浮動小数レジスタを読む
-float read_reg_fp(int i){
-    return i == 0 ? 0 : reg_fp_list[i];
-}
-
-// 浮動小数レジスタに書く
-void write_reg_fp(int i, float v){
-    if (i != 0) reg_fp_list[i] = v;
-    return;
-}
+// ターミナルへの出力用
+std::string head_error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
+std::string head_info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
+std::string head_data = "\033[2D\x1b[34mData: \x1b[0m";
 
 // 2進数を表す文字列から整数に変換
-int binary_stoi(std::string s){
+int int_of_binary(std::string s){
+    if(s == ""){
+        std::cerr << head_error << "invalid input to 'int_of_binary'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
     int length = s.size(), res = 0, d;
     if(s[0] == '0'){ // 正数
         d = 1 << (length - 2);
@@ -60,294 +38,52 @@ int binary_stoi(std::string s){
     return res;
 }
 
-// 命令を文字列に変換
-std::string string_of_op(Operation &op){
-    std::string res = "";
-    switch(op.opcode){
-        case 0: // op
-            switch(op.funct){
-                case 0: // add
-                    res += "add ";
-                    break;
-                case 1: // sub
-                    res += "sub ";
-                    break;
-                case 2: // sll
-                    res += "sll ";
-                    break;
-                case 3: // srl
-                    res += "srl ";
-                    break;
-                case 4: // sra
-                    res += "sra ";
-                    break;
-                case 5: // and
-                    res += "and ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-            res += ("rs2=x" + std::to_string(op.rs2) + ", ");
-            res += ("rd=x" + std::to_string(op.rd));
-            return res;
-        case 1: // op_fp
-            switch(op.funct){
-                case 0: // fadd
-                    res += "fadd ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                case 1: // fsub
-                    res += "fsub ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                case 2: // fmul
-                    res += "fmul ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                case 3: // fdiv
-                    res += "fdiv ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                case 4: // fsqrt
-                    res += "fsqrt ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 2: // branch
-            switch(op.funct){
-                case 0: // beq
-                    res += "beq ";
-                    break;
-                case 1: // blt
-                    res += "blt ";
-                    break;
-                case 2: // ble
-                    res += "ble ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-            res += ("rs2=x" + std::to_string(op.rs2) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
-        case 3: // branch_fp
-            switch(op.funct){
-                case 0: // fbeq
-                    res += "fbeq ";
-                    break;
-                case 1: // fblt
-                    res += "fblt ";
-                    break;
-            }
-            res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-            res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
-        case 4: // store
-            switch(op.funct){
-                case 0: // sw
-                    res += "sw ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=x" + std::to_string(op.rs2) + ", ");
-                    res += ("imm=" + std::to_string(op.imm));
-                    break;
-                case 1: // si
-                    res += "si ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=x" + std::to_string(op.rs2) + ", ");
-                    res += ("imm=" + std::to_string(op.imm));
-                    break;
-                case 2: // std
-                    res += "std ";
-                    res += ("rs2=x" + std::to_string(op.rs2));
-                    break;
-                default: return "";
-            }
-            
-            return res;
-        case 5: // store_fp
-            switch(op.funct){
-                case 0: // fsw
-                    res += "fsw ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(op.rs2) + ", ");
-                    res += ("imm=" + std::to_string(op.imm));
-                    break;
-                case 1: // fstd
-                    res += "fstd ";
-                    res += ("rs1=f" + std::to_string(op.rs1));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 6: // op_imm
-            switch(op.funct){
-                case 0: // addi
-                    res += "addi ";
-                    break;
-                case 2: // slli
-                    res += "slli ";
-                    break;
-                case 3: // srli
-                    res += "srli ";
-                    break;
-                case 4: // srai
-                    res += "srai ";
-                    break;
-                case 5: // andi
-                    res += "andi ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-            res += ("rd=x" + std::to_string(op.rd) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
-        case 7: // load
-            switch(op.funct){
-                case 0: // lw
-                    res += "lw ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=x" + std::to_string(op.rd) + ", ");
-                    res += ("imm=" + std::to_string(op.imm));
-                    break;
-                case 1: // lre
-                    res += "lre ";
-                    res += ("rd=x" + std::to_string(op.rd));
-                    break;
-                case 2: // lrd
-                    res += "lrd ";
-                    res += ("rd=x" + std::to_string(op.rd));
-                    break;
-                case 3: // ltf
-                    res += "ltf ";
-                    res += ("rd=x" + std::to_string(op.rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 8: // load_fp
-            switch(op.funct){
-                case 0: // lw
-                    res += "flw ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd) + ", ");
-                    res += ("imm=" + std::to_string(op.imm));
-                    break;
-                case 2: // flrd
-                    res += "flrd ";
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 9: // jalr
-            res = "jalr ";
-            res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-            res += ("rd=x" + std::to_string(op.rd) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
-        case 10: // jal
-            res = "jal ";
-            res += ("rd=x" + std::to_string(op.rd) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
-        case 11: // long_imm
-            switch(op.funct){
-                case 0: // lui
-                    res += "lui ";
-                    break;
-                case 1: // auipc
-                    res += "auipc ";
-                    break;
-                default: return "";
-            }
-            res += ("rd=x" + std::to_string(op.rd) + ", ");
-            res += ("imm=" + std::to_string(op.imm));
-            return res;
-        case 12: // itof
-            switch(op.funct){
-                case 0: // fmv.i.f
-                    res += "fmv.i.f ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                case 5: // fcvt.i.f
-                    res += "fcvt.i.f ";
-                    res += ("rs1=x" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=f" + std::to_string(op.rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 13: // ftoi
-            switch(op.funct){
-                case 0: // fmv.f.i
-                    res += "fmv.f.i ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=x" + std::to_string(op.rd));
-                    break;
-                case 6: // fcvt.f.i
-                    res += "fcvt.f.i ";
-                    res += ("rs1=f" + std::to_string(op.rs1) + ", ");
-                    res += ("rd=x" + std::to_string(op.rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        default: return "";
-    }
+// 10進数を2進数の文字列へと変換
+std::string binary_of_int(int i){
+    std::bitset<32> bs(i);
+    return bs.to_string();
 }
 
-void print_reg(){
-    for(int i=0; i<32; i++){
-        std::cout << "\x1b[1mx" << i << "\x1b[0m:" << std::ends;
-        if(i < 10) std::cout << " " << std::ends;
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
-        std::cout << std::setw(8) << reg_list[i] << " " << std::ends;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
-        if(i % 4 == 3) std::cout << std::endl;
-    }
-    return;
+// 浮動小数点数を2進数の文字列へと変換
+std::string binary_of_float(float f){
+    Int_float u;
+    u.f = f;
+    std::bitset<32> bs(u.i);
+    return bs.to_string();
 }
 
-void print_reg_fp(){
-    for(int i=0; i<32; i++){
-        std::cout << "\x1b[1mf" << i << "\x1b[0m:" << std::ends;
-        if(i < 10) std::cout << " " << std::ends;
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
-        std::cout << std::setw(8) << *((int*)&(reg_fp_list[i])) << " " << std::ends;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
-        if(i % 4 == 3) std::cout << std::endl;
-    }
-    return;
+// 整数を送信データへと変換
+std::string data_of_int(int i){
+    return "i" + binary_of_int(i);
 }
 
-// 4byteごとに出力
-void print_memory(int start, int width){
-    for(int i=start; i<start+width; i++){
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
-        std::cout << "mem[" << i << "]: " << memory[i].i << std::endl;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
-    }
-    return;
+// 浮動小数点数を送信データへと変換
+std::string data_of_float(int f){
+    return "f" + binary_of_float(f);
 }
 
-// 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-bool is_end(Operation op){
-    return (op.opcode == 10) && (op.funct == -1) && (op.rs1 = -1) && (op.rs2 == -1) && (op.rd == 0) && (op.imm == 0);
+// 2進数の文字列を送信データへと変換
+std::string data_of_binary(std::string s){
+    if(s.size() <= 32){
+        while(s.size() < 32){
+            s = "0" + s;
+        }
+    }else{
+        std::cerr << head_error << "invalid input to 'data_of_binary'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return "i" + s;
+}
+
+// 送信データをBit32へと変換
+Bit32 bit32_of_data(std::string data){
+    if(data[0] == 'i'){ // int
+        return Bit32(int_of_binary(data.substr(1,32)));
+    }else if(data[0] == 'f'){ // float
+        return Bit32(int_of_binary(data.substr(1,32)), Type::t_float);
+    }else{
+        std::cerr << head_error << "invalid input to 'bit32_of_data'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }

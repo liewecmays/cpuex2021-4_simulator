@@ -1,8 +1,16 @@
-sim: util.hpp util.cpp sim.hpp sim.cpp
-	g++ -std=c++17 -Wall -O2 -pthread -o sim util.cpp sim.cpp -lboost_system
+CC = g++
+CFLAGS = -std=c++17 -Wall -O2 -pthread
 
-server: server.cpp
-	g++ -std=c++17 -Wall -O2 -pthread -o server server.cpp -lboost_system
+all: sim server
+
+sim: common.o util.o sim.o
+	$(CC) $(CFLAGS) -o sim common.o util.o sim.o -lboost_system
+
+server: common.o util.o server.o
+	$(CC) $(CFLAGS) -o server common.o util.o server.o -lboost_system
+
+.c.o:
+	$(CC) -c $^
 
 clean:
-	rm -f sim server
+	rm -f sim server *.o

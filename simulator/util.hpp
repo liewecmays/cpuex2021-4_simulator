@@ -1,15 +1,17 @@
 #pragma once
-#include "sim.hpp"
+#include "common.hpp"
 #include <string>
 
-unsigned int id_of_pc(unsigned int n);
-int read_reg(int i);
-void write_reg(int i, int v);
-float read_reg_fp(int i);
-void write_reg_fp(int i, float v);
-int binary_stoi(std::string s);
-std::string string_of_op(Operation &op);
-void print_reg();
-void print_reg_fp();
-void print_memory(int start, int width);
-bool is_end(Operation op);
+/* プロトタイプ宣言 */
+int int_of_binary(std::string s); // 2進数を表す文字列から整数に変換
+std::string binary_of_int(int i); // 10進数を2進数の文字列へと変換
+std::string binary_of_float(float f); // 浮動小数点数を2進数の文字列へと変換
+std::string data_of_int(int i); // 整数を送信データへと変換
+std::string data_of_float(int f); // 浮動小数点数を送信データへと変換
+std::string data_of_binary(std::string s); // 2進数の文字列を送信データへと変換
+Bit32 bit32_of_data(std::string data); // 送信データをBit32へと変換
+
+/* extern宣言 */
+extern std::string head_error;
+extern std::string head_info;
+extern std::string head_data;
