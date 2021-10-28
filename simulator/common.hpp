@@ -6,6 +6,7 @@ class Operation{
     public:
         Operation();
         Operation(std::string code);
+        Operation(int i);
         int opcode;
         int funct;
         int rs1;
@@ -15,6 +16,27 @@ class Operation{
         std::string to_string();
         // std::string to_code()
 };
+
+// 命令の種類
+enum class Otype{
+    o_add, o_sub, o_sll, o_srl, o_sra, o_and,
+    o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt,
+    o_beq, o_blt, o_ble,
+    o_fbeq, o_fblt,
+    o_sw, o_si, o_std,
+    o_fsw, o_fstd,
+    o_addi, o_slli, o_srli, o_srai, o_andi,
+    o_lw, o_lre, o_lrd, o_ltf,
+    o_flw, o_flrd,
+    o_jalr,
+    o_jal,
+    o_lui, o_auipc,
+    o_fmvif, o_fcvtif,
+    o_fmvfi, o_fcvtfi
+};
+
+std::string string_of_otype(Otype t); // Otypeを文字列に変換
+
 
 // 整数と浮動小数点数の共用体 (todo: 仕様に合わせる)
 union Int_float{

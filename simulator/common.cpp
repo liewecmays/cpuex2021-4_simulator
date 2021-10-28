@@ -90,6 +90,13 @@ Operation::Operation(std::string code){
     }
 }
 
+// intをもとにするコンストラクタ
+Operation::Operation(int i){
+    std::stringstream code;
+    code << std::bitset<32>(i);
+    (*this) = Operation(code.str());
+}
+
 // 文字列に変換
 std::string Operation::to_string(){
     std::string res = "";
@@ -340,6 +347,52 @@ std::string Operation::to_string(){
     }
 }
 
+// Otypeを文字列に変換
+std::string string_of_otype(Otype t){
+    switch(t){
+        case Otype::o_add: return "add";
+        case Otype::o_sub: return "sub";
+        case Otype::o_sll: return "sll";
+        case Otype::o_srl: return "srl";
+        case Otype::o_sra: return "sra";
+        case Otype::o_and: return "and";
+        case Otype::o_fadd: return "fadd";
+        case Otype::o_fsub: return "fsub";
+        case Otype::o_fmul: return "fmul";
+        case Otype::o_fdiv: return "fdiv";
+        case Otype::o_fsqrt: return "fsqrt";
+        case Otype::o_beq: return "beq";
+        case Otype::o_blt: return "blt";
+        case Otype::o_ble: return "ble";
+        case Otype::o_fbeq: return "fbeq";
+        case Otype::o_fblt: return "fblt";
+        case Otype::o_sw: return "sw";
+        case Otype::o_si: return "si";
+        case Otype::o_std: return "std";
+        case Otype::o_fsw: return "fsw";
+        case Otype::o_fstd: return "fstd";
+        case Otype::o_addi: return "addi";
+        case Otype::o_slli: return "slli";
+        case Otype::o_srli: return "srli";
+        case Otype::o_srai: return "srai";
+        case Otype::o_andi: return "andi";
+        case Otype::o_lw: return "lw";
+        case Otype::o_lre: return "lre";
+        case Otype::o_lrd: return "lrd";
+        case Otype::o_ltf: return "ltf";
+        case Otype::o_flw: return "flw";
+        case Otype::o_flrd: return "flrd";
+        case Otype::o_jalr: return "jalr";
+        case Otype::o_jal: return "jal";
+        case Otype::o_lui: return "lui";
+        case Otype::o_auipc: return "auipc";
+        case Otype::o_fmvif: return "fmv.i.f";
+        case Otype::o_fcvtif: return "fcvt.i.f";
+        case Otype::o_fmvfi: return "fmv.f.i";
+        case Otype::o_fcvtfi: return "fcvt.f.i";
+        default: std::exit(EXIT_FAILURE);
+    }
+}
 
 /* class Bit32 */
 Bit32::Bit32(){

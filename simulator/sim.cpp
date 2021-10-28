@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <queue>
 #include <boost/bimap/bimap.hpp>
 #include <thread>
@@ -13,7 +14,6 @@
 #include <regex>
 #include <unistd.h>
 #include <iomanip>
-#include <bitset>
 
 namespace asio = boost::asio;
 using asio::ip::tcp;
@@ -36,6 +36,7 @@ std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 bool is_debug = false; // デバッグモード
 bool is_out = false; // 出力モード
 bool is_bootloading = false; // ブートローダ対応モード
+std::map<Otype, int> op_type_count;
 std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
@@ -365,6 +366,10 @@ bool exec_command(std::string cmd){
                 std::cout << "  " << x.first << " (pc " << x.second * 4 << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
             }
         }
+        std::cout << "execution stat:" << std::endl;
+        for(auto x : op_type_count){
+            std::cout << "  " << string_of_otype(x.first) << ": " << x.second << std::endl;
+        }
     // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
     //
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
@@ -495,7 +500,7 @@ void exec_op(Operation &op){
             is_waiting_for_lnum = false;
             int loaded_op_num = reg_list[6].to_int() / 4;
             if(is_debug){
-                std::cout << head_info << "operations to be loaded: " << op_num << std::endl;
+                std::cout << head_info << "operations to be loaded: " << loaded_op_num << std::endl;
                 is_loading_codes = true; // 命令のロード開始
             }
             op_list.resize(100 + loaded_op_num); // 受け取る命令の数に合わせてop_listを拡大
@@ -507,26 +512,32 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // add
                     write_reg(op.rd, read_reg(op.rs1) + read_reg(op.rs2));
+                    op_type_count[Otype::o_add]++;
                     pc += 4;
                     return;
                 case 1: // sub
                     write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
+                    op_type_count[Otype::o_sub]++;
                     pc += 4;
                     return;
                 case 2: // sll
                     write_reg(op.rd, read_reg(op.rs1) << read_reg(op.rs2));
+                    op_type_count[Otype::o_sll]++;
                     pc += 4;
                     return;
                 case 3: // srl
                     write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> read_reg(op.rs2));
+                    op_type_count[Otype::o_srl]++;
                     pc += 4;
                     return;
                 case 4: // sra
                     write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
+                    op_type_count[Otype::o_sra]++;
                     pc += 4;
                     return;
                 case 5: // andi
                     write_reg(op.rd, read_reg(op.rs1) & read_reg(op.rs2));
+                    op_type_count[Otype::o_and]++;
                     pc += 4;
                     return;
                 default: break;
@@ -536,22 +547,27 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // fadd
                     write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
+                    op_type_count[Otype::o_fadd]++;
                     pc += 4;
                     return;
                 case 1: // fsub
                     write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
+                    op_type_count[Otype::o_fsub]++;
                     pc += 4;
                     return;
                 case 2: // fmul
                     write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
+                    op_type_count[Otype::o_fmul]++;
                     pc += 4;
                     return;
                 case 3: // fdiv
                     write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
+                    op_type_count[Otype::o_fdiv]++;
                     pc += 4;
                     return;
                 case 4: // fsqrt
                     write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
+                    op_type_count[Otype::o_fsqrt]++;
                     pc += 4;
                     return;
             }
@@ -560,12 +576,15 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // beq
                     read_reg(op.rs1) == read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    op_type_count[Otype::o_beq]++;
                     return;
                 case 1: // blt
                     read_reg(op.rs1) < read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    op_type_count[Otype::o_blt]++;
                     return;
                 case 2: // ble
                     read_reg(op.rs1) <= read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    op_type_count[Otype::o_ble]++;
                     return;
                 default: break;
             }
@@ -574,9 +593,11 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // fbeq
                     read_reg_fp(op.rs1) == read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    op_type_count[Otype::o_fbeq]++;
                     return;
                 case 1: // fblt
                     read_reg_fp(op.rs1) < read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
+                    op_type_count[Otype::o_fblt]++;
                     return;
                 default: break;
             }
@@ -590,17 +611,17 @@ void exec_op(Operation &op){
                         std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
+                    op_type_count[Otype::o_sw]++;
                     pc += 4;
                     return;
                 case 1: // si
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        std::stringstream code;
-                        code << std::bitset<32>(read_reg(op.rs2));
-                        op_list[(read_reg(op.rs1) + op.imm) / 4] = Operation(code.str());
+                        op_list[(read_reg(op.rs1) + op.imm) / 4] = Operation(read_reg(op.rs2));
                     }else{
                         std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
+                    op_type_count[Otype::o_si]++;
                     pc += 4;
                     return;
                 case 2: // std
@@ -630,6 +651,7 @@ void exec_op(Operation &op){
 
                         socket.close();
                     }
+                    op_type_count[Otype::o_std]++;
                     pc += 4;
                     return;
                 default: break;
@@ -644,6 +666,7 @@ void exec_op(Operation &op){
                         std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
+                    op_type_count[Otype::o_fsw]++;
                     pc += 4;
                     return;
                 case 2: // fstd
@@ -673,6 +696,7 @@ void exec_op(Operation &op){
 
                         socket.close();
                     }
+                    op_type_count[Otype::o_fstd]++;
                     pc += 4;
                     return;
                 default: break;
@@ -682,22 +706,27 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // addi
                     write_reg(op.rd, read_reg(op.rs1) + op.imm);
+                    op_type_count[Otype::o_addi]++;
                     pc += 4;
                     return;
                 case 2: // slli
                     write_reg(op.rd, read_reg(op.rs1) << op.imm);
+                    op_type_count[Otype::o_slli]++;
                     pc += 4;
                     return;
                 case 3: // srli
                     write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> op.imm);
+                    op_type_count[Otype::o_srli]++;
                     pc += 4;
                     return;
                 case 4: // srai
                     write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
+                    op_type_count[Otype::o_srai]++;
                     pc += 4;
                     return;
                 case 5: // andi
                     write_reg(op.rd, read_reg(op.rs1) & op.imm);
+                    op_type_count[Otype::o_andi]++;
                     pc += 4;
                     return;
                 default: break;
@@ -712,11 +741,13 @@ void exec_op(Operation &op){
                         std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
+                    op_type_count[Otype::o_lw]++;
                     pc += 4;
                     return;
                 case 1: // lre
                     write_reg(op.rd, receive_buffer.empty() ? 1 : 0);
                     pc += 4;
+                    op_type_count[Otype::o_lre]++;
                     return;
                 case 2: // lrd
                     if(!receive_buffer.empty()){
@@ -726,10 +757,12 @@ void exec_op(Operation &op){
                         std::cerr << head_error << "receive buffer is empty" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
+                    op_type_count[Otype::o_lrd]++;
                     pc += 4;
                     return;
                 case 3: // ltf
                     write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+                    op_type_count[Otype::o_ltf]++;
                     pc += 4;
                     return;
                 default: break;
@@ -743,6 +776,7 @@ void exec_op(Operation &op){
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
                     }
+                    op_type_count[Otype::o_flw]++;
                     pc += 4;
                     return;
                 case 2: // flrd
@@ -753,6 +787,7 @@ void exec_op(Operation &op){
                         std::cerr << head_error << "receive buffer is empty" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
+                    op_type_count[Otype::o_flrd]++;
                     pc += 4;
                     return;
                 default: break;
@@ -760,20 +795,24 @@ void exec_op(Operation &op){
             break;
         case 9: // jalr
             write_reg(op.rd, pc + 4);
+            op_type_count[Otype::o_jalr]++;
             pc = read_reg(op.rs1) + op.imm * 4;
             return;
         case 10: // jal
             write_reg(op.rd, pc + 4);
+            op_type_count[Otype::o_jal]++;
             pc += op.imm * 4;
             return;
         case 11: // long_imm
             switch(op.funct){
                 case 0: // lui
                     write_reg(op.rd, op.imm << 12);
+                    op_type_count[Otype::o_lui]++;
                     pc += 4;
                     return;
                 case 1: // auipc
                     write_reg(op.rd, pc + (op.imm << 12));
+                    op_type_count[Otype::o_auipc]++;
                     pc += 4;
                     return;
                 default: break;
@@ -785,10 +824,12 @@ void exec_op(Operation &op){
                 case 0: // fmv.i.f
                     u.i = read_reg(op.rs1);
                     write_reg_fp(op.rd, u.f);
+                    op_type_count[Otype::o_fmvif]++;
                     pc += 4;
                     return;
                 case 5: // fcvt.i.f
                     write_reg_fp(op.rd, static_cast<float>(read_reg(op.rs1)));
+                    op_type_count[Otype::o_fcvtif]++;
                     pc += 4;
                     return;
                 default: break;
@@ -800,10 +841,12 @@ void exec_op(Operation &op){
                 case 0: // fmv.f.i
                     u.f = read_reg_fp(op.rs1);
                     write_reg(op.rd, u.i);
+                    op_type_count[Otype::o_fmvfi]++;
                     pc += 4;
                     return;
                 case 6: // fcvt.f.i
                     write_reg(op.rd, static_cast<int>(read_reg_fp(op.rs1)));
+                    op_type_count[Otype::o_fcvtfi]++;
                     pc += 4;
                     return;
                 default: break;
