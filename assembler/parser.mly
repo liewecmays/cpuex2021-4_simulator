@@ -30,17 +30,28 @@ toplevel:
 
 code_list:
 	| operation code_list { let (op, line_no) = $1 in Operation (op, line_no, None) :: $2 }
-	| label COLON operation code_list { let (op, line_no) = $3 in Label $1 :: Operation (op, line_no, None) :: $4 }
+	| label_list operation code_list { let (op, line_no) = $2 in Labels $1 :: Operation (op, line_no, None) :: $3 }
 	| operation { let (op, line_no) = $1 in Operation (op, line_no, None) :: [] }
-	| label COLON operation { let (op, line_no) = $3 in Label $1 ::  Operation (op, line_no, None) :: [] }
+	| label_list operation { let (op, line_no) = $2 in Labels $1 ::  Operation (op, line_no, None) :: [] }
 	// with breakpoints
 	| operation EXCLAM label code_list { let (op, line_no) = $1 in Operation (op, line_no, Some $3) :: $4 }
-	| label COLON operation EXCLAM label code_list { let (op, line_no) = $3 in Label $1 :: Operation (op, line_no, Some $5) :: $6 }
-	| label COLON EXCLAM operation code_list { let (op, line_no) = $4 in Label $1 :: Operation (op, line_no, Some $1) :: $5 }
+	// | label_list operation EXCLAM label code_list { let (op, line_no) = $2 in Labels $1 :: Operation (op, line_no, Some $4) :: $5 }
+	| label_list EXCLAM operation code_list
+		{
+			let bp = List.hd (List.rev $1) in
+			let (op, line_no) = $3 in Labels $1 :: Operation (op, line_no, Some bp) :: $4
+		}
 	| operation EXCLAM label { let (op, line_no) = $1 in Operation (op, line_no, Some $3) :: [] }
-	| label COLON operation EXCLAM label { let (op, line_no) = $3 in Label $1 :: Operation (op, line_no, Some $5) :: [] }
-	| label COLON EXCLAM operation { let (op, line_no) = $4 in Label $1 :: Operation (op, line_no, Some $1) :: [] }
-	// | PERIOD ID {}
+	// | label_list operation EXCLAM label { let (op, line_no) = $3 in Labels $1 :: Operation (op, line_no, Some $5) :: [] }
+	| label_list EXCLAM operation
+		{
+			let bp = List.hd (List.rev $1) in
+			let (op, line_no) = $3 in Labels $1 :: Operation (op, line_no, Some bp) :: [] }
+;
+
+label_list:
+	| label COLON label_list { $1 :: $3 }
+	| label COLON { $1 :: [] }
 ;
 
 operation:

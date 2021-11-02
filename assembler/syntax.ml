@@ -51,5 +51,5 @@ type operation =
 	| Fcvtfi of reg * reg (* rs1, rd *)
 
 type code =
-	| Label of string
+	| Labels of string list
 	| Operation of operation * int * (string option) (* 命令, 元ファイルでの行番号, (ある場合は)ブレークポイント名 *)

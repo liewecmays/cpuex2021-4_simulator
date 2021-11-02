@@ -122,13 +122,13 @@ let assoc_all l key =
 		| (k, v) :: rest -> if key = k then assoc_all_inner rest key (v :: acc) else assoc_all_inner rest key acc
 	in assoc_all_inner l key []
 
-(* 連想配列からkeyに対応しているものを全て除く *)
-let assoc_delete l key =
-	let rec assoc_delete_inner l key acc =
+(* 連想配列からkeysに対応しているものを全て除く *)
+let assoc_delete l keys =
+	let rec assoc_delete_inner l keys acc =
 		match l with
 		| [] -> acc
-		| (k, v) :: rest -> if key = k then assoc_delete_inner rest key acc else assoc_delete_inner rest key ((k, v) :: acc)
-	in assoc_delete_inner l key []
+		| (k, v) :: rest -> if List.mem k keys then assoc_delete_inner rest keys acc else assoc_delete_inner rest keys ((k, v) :: acc)
+	in assoc_delete_inner l keys []
 
 
 (*
@@ -138,9 +138,10 @@ let assoc_delete l key =
 *)
 (* 機械語への翻訳結果の型 *)
 type translation_result =
-	| Code of int * string * int * (string option) * (string option) (* 通常の結果: id, 機械語コード, 行番号, (ある場合は)ラベル, (ある場合は)ブレークポイント *)
-	| Code_list of string * (int * string * int * (string option) * (string option)) list (* ラベル, そのラベルで翻訳された機械語コードのリスト *)
-	| Fail of string * (int * operation * int * (string option) * (string option)) (* ラベルが見つからなかった場合: 未解決のラベル名, (id, 命令, 行番号, (ある場合は)ラベル, (ある場合は)ブレークポイント) *)
+	| Code of int * string * int * ((string list) option) * (string option) (* 通常の結果: id, 機械語コード, 行番号, (ある場合は)ラベルのリスト, (ある場合は)ブレークポイント *)
+	| Code_list_inner of (int * string * int * ((string list) option) * (string option)) list (* 翻訳された機械語コードのリスト(未解決の命令を処理するときに使う内部的なコンストラクタ) *)
+	| Code_list of (string list) * (int * string * int * ((string list) option) * (string option)) list (* ラベルのリスト, そのラベルたちで翻訳された機械語コードのリスト *)
+	| Fail of string * (int * operation * int * ((string list) option) * (string option)) (* ラベルが見つからなかった場合: 未解決のラベル名, (id, 命令, 行番号, (ある場合は)ラベルのリスト, (ある場合は)ブレークポイント) *)
 
 (* アセンブル結果の型 *)
 type assembling_result = (int * string * (string option)) list (* idとコードと(ある場合は)ラベルのリスト *)
@@ -150,36 +151,48 @@ type assembling_result = (int * string * (string option)) list (* idとコード
 	code: 処理対象のコード
 	untranslated: ラベルが解決されておらず未処理のコードのリスト
 	op_id: id
-	label_option: (ある場合は)ラベル
+	labels_option: (ある場合は)ラベルのリスト
 *)
 exception Translate_error of string
-let rec translate_code code untranslated op_id label_option =
+let rec translate_code code untranslated op_id labels_option =
 	match code with
-	| Label label ->
-		if List.mem_assoc label !label_bp_list then	
-			raise (Translate_error ("label/breakpoint name '" ^ label ^ "' is used more than once")) (* ラベルが重複する場合エラー *)
-		else
-			(current_id := !current_id - 1; (* ラベルはカウントしないので、idを増やした分を戻す *)
-			label_bp_list := (label, op_id) :: !label_bp_list;
-			label_to_id := (label, op_id) :: !label_to_id;
-			let rec solve_untranslated untranslated = (* 新しいラベルに対応付けられていたuntranslatedを翻訳する *)
-				match untranslated with
-				| [] -> Code_list (label, [])
-				| (op_id', op, line_no, label_option', bp_option') :: rest ->
-					let res = translate_code (Operation (op, line_no, bp_option')) [] op_id' label_option' in (* 解決するはずなのでuntranslatedは空でもよい *)
-						match (res, solve_untranslated rest) with
-						| (Code (id, c, lno, l_o, b_o), Code_list (label', list)) ->
-							(((match b_o with
-							| Some bp ->
-								(try
-									if List.assoc bp !label_bp_list == op_id' then () else
-										raise (Translate_error ("label/breakpoint name '" ^ bp ^ "' is used more than once")) (* ブレークポイントが重複する場合エラー(ただし同じidに対応するラベルは除く) *)
-								with Not_found ->
-									label_bp_list := (bp, op_id') :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
-							| None -> ());
-							Code_list (label', (id, c, lno, l_o, b_o) :: list))) (* label'は再帰的に外側のスコープのlabelを渡している *)
-						| _ -> raise (Translate_error "upexpected error")
-			in solve_untranslated (assoc_all untranslated label))
+	| Labels labels ->
+		current_id := !current_id - 1; (* ラベルはカウントしないので、idを増やした分を戻す *)
+		let rec solve_with_label labels' = (* 新しく導入されたラベルそれぞれについてuntranslatedを翻訳 *)
+			match labels' with
+			| [] -> Code_list (labels, []) (* 外側のスコープのラベル列(今回処理したい全体)を渡す *)
+			| label :: rest ->
+				let res = (* 先頭のlabelについて解決 *)
+					if List.mem_assoc label !label_bp_list then	
+						raise (Translate_error ("label/breakpoint name '" ^ label ^ "' is used more than once")) (* ラベルが重複する場合エラー *)
+					else
+						(label_bp_list := (label, op_id) :: !label_bp_list;
+						label_to_id := (label, op_id) :: !label_to_id;
+						print_endline ("new map: from '" ^ label ^ "' to id " ^ (string_of_int op_id));
+						let rec solve_untranslated untranslated = (* 今見ているラベルに対応付けられていたuntranslatedを翻訳する *)
+							match untranslated with
+							| [] -> Code_list_inner []
+							| (op_id', op, line_no, labels_option', bp_option') :: rest ->
+								let res = translate_code (Operation (op, line_no, bp_option')) [] op_id' labels_option' in (* 解決するはずなのでuntranslatedは空でもよい *)
+									match (res, solve_untranslated rest) with
+									| (Code (id, c, lno, l_o, b_o), Code_list_inner list) ->
+										((match b_o with
+										| Some bp ->
+											(try
+												if List.assoc bp !label_bp_list == op_id' then () else
+													raise (Translate_error ("label/breakpoint name '" ^ bp ^ "' is used more than once")) (* ブレークポイントが重複する場合エラー(ただし同じidに対応するラベルは除く) *)
+											with Not_found ->
+												label_bp_list := (bp, op_id') :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
+										| None -> ());
+										Code_list_inner ((id, c, lno, l_o, b_o) :: list))
+									| _ -> raise (Translate_error "unexpected error")
+						in solve_untranslated (assoc_all untranslated label))
+				in
+					match (res, solve_with_label rest) with
+					| (Code_list_inner op_list1, Code_list (labels', op_list2)) ->
+						Code_list (labels', op_list1 @ op_list2)
+					| _ -> raise (Translate_error "unexpected error")
+		in solve_with_label labels
 	| Operation (op, line_no, bp_option) ->
 		(match bp_option with
 		| Some bp ->
@@ -198,7 +211,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Sub (rs1, rs2, rd) ->
@@ -210,7 +223,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Sll (rs1, rs2, rd) ->
@@ -222,7 +235,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Srl (rs1, rs2, rd) ->
@@ -234,7 +247,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Sra (rs1, rs2, rd) ->
@@ -246,7 +259,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| And (rs1, rs2, rd) ->
@@ -258,7 +271,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* op_fp *)
@@ -271,7 +284,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fsub (rs1, rs2, rd) ->
@@ -283,7 +296,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fmul (rs1, rs2, rd) ->
@@ -295,7 +308,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fdiv (rs1, rs2, rd) ->
@@ -307,7 +320,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fsqrt (rs1, rd) ->
@@ -319,7 +332,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* branch *)
@@ -335,9 +348,9 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_int_signed (label_id - op_id) 15 with
 						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Blt (rs1, rs2, label) ->
@@ -352,9 +365,9 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_int_signed (label_id - op_id) 15 with
 						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Ble (rs1, rs2, label) ->
@@ -369,9 +382,9 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_int_signed (label_id - op_id) 15 with
 						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* branch_fp *)
@@ -387,9 +400,9 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_int_signed (label_id - op_id) 15 with
 						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fblt (rs1, rs2, label) ->
@@ -404,9 +417,9 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_int_signed (label_id - op_id) 15 with
 						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* store *)
@@ -420,7 +433,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Si (rs1, rs2, imm) ->
@@ -433,7 +446,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Std rs2 ->
@@ -444,7 +457,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rs2 = binary_of_int (int_of_reg rs2) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* store_fp *)
@@ -458,7 +471,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fstd rs2 ->
@@ -469,7 +482,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rs2 = binary_of_int (int_of_reg rs2) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* op_imm *)
@@ -484,11 +497,11 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_imm imm 15 with
 						| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
 				| Not_found ->
 					match imm with
-					| Label label -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+					| Label label -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 					| _ -> raise (Translate_error "upexpected error")
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
@@ -502,7 +515,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Srli (rs1, rd, imm) ->
@@ -515,7 +528,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Srai (rs1, rd, imm) ->
@@ -528,7 +541,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Andi (rs1, rd, imm) ->
@@ -541,7 +554,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* load *)
@@ -555,7 +568,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Lre rd ->
@@ -566,7 +579,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Lrd rd ->
@@ -577,7 +590,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Ltf rd ->
@@ -588,7 +601,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* load_fp *)
@@ -602,7 +615,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Flrd rd ->
@@ -613,7 +626,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* jalr *)
@@ -626,7 +639,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 18 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; String.sub imm 0 3; rs1; String.sub imm 3 5; rd; String.sub imm 8 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* jal *)
@@ -640,9 +653,9 @@ let rec translate_code code untranslated op_id label_option =
 						try binary_of_int_signed (label_id - op_id) 23 with
 						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
 					let code = String.concat "" [opcode; String.sub imm 0 13; rd; String.sub imm 13 10] in
-						Code (op_id, code, line_no, label_option, bp_option)
+						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found -> Fail (label, (op_id, op, line_no, label_option, bp_option))
+				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* long_imm *)
@@ -661,7 +674,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 21 with (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Auipc (rd, imm) ->
@@ -679,7 +692,7 @@ let rec translate_code code untranslated op_id label_option =
 					try binary_of_imm imm 21 with (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
 				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* itof *)
@@ -692,7 +705,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin2 = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fcvtif (rs1, rd) ->
@@ -704,7 +717,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin2 = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* ftoi *)
@@ -717,7 +730,7 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin2 = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		| Fcvtfi (rs1, rd) ->
@@ -729,13 +742,13 @@ let rec translate_code code untranslated op_id label_option =
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				let margin2 = "0000000000" in
 				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, label_option, bp_option)
+					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 
 (* コードのリストをアセンブルする *)
 let assemble codes =
-	let rec assemble_inner codes untranslated label_option =
+	let rec assemble_inner codes untranslated labels_option =
 		match codes with
 		| [] ->
 			(match untranslated with
@@ -745,7 +758,7 @@ let assemble codes =
 		| code :: rest ->
 			current_id := !current_id + 1;
 			(* print_endline (string_of_int !current_id); *)
-			match translate_code code untranslated !current_id label_option with
+			match translate_code code untranslated !current_id labels_option with
 			| Code (id, c, lno, l_o, b_o) ->
 				((match b_o with
 				| Some bp ->
@@ -756,8 +769,9 @@ let assemble codes =
 						label_bp_list := (bp, id) :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
 				| None -> ());
 				(id, c, lno, l_o, b_o) :: assemble_inner rest untranslated None)
-				| Code_list (label, res) -> res @ assemble_inner rest (assoc_delete untranslated label) (Some label) (* 直後の命令の処理にラベルを渡す *)
-			| Fail (label, (n, op, lno, l_o, b_o)) -> assemble_inner rest ((label, (n, op, lno, l_o, b_o)) :: untranslated) None
+			| Code_list_inner _ -> raise (Translate_error "unexpected error")
+			| Code_list (labels, res) -> res @ assemble_inner rest (assoc_delete untranslated labels) (Some labels) (* ラベル列の直後の命令の処理にそのラベル列を渡す *)
+			| Fail (label, (n, op, lno, l_o, b_o)) -> assemble_inner rest ((label, (n, op, lno, l_o, b_o)) :: untranslated) None (* label: 未登場のラベル *)
 	in assemble_inner codes [] None
 
 
@@ -785,7 +799,7 @@ let () =
 				(if !is_debug then
 					(line := !line ^ "@" ^ (string_of_int lno);
 					(match l_o with
-					| Some label -> line := !line ^ "#" ^ label
+					| Some labels -> line := !line ^ "#" ^ (List.hd (List.rev labels))
 					| None -> ());
 					(match b_o with
 					| Some bp -> line := !line ^ "!" ^ bp
