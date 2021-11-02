@@ -89,6 +89,8 @@ bool exec_command(std::string cmd){
             data = data_of_binary(input.substr(2));
         }else if(std::regex_match(input, std::regex("0t.+"))){
             data = "t" + input.substr(2);
+        }else if(std::regex_match(input, std::regex("0f.+"))){
+            data = "f" + input.substr(2);
         }else{
             std::cout << head_error << "invalud argument for 'send'" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -129,11 +131,8 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
         std::string filename = match[2].str();
         std::string input_filename;
-        if(is_debug){
-            input_filename = "./code/" + filename + ".dbg";
-        }else{
-            input_filename = "./code/" + filename; 
-        }
+        filename += is_debug ? ".dbg" : "";
+        input_filename = "./code/" + filename;
         std::ifstream input_file(input_filename);
         if(!input_file.is_open()){
             std::cerr << head_error << "could not open " << input_filename << std::endl;
@@ -147,6 +146,8 @@ bool exec_command(std::string cmd){
             if(bootloading_start_flag) break;
         }
         std::cout << head_info << "received start signal (0x99)" << std::endl;
+
+        exec_command("send 0f" + filename);
 
         int line_count = 0;
         std::string line;
@@ -212,7 +213,7 @@ void receive(){
         }
 
         std::string data = asio::buffer_cast<const char*>(buf.data());
-        std::cout << head_data << "received " << data << std::endl;
+        std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
         std::cout << "# " << std::flush;
         Bit32 res = bit32_of_data(data);
         if(res.to_int() == 153 && res.t == Type::t_int) bootloading_start_flag = true; // ブートローダ用通信の開始

@@ -36,11 +36,12 @@ std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 bool is_debug = false; // デバッグモード
 bool is_out = false; // 出力モード
 bool is_bootloading = false; // ブートローダ対応モード
-std::map<Otype, int> op_type_count;
+std::string filename; // 処理対象のファイル名
 std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
 // 処理用のデータ構造
+std::map<Otype, int> op_type_count; // 各命令の実行数
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
 bimap_t label_to_id; // ラベルと命令idの対応
 bimap_t2 id_to_line; // 命令idと行番号の対応
@@ -53,6 +54,11 @@ bool simulation_end = false; // シミュレーション終了判定
 bool breakpoint_skip = false; // ブレークポイント直後の停止回避
 bool loop_flag = false;
 
+// ブートローダ処理用の変数
+bool is_waiting_for_lnum = false; // ライン数の受信を待っている途中のフラグ
+bool is_loading_codes = false; // 命令ロード中のフラグ
+int loading_id = 100; // 読み込んでいる命令のid
+
 // ターミナルへの出力用
 std::string head = "\x1b[1m[sim]\x1b[0m ";
 
@@ -64,7 +70,6 @@ int main(int argc, char *argv[]){
 
     // コマンドライン引数をパース
     int option;
-    std::string filename;
     while ((option = getopt(argc, argv, "f:odp:bm:")) != -1){
         switch(option){
             case 'f':
@@ -103,7 +108,12 @@ int main(int argc, char *argv[]){
     memory.resize(mem_size);
 
     // ファイルを読む
-    std::string input_filename = "./code/" + filename + (is_debug ? ".dbg" : "");
+    std::string input_filename;
+    if(is_bootloading){
+        input_filename = "./code/bootloader";
+    }else{
+        input_filename = "./code/" + filename + (is_debug ? ".dbg" : "");
+    }
     std::ifstream input_file(input_filename);
     if(!input_file.is_open()){
         std::cerr << head_error << "could not open " << input_filename << std::endl;
@@ -250,7 +260,7 @@ bool exec_command(std::string cmd){
                 }
             }
         }
-    }else if(std::regex_match(cmd, std::regex("^\\s*(f|(finish))\\s*$"))){ // finish
+    }else if(std::regex_match(cmd, std::regex("^\\s*(r|(run))\\s*$"))){ // run
         loop_flag = true;
         breakpoint_skip = false;
         if(simulation_end){
@@ -464,9 +474,6 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-bool is_waiting_for_lnum = false; // ライン数の受信を待っている途中のフラグ
-bool is_loading_codes = false; // 命令ロード中のフラグ
-int loading_id = 100; // 読み込んでいる命令のid
 // 命令を実行し、PCを変化させる
 void exec_op(Operation &op){
     // 出力用処理
@@ -643,7 +650,7 @@ void exec_op(Operation &op){
                         }
 
                         if(is_debug){
-                            std::cout << head_data << "sent " << read_reg(op.rs2) << std::endl;
+                            std::cout << head_data << "sent " << Bit32(read_reg(op.rs2)).to_string(Stype::t_hex) << std::endl;
                             if(!loop_flag){
                                 std::cout << "\033[2D# " << std::flush;
                             }
@@ -688,7 +695,7 @@ void exec_op(Operation &op){
                         }
 
                         if(is_debug){
-                            std::cout << head_data << "sent " << read_reg_fp(op.rs2) << std::endl;
+                            std::cout << head_data << "sent " << Bit32(read_reg_fp(op.rs2)).to_string(Stype::t_hex) << std::endl;
                             if(!loop_flag){
                                 std::cout << "\033[2D# " << std::flush;
                             }
@@ -889,7 +896,13 @@ void receive(){
             }
         }
 
-        if(is_loading_codes && data[0] == 't'){ // 渡されてきたラベル・ブレークポイントを処理
+        if(is_bootloading && data[0] == 'f'){
+            filename = "boot-" + data.substr(1);
+            if(is_debug){
+                std::cout << head_info << "loading ./code/" << data.substr(1) << std::endl;
+                std::cout << "\033[2D# " << std::flush;
+            }
+        }else if(is_loading_codes && data[0] == 't'){ // 渡されてきたラベル・ブレークポイントを処理
             // 命令ロード中の場合
             if(is_debug){
                 std::string text = data.substr(1);
