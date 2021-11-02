@@ -46,6 +46,7 @@ let is_float r =
 
 (* 即値を指定された桁数の二進数に変換 *)
 exception Argument_error
+let address_of_id id = 4 * (100 + id - 1)
 let rec binary_of_imm imm len =
 	match imm with
 	| Dec i -> binary_of_int_signed i len
@@ -53,7 +54,7 @@ let rec binary_of_imm imm len =
 	| Neghex h -> binary_of_neghex h len
 	| Label l ->
 		let id = List.assoc l !label_to_id in
-			binary_of_int_signed (4 * (100 + id - 1)) len (* ブートローダによってロードされるのは命令メモリの100ワード目から *)
+			binary_of_int_signed (address_of_id id) len (* ブートローダによってロードされるのは命令メモリの100ワード目から *)
 
 (* 整数を指定された桁数の二進数に変換 *)
 and binary_of_int n len =
@@ -139,6 +140,7 @@ let assoc_delete l keys =
 (* 機械語への翻訳結果の型 *)
 type translation_result =
 	| Code of int * string * int * ((string list) option) * (string option) (* 通常の結果: id, 機械語コード, 行番号, (ある場合は)ラベルのリスト, (ある場合は)ブレークポイント *)
+	| Codes of (int * string * int * ((string list) option) * (string option)) list (* 複数命令に展開される場合 *)
 	| Code_list_inner of (int * string * int * ((string list) option) * (string option)) list (* 翻訳された機械語コードのリスト(未解決の命令を処理するときに使う内部的なコンストラクタ) *)
 	| Code_list of (string list) * (int * string * int * ((string list) option) * (string option)) list (* ラベルのリスト, そのラベルたちで翻訳された機械語コードのリスト *)
 	| Fail of string * (int * operation * int * ((string list) option) * (string option)) (* ラベルが見つからなかった場合: 未解決のラベル名, (id, 命令, 行番号, (ある場合は)ラベルのリスト, (ある場合は)ブレークポイント) *)
@@ -168,7 +170,6 @@ let rec translate_code code untranslated op_id labels_option =
 					else
 						(label_bp_list := (label, op_id) :: !label_bp_list;
 						label_to_id := (label, op_id) :: !label_to_id;
-						print_endline ("new map: from '" ^ label ^ "' to id " ^ (string_of_int op_id));
 						let rec solve_untranslated untranslated = (* 今見ているラベルに対応付けられていたuntranslatedを翻訳する *)
 							match untranslated with
 							| [] -> Code_list_inner []
@@ -493,15 +494,34 @@ let rec translate_code code untranslated op_id labels_option =
 					let funct = binary_of_int 0 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rd = binary_of_int (int_of_reg rd) 5 in
-					let imm =
-						try binary_of_imm imm 15 with
-						| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
+					let imm = binary_of_imm imm 15 in (* ここでexceptionの可能性 *)
 					let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
 						Code (op_id, code, line_no, labels_option, bp_option)
 				with
-				| Not_found ->
-					match imm with
+				| Not_found -> (* labelがまだ登場していない *)
+					(match imm with
 					| Label label -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
+					| _ -> raise (Translate_error "upexpected error"))
+				| Argument_error -> (* 絶対ジャンプ先がimmに収まっていない -> lui+addiに展開 *)
+					match imm with
+					| Label l ->
+						let address = address_of_id (List.assoc l !label_to_id) in (* Not_foundなら既にはじかれている *)
+						if (rd = Int_reg 0) || (rs1 <> Int_reg 0) then
+							raise (Translate_error ("upexpected error at line " ^ (string_of_int line_no)))
+						else
+							let upper20 =  (* 上位20ビット(をluiに入れるために12bitシフトしたもの) *)
+								Int32.to_int   
+									(Int32.shift_right_logical
+										(Int32.logand (Int32.of_int address) (Int32.of_string "0xfffff000")) 
+									12) in
+							let lower12 = Int32.to_int (Int32.logand (Int32.of_int address) (Int32.of_string "0x00000fff")) in (* 下位12ビット *)
+							current_id := !current_id + 1; (* 1命令文追加 *)
+							(match
+								(translate_code (Operation (Lui (rd, Dec upper20), 0, bp_option)) [] op_id labels_option, (* 新規追加のコードは0行目とする、またブレークポイントやラベルはこの1つ目の命令に持たせる *)
+								translate_code (Operation (Addi (rd, rd, Dec lower12), line_no, None)) [] (op_id + 1) None)
+							with
+							| (Code (id1, c1, lno1, l_o1, b_o1), Code (id2, c2, lno2, l_o2, b_o2)) -> Codes [(id1, c1, lno1, l_o1, b_o1); (id2, c2, lno2, l_o2, b_o2)]
+							| _ -> raise (Translate_error "upexpected error"))
 					| _ -> raise (Translate_error "upexpected error")
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
@@ -760,7 +780,7 @@ let assemble codes =
 			(* print_endline (string_of_int !current_id); *)
 			match translate_code code untranslated !current_id labels_option with
 			| Code (id, c, lno, l_o, b_o) ->
-				((match b_o with
+				(match b_o with
 				| Some bp ->
 					(try
 						if List.assoc bp !label_bp_list == id then () else
@@ -768,7 +788,22 @@ let assemble codes =
 					with Not_found ->
 						label_bp_list := (bp, id) :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
 				| None -> ());
-				(id, c, lno, l_o, b_o) :: assemble_inner rest untranslated None)
+				(id, c, lno, l_o, b_o) :: assemble_inner rest untranslated None
+			| Codes res ->
+				let rec codes_iter res =
+					match res with
+					| [] -> assemble_inner rest untranslated None
+					| (id, c, lno, l_o, b_o) :: rest' ->
+						(match b_o with
+						| Some bp ->
+							(try
+								if List.assoc bp !label_bp_list == id then () else
+									raise (Translate_error ("label/breakpoint name '" ^ bp ^ "' is used more than once")) (* ブレークポイントが重複する場合エラー(ただし同じidに対応するラベルは除く) *)
+							with Not_found ->
+								label_bp_list := (bp, id) :: !label_bp_list) (* 翻訳が成功してからブレークポイントを追加 *)
+						| None -> ());
+						(id, c, lno, l_o, b_o) :: codes_iter rest'
+				in codes_iter res
 			| Code_list_inner _ -> raise (Translate_error "unexpected error")
 			| Code_list (labels, res) -> res @ assemble_inner rest (assoc_delete untranslated labels) (Some labels) (* ラベル列の直後の命令の処理にそのラベル列を渡す *)
 			| Fail (label, (n, op, lno, l_o, b_o)) -> assemble_inner rest ((label, (n, op, lno, l_o, b_o)) :: untranslated) None (* label: 未登場のラベル *)
