@@ -26,7 +26,7 @@ std::vector<Bit32> memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 int op_count = 0; // 命令のカウント
-int mem_size = 1500; // メモリサイズ
+int mem_size = 10000; // メモリサイズ
 
 int port = 8000; // 通信に使うポート番号
 struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
@@ -37,6 +37,7 @@ std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
 bool is_out = false; // 出力モード
+bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
 std::string filename; // 処理対象のファイル名
 std::string output_filename; // 出力用のファイル名
@@ -72,7 +73,7 @@ int main(int argc, char *argv[]){
 
     // コマンドライン引数をパース
     int option;
-    while ((option = getopt(argc, argv, "f:odp:bm:")) != -1){
+    while ((option = getopt(argc, argv, "f:odp:bm:s")) != -1){
         switch(option){
             case 'f':
                 filename = std::string(optarg);
@@ -93,6 +94,11 @@ int main(int argc, char *argv[]){
                 break;
             case 'm':
                 mem_size = std::stoi(std::string(optarg));
+                break;
+            case 's':
+                is_skip = true;
+                op_list.resize(100);
+                pc = 100 * 4;
                 break;
             default:
                 std::cerr << head_error << "Invalid command-line argument" << std::endl;
@@ -131,7 +137,7 @@ int main(int argc, char *argv[]){
 
     // ファイルの各行をパースしてop_listに追加
     std::string code;
-    int code_id = 0; // 0-indexed
+    int code_id = is_skip ? 100 : 0;
     while(std::getline(input_file, code)){
         if(std::regex_match(code, std::regex("^\\s*\\r?\\n?$"))){ // 空行は無視
             continue;
