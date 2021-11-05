@@ -10,13 +10,12 @@
 #include <queue>
 #include <boost/bimap/bimap.hpp>
 #include <thread>
-#include <boost/asio.hpp>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <regex>
 #include <unistd.h>
 #include <iomanip>
 
-namespace asio = boost::asio;
-using asio::ip::tcp;
 
 /* グローバル変数 */
 // 内部処理関係
@@ -30,6 +29,9 @@ int op_count = 0; // 命令のカウント
 int mem_size = 1500; // メモリサイズ
 
 int port = 8000; // 通信に使うポート番号
+struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
+int client_socket; // 送信用のソケット
+bool is_connected = false; // 通信が維持されているかどうかのフラグ
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 
 // シミュレーションの制御
@@ -106,6 +108,13 @@ int main(int argc, char *argv[]){
 
     // メモリ領域の確保
     memory.resize(mem_size);
+
+    // データ送信の準備
+    struct in_addr host_addr;
+    inet_aton("127.0.0.1", &host_addr);
+    opponent_addr.sin_family = AF_INET;
+    opponent_addr.sin_port = htons(port+1);
+    opponent_addr.sin_addr = host_addr;
 
     // ファイルを読む
     std::string input_filename;
@@ -207,7 +216,7 @@ void simulate(){
             if(exec_command(cmd)) break;
         }
     }else{ // デバッグなしモード
-        exec_command("f");
+        exec_command("r");
     }
 
     return;
@@ -632,32 +641,7 @@ void exec_op(Operation &op){
                     pc += 4;
                     return;
                 case 2: // std
-                    {
-                        asio::io_service io_service;
-                        tcp::socket socket(io_service);
-                        boost::system::error_code e;
-
-                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port+1), e);
-                        if(e){
-                            std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
-                            std::exit(EXIT_FAILURE);
-                        }
-                        
-                        asio::write(socket, asio::buffer(data_of_int(read_reg(op.rs2))), e);
-                        if(e){
-                            std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
-                            std::exit(EXIT_FAILURE);
-                        }
-
-                        if(is_debug){
-                            std::cout << head_data << "sent " << Bit32(read_reg(op.rs2)).to_string(Stype::t_hex) << std::endl;
-                            if(!loop_flag){
-                                std::cout << "\033[2D# " << std::flush;
-                            }
-                        }
-
-                        socket.close();
-                    }
+                    send_data(data_of_int(read_reg(op.rs2)));
                     op_type_count[Otype::o_std]++;
                     pc += 4;
                     return;
@@ -677,32 +661,7 @@ void exec_op(Operation &op){
                     pc += 4;
                     return;
                 case 2: // fstd
-                    {
-                        asio::io_service io_service;
-                        tcp::socket socket(io_service);
-                        boost::system::error_code e;
-
-                        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port+1));
-                        if(e){
-                            std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
-                            std::exit(EXIT_FAILURE);
-                        }
-                        
-                        asio::write(socket, asio::buffer(data_of_float(read_reg_fp(op.rs2))), e);
-                        if(e){
-                            std::cout << head_error << "data transmission failed (" << e.message() << ")" << std::endl;
-                            std::exit(EXIT_FAILURE);
-                        }
-
-                        if(is_debug){
-                            std::cout << head_data << "sent " << Bit32(read_reg_fp(op.rs2)).to_string(Stype::t_hex) << std::endl;
-                            if(!loop_flag){
-                                std::cout << "\033[2D# " << std::flush;
-                            }
-                        }
-
-                        socket.close();
-                    }
+                    send_data(data_of_int(read_reg_fp(op.rs2)));
                     op_type_count[Otype::o_fstd]++;
                     pc += 4;
                     return;
@@ -868,75 +827,100 @@ void exec_op(Operation &op){
 
 // データの受信
 void receive(){
-    asio::io_service io_service;
-    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), port));
-    tcp::socket socket(io_service);
+    // 受信設定
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    
+    // 受信の準備
+    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr));
+    listen(server_socket, 5);
 
-    boost::system::error_code e;
+    // クライアントの情報を保持する変数など
+    struct sockaddr_in client_addr;
+    int client_socket;
+    int client_addr_size = sizeof(client_addr);
+    char buf[64];
+    int recv_len;
+
     while(true){
-        acc.accept(socket, e);
-        if(e){
-            std::cerr << head_error << "connection failed (" << e.message() << ")" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
+        while((recv_len = recv(client_socket, buf, 64, 0)) != 0){
+            send(client_socket, "0", 1, 0); // 成功したらループバック
 
-        asio::streambuf buf;
-        asio::read(socket, buf, asio::transfer_all(), e);
-
-        if(e && e != asio::error::eof){
-            std::cerr << head_error << "data reception failed (" << e.message() << ")" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
-        std::string data = asio::buffer_cast<const char*>(buf.data());
-        if(is_debug){
-            // std::cout << head_data << "received " << data << std::endl;
-            if(!loop_flag){
-                std::cout << "\033[2D# " << std::flush;
-            }
-        }
-
-        if(is_bootloading && data[0] == 'f'){
-            filename = "boot-" + data.substr(1);
+            // 受信したデータの処理
+            std::string data(buf);
             if(is_debug){
-                std::cout << head_info << "loading ./code/" << data.substr(1) << std::endl;
-                std::cout << "\033[2D# " << std::flush;
-            }
-        }else if(is_loading_codes && data[0] == 't'){ // 渡されてきたラベル・ブレークポイントを処理
-            // 命令ロード中の場合
-            if(is_debug){
-                std::string text = data.substr(1);
-                std::smatch match;
-                if(std::regex_match(text, match, std::regex("^@(\\d+)$"))){
-                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
-                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                    label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
-                }else if(std::regex_match(text, match, std::regex("^@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
-                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                    bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
-                }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
-                    id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                    label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
-                    bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
-                }else{
-                    std::cerr << head_error << "could not parse the received code" << std::endl;
-                    std::exit(EXIT_FAILURE);
+                // std::cout << head_data << "received " << data << std::endl;
+                if(!loop_flag){
+                    std::cout << "\033[2D# " << std::flush;
                 }
-
-                loading_id++;
-            }else{
-                std::cerr << head_error << "invalid data received (maybe: put -d option to ./server)" << std::endl;
-                std::exit(EXIT_FAILURE);
             }
-        }else{
-            receive_buffer.push(bit32_of_data(data));
-        }
 
-        socket.close();
+            if(is_bootloading && data[0] == 'f'){
+                filename = "boot-" + data.substr(1);
+                if(is_debug){
+                    std::cout << head_info << "loading ./code/" << data.substr(1) << std::endl;
+                    std::cout << "\033[2D# " << std::flush;
+                }
+            }else if(is_loading_codes && data[0] == 't'){ // 渡されてきたラベル・ブレークポイントを処理
+                // 命令ロード中の場合
+                // if(is_debug){
+                //     std::string text = data.substr(1);
+                //     std::smatch match;
+                //     if(std::regex_match(text, match, std::regex("^@(\\d+)$"))){
+                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                //     }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                //         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
+                //     }else if(std::regex_match(text, match, std::regex("^@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                //         bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
+                //     }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                //         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
+                //         bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
+                //     }else{
+                //         std::cerr << head_error << "could not parse the received code" << std::endl;
+                //         std::exit(EXIT_FAILURE);
+                //     }
+
+                //     loading_id++;
+                // }else{
+                //     std::cerr << head_error << "invalid data received (maybe: put -d option to ./server)" << std::endl;
+                //     std::exit(EXIT_FAILURE);
+                // }
+            }else{
+                receive_buffer.push(bit32_of_data(data));
+            }
+        }
+        close(client_socket);
+    }
+
+    return;
+}
+
+// データの送信
+void send_data(std::string data){
+    if(!is_connected){ // 接続されていない場合
+        client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        int res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
+        if(res == 0){
+            is_connected = true;
+        }else{
+            std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
+        }
     }
     
-    return;
+    char recv_buf[1];
+    send(client_socket, data.c_str(), data.size(), 0);
+    int res_len = recv(client_socket, recv_buf, 1, 0);
+    if(res_len == 0){ // 通信が切断された場合
+        std::cout << head_error << "data transmission failed (restart ./server and try again)" << std::endl;
+        is_connected = false;
+    }
 }
 
 // PCから命令IDへの変換(4の倍数になっていない場合エラー)

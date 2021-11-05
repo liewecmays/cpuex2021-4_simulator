@@ -7,18 +7,24 @@
 #include <sstream>
 #include <vector>
 #include <thread>
-#include <boost/asio.hpp>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <regex>
 #include <unistd.h>
 
-namespace asio = boost::asio;
-using asio::ip::tcp;
 
 /* グローバル変数 */
-int port = 8000; // 通信に使うポート番号
 std::vector<Bit32> data_received; // 受け取ったデータのリスト
 std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
 bool is_debug = false;
+
+// 通信関連
+int port = 8000; // 通信に使うポート番号
+struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
+int client_socket; // 送信用のソケット
+bool is_connected = false; // 通信が維持されているかどうかのフラグ
+
+// ブートローダ関連
 bool bootloading_start_flag = false; // ブートローダ用通信開始のフラグ
 bool bootloading_end_flag = false; // ブートローダ用通信終了のフラグ
 
@@ -41,6 +47,13 @@ int main(int argc, char *argv[]){
         }
     }
 
+    // データ送信の準備
+    struct in_addr host_addr;
+    inet_aton("127.0.0.1", &host_addr);
+    opponent_addr.sin_family = AF_INET;
+    opponent_addr.sin_port = htons(port);
+    opponent_addr.sin_addr = host_addr;
+
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(server);
     std::thread t2(receive);
@@ -55,7 +68,7 @@ void server(){
     while(true){
         std::cout << "\033[2D# " << std::flush;
         if(!std::getline(std::cin, cmd)) break;
-        if(exec_command(cmd)) break;   
+        if(exec_command(cmd)) break;
     }
 
     return;
@@ -71,16 +84,6 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(q|(quit))\\s*$"))){ // quit
         res = true;
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(.+)\\s*$"))){ // send N
-        asio::io_service io_service;
-        tcp::socket socket(io_service);
-        boost::system::error_code e;
-
-        socket.connect(tcp::endpoint(asio::ip::address::from_string("127.0.0.1"), port), e);
-        if(e){
-            std::cout << head_error << "connection failed (" << e.message() << ")" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
         std::string input = match[2].str();
         std::string data;
         if(std::regex_match(input, std::regex("\\d+"))){
@@ -96,15 +99,23 @@ bool exec_command(std::string cmd){
             std::exit(EXIT_FAILURE);
         }
 
-        asio::write(socket, asio::buffer(data), e);
-        if(e){
-            std::cout << head_error << "transmission failed (" << e.message() << ")" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }else{
-            // std::cout << head_data << "sent " << data << std::endl;
+        if(!is_connected){ // 接続されていない場合
+            client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            int res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
+            if(res == 0){
+                is_connected = true;
+            }else{
+                std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
+            }
         }
-
-        socket.close();
+        
+        char recv_buf[1];
+        send(client_socket, data.c_str(), data.size(), 0);
+        int res_len = recv(client_socket, recv_buf, 1, 0);
+        if(res_len == 0){ // 通信が切断された場合
+            std::cout << head_error << "data transmission failed (restart ./sim and try again)" << std::endl;
+            is_connected = false;
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+([a-zA-Z_]+)\\s*$"))){ // send filename
         std::string filename = match[2].str();
         std::string input_filename = "./data/" + filename + ".dat";
@@ -193,34 +204,39 @@ bool exec_command(std::string cmd){
 
 // データの受信
 void receive(){
-    asio::io_service io_service;
-    tcp::acceptor acc(io_service, tcp::endpoint(tcp::v4(), port+1));
-    tcp::socket socket(io_service);
+    // 受信設定
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port+1);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
 
-    boost::system::error_code e;
+    // 受信の準備
+    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr));
+    listen(server_socket, 5);
+
+    // クライアントの情報を保持する変数など
+    struct sockaddr_in client_addr;
+    int client_socket;
+    int client_addr_size = sizeof(client_addr);
+    char buf[64];
+    int recv_len;
+
     while(true){
-        acc.accept(socket, e);
-        if(e){
-            std::cerr << head_error << "connection failed (" << e.message() << ")" << std::endl;
-            std::exit(EXIT_FAILURE);
+        client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
+        while((recv_len = recv(client_socket, buf, 64, 0)) != 0){
+            send(client_socket, "0", 1, 0); // 成功したらループバック
+
+            // 受信したデータの処理
+            std::string data(buf);
+            std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
+            std::cout << "# " << std::flush;
+            Bit32 res = bit32_of_data(data);
+            if(res.to_int() == 153 && res.t == Type::t_int) bootloading_start_flag = true; // ブートローダ用通信の開始
+            if(res.to_int() == 170 && res.t == Type::t_int) bootloading_end_flag = true; // ブートローダ用通信の終了
+            data_received.emplace_back(res);
         }
-
-        asio::streambuf buf;
-        asio::read(socket, buf, asio::transfer_all(), e);
-        if(e && e != asio::error::eof){
-            std::cerr << "receive failed (" << e.message() << ")" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
-        std::string data = asio::buffer_cast<const char*>(buf.data());
-        std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
-        std::cout << "# " << std::flush;
-        Bit32 res = bit32_of_data(data);
-        if(res.to_int() == 153 && res.t == Type::t_int) bootloading_start_flag = true; // ブートローダ用通信の開始
-        if(res.to_int() == 170 && res.t == Type::t_int) bootloading_end_flag = true; // ブートローダ用通信の終了
-        data_received.emplace_back(res);
-
-        socket.close();
+        close(client_socket);
     }
 
     return;
