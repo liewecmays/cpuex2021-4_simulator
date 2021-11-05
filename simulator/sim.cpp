@@ -15,6 +15,7 @@
 #include <regex>
 #include <unistd.h>
 #include <iomanip>
+#include <chrono>
 
 
 /* グローバル変数 */
@@ -70,6 +71,7 @@ int main(int argc, char *argv[]){
     // todo: 実行環境における型のバイト数などの確認
 
     std::cout << head << "simulation start" << std::endl;
+    auto start = std::chrono::system_clock::now();
 
     // コマンドライン引数をパース
     int option;
@@ -174,6 +176,10 @@ int main(int argc, char *argv[]){
         }
     }
 
+    auto end = std::chrono::system_clock::now();
+    auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << head << "elapsed time (preperation): " << msec << std::endl;
+
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
     std::thread t2(receive);
@@ -222,7 +228,13 @@ void simulate(){
             if(exec_command(cmd)) break;
         }
     }else{ // デバッグなしモード
+        auto start = std::chrono::system_clock::now();
         exec_command("r");
+        auto end = std::chrono::system_clock::now();
+        auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        std::cout << head << "elapsed time (execution): " << msec << std::endl;
+        std::cout << head << "operation count: " << op_count << std::endl;
+        std::cout << head << "operations per second: " << static_cast<double>(op_count) / msec * 1e6 << std::endl;
     }
 
     return;
@@ -298,7 +310,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
         breakpoint_skip = false;
         simulation_end = false;
-        pc = 0; // PCを0にする
+        pc = is_skip ? 100 : 0; // PCを0にする
         op_count = 0; // 総実行命令数を0にする
         for(int i=0; i<32; i++){ // レジスタをクリア
             reg_list[i] = Bit32(0, Type::t_int);
@@ -631,7 +643,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         memory[(read_reg(op.rs1) + op.imm) / 4] = Bit32(read_reg(op.rs2));
                     }else{
-                        std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
+                        std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_sw]++;
@@ -641,7 +653,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         op_list[(read_reg(op.rs1) + op.imm) / 4] = Operation(read_reg(op.rs2));
                     }else{
-                        std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
+                        std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_si]++;
@@ -661,7 +673,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         memory[(read_reg(op.rs1) + op.imm) / 4] = Bit32(read_reg_fp(op.rs2));
                     }else{
-                        std::cerr << head_error << "address of store operation should be multiple of 4" << std::endl;
+                        std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_fsw]++;
@@ -711,7 +723,7 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].to_int());
                     }else{
-                        std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
+                        std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_lw]++;
@@ -727,7 +739,7 @@ void exec_op(Operation &op){
                         write_reg(op.rd, receive_buffer.front().to_int());
                         receive_buffer.pop();
                     }else{
-                        std::cerr << head_error << "receive buffer is empty" << std::endl;
+                        std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_lrd]++;
@@ -747,7 +759,8 @@ void exec_op(Operation &op){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].to_float());
                     }else{
-                        std::cerr << head_error << "address of load operation should be multiple of 4" << std::endl;
+                        std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
+                        std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_flw]++;
                     pc += 4;
@@ -757,7 +770,7 @@ void exec_op(Operation &op){
                         write_reg(op.rd, receive_buffer.front().to_float());
                         receive_buffer.pop();
                     }else{
-                        std::cerr << head_error << "receive buffer is empty" << std::endl;
+                        std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
                     op_type_count[Otype::o_flrd]++;
@@ -828,7 +841,7 @@ void exec_op(Operation &op){
         default: break;
     }
 
-    std::cerr << head_error << "error in executing the code" << std::endl;
+    std::cerr << head_error << "error in executing the code (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
     std::exit(EXIT_FAILURE);
 }
 
@@ -936,7 +949,7 @@ unsigned int id_of_pc(unsigned int n){
     if(n % 4 == 0){
         return n / 4;
     }else{
-        std::cerr << head_error << "error with program counter" << std::endl;
+        std::cerr << head_error << "error with program counter: pc = " << n << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }
