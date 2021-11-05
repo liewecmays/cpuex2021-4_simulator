@@ -507,6 +507,7 @@ void exec_op(Operation &op){
                     id_to_line = std::move(id_to_line_loaded);
                     label_to_id = std::move(label_to_id_loaded);
                     bp_to_id = std::move(bp_to_id_loaded);
+                    std::queue<Bit32>().swap(receive_buffer);
                     std::cout << head_info << "bootloading end" << std::endl;
                 }
             }
@@ -852,6 +853,7 @@ void receive(){
 
             // 受信したデータの処理
             std::string data(buf);
+            memset(buf, '\0', sizeof(buf)); // バッファをクリア
             if(is_debug){
                 // std::cout << head_data << "received " << data << std::endl;
                 if(!loop_flag){
@@ -867,31 +869,31 @@ void receive(){
                 }
             }else if(is_loading_codes && data[0] == 't'){ // 渡されてきたラベル・ブレークポイントを処理
                 // 命令ロード中の場合
-                // if(is_debug){
-                //     std::string text = data.substr(1);
-                //     std::smatch match;
-                //     if(std::regex_match(text, match, std::regex("^@(\\d+)$"))){
-                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                //     }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
-                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                //         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
-                //     }else if(std::regex_match(text, match, std::regex("^@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
-                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                //         bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
-                //     }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
-                //         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                //         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
-                //         bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
-                //     }else{
-                //         std::cerr << head_error << "could not parse the received code" << std::endl;
-                //         std::exit(EXIT_FAILURE);
-                //     }
+                if(is_debug){
+                    std::string text = data.substr(1);
+                    std::smatch match;
+                    if(std::regex_match(text, match, std::regex("^@(\\d+)$"))){
+                        id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                    }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                        id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                        label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
+                    }else if(std::regex_match(text, match, std::regex("^@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                        id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                        bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
+                    }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                        id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
+                        label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
+                        bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
+                    }else{
+                        std::cerr << head_error << "could not parse the received code" << std::endl;
+                        std::exit(EXIT_FAILURE);
+                    }
 
-                //     loading_id++;
-                // }else{
-                //     std::cerr << head_error << "invalid data received (maybe: put -d option to ./server)" << std::endl;
-                //     std::exit(EXIT_FAILURE);
-                // }
+                    loading_id++;
+                }else{
+                    std::cerr << head_error << "invalid data received (maybe: put -d option to ./server)" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
             }else{
                 receive_buffer.push(bit32_of_data(data));
             }
