@@ -102,7 +102,12 @@ bool exec_command(std::string cmd){
                 std::stringstream ss{line};
                 std::string buf;
                 while(std::getline(ss, buf, ' ')){
-                    exec_command("send " + buf);
+                    if(std::regex_match(buf, std::regex("(\\s|\\t)*\\r?\\n?"))){
+                        continue;
+                    }else{
+                        std::cout << buf << std::endl;
+                        exec_command("send " + buf);
+                    }
                 }
             }
         }
@@ -120,7 +125,7 @@ bool exec_command(std::string cmd){
         }else if(std::regex_match(input, std::regex("0n.+"))){
             data = "n" + input.substr(2);
         }else{
-            std::cout << head_error << "invalud argument for 'send'" << std::endl;
+            std::cout << head_error << "invalid argument for 'send'" << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
@@ -231,7 +236,7 @@ void receive(){
 
             // 受信したデータの処理
             std::string data(buf);
-            std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
+            // std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
             std::cout << "# " << std::flush;
             Bit32 res = bit32_of_data(data);
             if(res.to_int() == 153 && res.t == Type::t_int) bootloading_start_flag = true; // ブートローダ用通信の開始
