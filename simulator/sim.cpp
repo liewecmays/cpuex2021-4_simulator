@@ -813,9 +813,12 @@ void exec_op(Operation &op){
             }
             break;
         case 9: // jalr
-            write_reg(op.rd, pc + 4);
-            op_type_count[Otype::o_jalr]++;
-            pc = read_reg(op.rs1) + op.imm * 4;
+            {
+                unsigned next_pc = pc + 4;
+                pc = read_reg(op.rs1) + op.imm * 4;
+                write_reg(op.rd, next_pc);
+                op_type_count[Otype::o_jalr]++;
+            }
             return;
         case 10: // jal
             write_reg(op.rd, pc + 4);
