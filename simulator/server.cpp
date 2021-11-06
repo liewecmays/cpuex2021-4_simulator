@@ -109,12 +109,10 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(.+)\\s*$"))){ // send N
         std::string input = match[2].str();
         std::string data;
-        if(std::regex_match(input, std::regex("\\d+"))){
+        if(std::regex_match(input, std::regex("(-)?\\d+"))){
             data = data_of_int(std::stoi(input));
         }else if(std::regex_match(input, std::regex("0f.+"))){
-            float f = std::stof(input.substr(2));
-            std::cout << f << std::endl;
-            data = data_of_float(f);
+            data = data_of_float(std::stof(input.substr(2)));
         }else if(std::regex_match(input, std::regex("0b(0|1)+"))){
             data = data_of_binary(input.substr(2));
         }else if(std::regex_match(input, std::regex("0t.+"))){
