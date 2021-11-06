@@ -321,6 +321,9 @@ bool exec_command(std::string cmd){
         }
 
         std::cout << head_info << "simulation environment is now initialized" << std::endl;
+    }else if(std::regex_match(cmd, std::regex("^\\s*(ir|(init run))\\s*$"))){ // init run
+        exec_command("init");
+        exec_command("run");
     }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
         if(simulation_end){
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
@@ -412,6 +415,19 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
         print_reg();
         print_reg_fp();
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+buf(\\s+(\\d+))?\\s*$"))){ // print buf
+        if(receive_buffer.empty()){
+            std::cout << "receive buffer: (empty)" << std::endl;
+        }else{
+            int size;
+            if(match[4].str() == ""){
+                size = 10;
+            }else{
+                size = std::stoi(match[4].str());
+            }
+            std::cout << "receive buffer:\n  ";
+            print_queue(receive_buffer, size);
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
         int reg_no;
         Stype st = Stype::t_default;
@@ -1013,6 +1029,16 @@ void print_memory(int start, int width){
         std::cout.setf(std::ios::dec, std::ios::basefield);
     }
     return;
+}
+
+// キューの表示
+void print_queue(std::queue<Bit32> q, int n){
+    while(!q.empty() && n > 0){
+        std::cout << q.front().to_string() << "; ";
+        q.pop();
+        n--;
+    }
+    std::cout << std::endl;
 }
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定

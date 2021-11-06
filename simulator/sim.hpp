@@ -1,6 +1,7 @@
 #pragma once
 #include "common.hpp"
 #include <string>
+#include <queue>
 #include <boost/bimap/bimap.hpp>
 
 /* typedef宣言 */
@@ -24,4 +25,5 @@ void write_reg_fp(int i, float v); // 浮動小数点数レジスタに書き込
 void print_reg(); // 整数レジスタの内容を表示
 void print_reg_fp(); // 浮動小数点数レジスタの内容を表示
 void print_memory(int start, int width); // 4byte単位でメモリの内容を出力
+void print_queue(std::queue<Bit32> q, int n); // キューの表示
 bool is_end(Operation op); // 終了時の命令かどうかを判定
