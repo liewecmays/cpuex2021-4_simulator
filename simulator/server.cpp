@@ -19,7 +19,7 @@ std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
 bool is_debug = false;
 
 // 通信関連
-int port = 8000; // 通信に使うポート番号
+int port = 8080; // 通信に使うポート番号
 struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
 int client_socket; // 送信用のソケット
 bool is_connected = false; // 通信が維持されているかどうかのフラグ

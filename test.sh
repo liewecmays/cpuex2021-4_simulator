@@ -1,42 +1,40 @@
 #!/bin/bash
 
 FILENAME=""
+IS_OUT=""
 IS_DEBUG=false
-IS_OUT=false
-while getopts f:do OPT
+PORT=""
+IS_BOOTLOADING=""
+MEMORY=""
+IS_SKIP=""
+while getopts f:odp:bm:s OPT
 do
     case $OPT in
         f) FILENAME=$OPTARG;;
+        o) IS_OUT="-o";;
         d) IS_DEBUG=true;;
-        o) IS_OUT=true;;
+        p) PORT="-p ${OPTARG}";;
+        b) IS_BOOTLOADING="-b";;
+        m) MEMORY="-m ${OPTARG}";;
+        s) IS_SKIP="-s";;
     esac
 done
 
+make || exit 1
+echo -e ""
+cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
+cd assembler || exit 1
+
 if "${IS_DEBUG}"; then
-    make
-    echo -e ""
-    cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
-    cd assembler
-    ./asm -f $FILENAME -d || exit 1
-    cd ../
+    ./asm -d -f $FILENAME || exit 1
+    cd ../ || exit 1
     cp assembler/out/"${FILENAME}.dbg" simulator/code/"${FILENAME}.dbg" || exit 1
     cd simulator || exit 1
-    if "${IS_OUT}"; then
-        rlwrap ./sim -f $FILENAME -o -d || exit 1
-    else
-        rlwrap ./sim -f $FILENAME -d || exit 1
-    fi
+    rlwrap ./sim -d -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP || exit 1
 else
-    make -s
-    cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
-    cd assembler
     ./asm -f $FILENAME || exit 1
-    cd ../
+    cd ../ || exit 1
     cp assembler/out/$FILENAME simulator/code/$FILENAME || exit 1
     cd simulator || exit 1
-    if "${IS_OUT}"; then
-        rlwrap ./sim -f $FILENAME -o || exit 1
-    else
-        rlwrap ./sim -f $FILENAME || exit 1
-    fi
+    ./sim -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP || exit 1
 fi

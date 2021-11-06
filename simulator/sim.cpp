@@ -29,7 +29,7 @@ unsigned int pc = 0; // プログラムカウンタ
 int op_count = 0; // 命令のカウント
 int mem_size = 10000; // メモリサイズ
 
-int port = 8000; // 通信に使うポート番号
+int port = 8080; // 通信に使うポート番号
 struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
 int client_socket; // 送信用のソケット
 bool is_connected = false; // 通信が維持されているかどうかのフラグ
