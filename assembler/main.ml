@@ -9,6 +9,7 @@ open Parser
 let current_id = ref 0 (* 現在見ている命令が何番目かを保持(注意: 行番号とは異なる) *)
 let label_bp_list = ref [] (* ラベルorブレークポイント、および対応するidを保持 *)
 let label_to_id = ref [] (* ラベルとidの対応関係を保持 *)
+let new_line = ref 0 (* 新しく導入された命令を何行目扱いにするか(0以下) *)
 
 (* コマンドライン引数処理用の変数 *)
 let filename = ref ""
@@ -517,10 +518,12 @@ let rec translate_code code untranslated op_id labels_option =
 							let lower12 = Int32.to_int (Int32.logand (Int32.of_int address) (Int32.of_string "0x00000fff")) in (* 下位12ビット *)
 							current_id := !current_id + 1; (* 1命令文追加 *)
 							(match
-								(translate_code (Operation (Lui (rd, Dec upper20), 0, bp_option)) [] op_id labels_option, (* 新規追加のコードは0行目とする、またブレークポイントやラベルはこの1つ目の命令に持たせる *)
+								(translate_code (Operation (Lui (rd, Dec upper20), !new_line, bp_option)) [] op_id labels_option, (* 新規追加のコードは0行目とする、またブレークポイントやラベルはこの1つ目の命令に持たせる *)
 								translate_code (Operation (Addi (rd, rd, Dec lower12), line_no, None)) [] (op_id + 1) None)
 							with
-							| (Code (id1, c1, lno1, l_o1, b_o1), Code (id2, c2, lno2, l_o2, b_o2)) -> Codes [(id1, c1, lno1, l_o1, b_o1); (id2, c2, lno2, l_o2, b_o2)]
+							| (Code (id1, c1, lno1, l_o1, b_o1), Code (id2, c2, lno2, l_o2, b_o2)) ->
+								new_line := !new_line - 1;
+								Codes [(id1, c1, lno1, l_o1, b_o1); (id2, c2, lno2, l_o2, b_o2)]
 							| _ -> raise (Translate_error "upexpected error"))
 					| _ -> raise (Translate_error "upexpected error")
 			else

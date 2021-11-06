@@ -8,7 +8,7 @@
 // boost::bimaps関連の略記
 typedef boost::bimaps::bimap<std::string, unsigned int> bimap_t;
 typedef bimap_t::value_type bimap_value_t;
-typedef boost::bimaps::bimap<unsigned int, unsigned int> bimap_t2;
+typedef boost::bimaps::bimap<unsigned int, int> bimap_t2;
 typedef bimap_t2::value_type bimap_value_t2;
 
 /* プロトタイプ宣言 */

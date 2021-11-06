@@ -150,15 +150,15 @@ int main(int argc, char *argv[]){
             if(code.size() > 32){
                 if(is_debug){ // デバッグモード
                     std::smatch match;
-                    if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)$"))){
+                    if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)$"))){
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                         label_to_id.insert(bimap_value_t(match[2].str(), code_id));             
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                         bp_to_id.insert(bimap_value_t(match[2].str(), code_id));
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                         label_to_id.insert(bimap_value_t(match[2].str(), code_id));
                         bp_to_id.insert(bimap_value_t(match[3].str(), code_id));
@@ -924,15 +924,15 @@ void receive(){
                 if(is_debug){
                     std::string text = data.substr(1);
                     std::smatch match;
-                    if(std::regex_match(text, match, std::regex("^@(\\d+)$"))){
+                    if(std::regex_match(text, match, std::regex("^@(-?\\d+)$"))){
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                    }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
                         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
-                    }else if(std::regex_match(text, match, std::regex("^@(\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
                         bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
-                    }else if(std::regex_match(text, match, std::regex("^@(\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
                         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
                         bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
