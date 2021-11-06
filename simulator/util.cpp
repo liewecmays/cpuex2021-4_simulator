@@ -58,7 +58,7 @@ std::string data_of_int(int i){
 }
 
 // 浮動小数点数を送信データへと変換
-std::string data_of_float(int f){
+std::string data_of_float(float f){
     return "f" + binary_of_float(f);
 }
 

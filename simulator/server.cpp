@@ -111,12 +111,16 @@ bool exec_command(std::string cmd){
         std::string data;
         if(std::regex_match(input, std::regex("\\d+"))){
             data = data_of_int(std::stoi(input));
+        }else if(std::regex_match(input, std::regex("0f.+"))){
+            float f = std::stof(input.substr(2));
+            std::cout << f << std::endl;
+            data = data_of_float(f);
         }else if(std::regex_match(input, std::regex("0b(0|1)+"))){
             data = data_of_binary(input.substr(2));
         }else if(std::regex_match(input, std::regex("0t.+"))){
             data = "t" + input.substr(2);
-        }else if(std::regex_match(input, std::regex("0f.+"))){
-            data = "f" + input.substr(2);
+        }else if(std::regex_match(input, std::regex("0n.+"))){
+            data = "n" + input.substr(2);
         }else{
             std::cout << head_error << "invalud argument for 'send'" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -158,7 +162,7 @@ bool exec_command(std::string cmd){
         }
         std::cout << head_info << "received start signal (0x99)" << std::endl;
 
-        exec_command("send 0f" + filename);
+        exec_command("send 0n" + filename);
 
         int line_count = 0;
         std::string line;

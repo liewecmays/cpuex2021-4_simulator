@@ -916,7 +916,7 @@ void receive(){
                 }
             }
 
-            if(is_bootloading && data[0] == 'f'){
+            if(is_bootloading && data[0] == 'n'){
                 filename = "boot-" + data.substr(1);
                 if(is_debug){
                     std::cout << head_info << "loading ./code/" << data.substr(1) << std::endl;
