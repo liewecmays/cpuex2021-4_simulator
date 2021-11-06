@@ -83,6 +83,29 @@ bool exec_command(std::string cmd){
         // do nothing
     }else if(std::regex_match(cmd, std::regex("^\\s*(q|(quit))\\s*$"))){ // quit
         res = true;
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(-f)\\s+([a-zA-Z_]+)\\s*$"))){ // send filename
+        std::string filename = match[3].str();
+        std::string input_filename = "./data/" + filename + ".dat";
+        std::ifstream input_file(input_filename);
+        if(!input_file.is_open()){
+            std::cerr << head_error << "could not open " << input_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }else{
+            std::cout << "opened file: " << input_filename << std::endl;
+        }
+
+        std::string line;
+        while(std::getline(input_file, line)){
+            if(std::regex_match(line, std::regex("^\\s*\\r?\\n?$"))){
+                continue;
+            }else{
+                std::stringstream ss{line};
+                std::string buf;
+                while(std::getline(ss, buf, ' ')){
+                    exec_command("send " + buf);
+                }
+            }
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(.+)\\s*$"))){ // send N
         std::string input = match[2].str();
         std::string data;
@@ -115,29 +138,6 @@ bool exec_command(std::string cmd){
         if(res_len == 0){ // 通信が切断された場合
             std::cout << head_error << "data transmission failed (restart ./sim and try again)" << std::endl;
             is_connected = false;
-        }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+([a-zA-Z_]+)\\s*$"))){ // send filename
-        std::string filename = match[2].str();
-        std::string input_filename = "./data/" + filename + ".dat";
-        std::ifstream input_file(input_filename);
-        if(!input_file.is_open()){
-            std::cerr << head_error << "could not open " << input_filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }else{
-            std::cout << "opened file: " << input_filename << std::endl;
-        }
-
-        std::string line;
-        while(std::getline(input_file, line)){
-            if(std::regex_match(line, std::regex("^\\s*\\r?\\n?$"))){
-                continue;
-            }else{
-                std::stringstream ss{line};
-                std::string buf;
-                while(std::getline(ss, buf, ' ')){
-                    exec_command("send " + buf);
-                }
-            }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
         std::string filename = match[2].str();
