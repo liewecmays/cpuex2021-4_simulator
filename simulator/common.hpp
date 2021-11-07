@@ -38,16 +38,11 @@ enum class Otype{
 std::string string_of_otype(Otype t); // Otypeを文字列に変換
 
 
-// 整数と浮動小数点数の共用体 (todo: 仕様に合わせる)
-union Int_float{
-    int i;
-    float f;
-};
-
-// Bit32がとる型
-enum class Type{
-    t_int,
-    t_float
+// 内部表現を考慮したfloat
+struct Float{
+    unsigned int m : 23;
+    unsigned int e : 8;
+    unsigned int s : 1;
 };
 
 // 文字列変換の際に指定対象となる型
@@ -60,18 +55,16 @@ enum class Stype{
     t_op
 };
 
-// 整数と浮動小数の共用体を模したクラス
-class Bit32{
-    public:
-        int v; // 内部的にはint
-        Type t; // 値の(本当の)型
-        Bit32();
-        Bit32(int i);
-        Bit32(int i, Type t);
-        Bit32(float f);
-        int to_int();
-        float to_float();
-        std::string to_string();
-        std::string to_string(Stype t);
-        std::string to_string(Stype t, const int len);
+// 32ビット列を扱うための共用体
+union Bit32{
+    int i;
+    unsigned int ui;
+    float f;
+    Float F;
+    Bit32();
+    Bit32(int i);
+    Bit32(float f);
+    std::string to_string();
+    std::string to_string(Stype t);
+    // std::string to_string(Stype t, const int len);
 };

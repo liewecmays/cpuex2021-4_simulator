@@ -396,51 +396,30 @@ std::string string_of_otype(Otype t){
 
 /* class Bit32 */
 Bit32::Bit32(){
-    this->v = 0;
-    this->t = Type::t_int;
+    this->i = 0;
 }
 
 // intを引数に取るコンストラクタ
 Bit32::Bit32(int i){
-    this->v = i;
-    this->t = Type::t_int;
-}
-
-// intを引数に取るが、型を指定できるコンストラクタ
-Bit32::Bit32(int i, Type t){
-    this->v = i;
-    this->t = t;
+    this->i = i;
 }
 
 // floatを引数に取るコンストラクタ
 Bit32::Bit32(float f){
-    Int_float u;
-    u.f = f;
-    this->v = u.i;
-    this->t = Type::t_float;
+    this->f = f;
 }
 
-// intを取り出す
-int Bit32::to_int(){
-    return this->v;
-}
-
-// floatに変換して取り出す
-float Bit32::to_float(){
-    Int_float u;
-    u.i = this->v;
-    return u.f;
-}
 
 // stringに変換して取り出す
 std::string Bit32::to_string(){
-    switch(this->t){
-        case Type::t_int:
-            return std::to_string((*this).to_int());
-        case Type::t_float:
-            return std::to_string((*this).to_float());
-        default: std::exit(EXIT_FAILURE);
-    }
+    return std::to_string(this->i);
+    // switch(this->t){
+    //     case Type::t_int:
+    //         return std::to_string((*this).to_int());
+    //     case Type::t_float:
+    //         return std::to_string((*this).to_float());
+    //     default: std::exit(EXIT_FAILURE);
+    // }
 }
 
 std::string Bit32::to_string(Stype t){
@@ -450,27 +429,27 @@ std::string Bit32::to_string(Stype t){
             res = this->to_string();
             break;
         case Stype::t_dec: // 10進数
-            res = std::to_string(this->v);
+            res = std::to_string(this->i);
             break;
         case Stype::t_bin: // 2進数
             {
-                std::bitset<32> bs(this->v);
+                std::bitset<32> bs(this->i);
                 res = "0b" + bs.to_string();
             }
             break;
         case Stype::t_hex: // 16進数
             {
                 std::ostringstream sout;
-                sout << std::hex << std::setfill('0') << std::setw(8) << this->v;
+                sout << std::hex << std::setfill('0') << std::setw(8) << this->i;
                 res = "0x" + sout.str();
             }
             break;
         case Stype::t_float: // 浮動小数
-            res = std::to_string(this->to_float());;
+            res = std::to_string(this->f);;
             break;
         case Stype::t_op:
             {
-                std::bitset<32> bs(this->v);
+                std::bitset<32> bs(this->i);
                 res = Operation(bs.to_string()).to_string();
             }
             break;
@@ -480,45 +459,45 @@ std::string Bit32::to_string(Stype t){
     return res;
 }
 
-std::string Bit32::to_string(Stype t, const int len){
-    std::string res;
-    switch(t){
-        case Stype::t_dec: // 10進数
-            {
-                std::ostringstream sout;
-                sout << std::setfill('0') << std::setw(len) << this->v;
-                res = sout.str();
-            }
-            break;
-        case Stype::t_bin: // 2進数
-            {
-                int n = this->v;
-                while (n > 0) {
-                    res.push_back('0' + (n & 1));
-                    n >>= 1;
-                }
-                std::reverse(res.begin(), res.end());
-                res = "0b" + res;
-            }
-            break;
-        case Stype::t_hex: // 16進数
-            {
-                std::ostringstream sout;
-                sout << std::hex << std::setfill('0') << std::setw(len) << this->v;
-                res = "0x" + sout.str();
-            }
-            break;
-        case Stype::t_float: // 浮動小数
-            {
-                std::ostringstream sout;
-                sout << std::setprecision(len) << this->to_float();
-                res = sout.str();
-            }
-            break;
-        default:
-            std::cerr << head_error << "do not designate length with t_default/t_op" << std::endl;
-            std::exit(EXIT_FAILURE);
-    }
+// std::string Bit32::to_string(Stype t, const int len){
+//     std::string res;
+//     switch(t){
+//         case Stype::t_dec: // 10進数
+//             {
+//                 std::ostringstream sout;
+//                 sout << std::setfill('0') << std::setw(len) << this->v;
+//                 res = sout.str();
+//             }
+//             break;
+//         case Stype::t_bin: // 2進数
+//             {
+//                 int n = this->v;
+//                 while (n > 0) {
+//                     res.push_back('0' + (n & 1));
+//                     n >>= 1;
+//                 }
+//                 std::reverse(res.begin(), res.end());
+//                 res = "0b" + res;
+//             }
+//             break;
+//         case Stype::t_hex: // 16進数
+//             {
+//                 std::ostringstream sout;
+//                 sout << std::hex << std::setfill('0') << std::setw(len) << this->v;
+//                 res = "0x" + sout.str();
+//             }
+//             break;
+//         case Stype::t_float: // 浮動小数
+//             {
+//                 std::ostringstream sout;
+//                 sout << std::setprecision(len) << this->to_float();
+//                 res = sout.str();
+//             }
+//             break;
+//         default:
+//             std::cerr << head_error << "do not designate length with t_default/t_op" << std::endl;
+//             std::exit(EXIT_FAILURE);
+//     }
 
-    return res;
-}
+//     return res;
+// }

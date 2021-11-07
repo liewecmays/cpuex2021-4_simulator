@@ -161,6 +161,7 @@ bool exec_command(std::string cmd){
         
         std::cout << head_info << "waiting for start signal (0x99) ..." << std::endl;
         while(true){
+            std::cout << std::ends;
             if(bootloading_start_flag) break;
         }
         std::cout << head_info << "received start signal (0x99)" << std::endl;
@@ -236,11 +237,11 @@ void receive(){
 
             // 受信したデータの処理
             std::string data(buf);
-            // std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
-            std::cout << "# " << std::flush;
             Bit32 res = bit32_of_data(data);
-            if(res.to_int() == 153 && res.t == Type::t_int) bootloading_start_flag = true; // ブートローダ用通信の開始
-            if(res.to_int() == 170 && res.t == Type::t_int) bootloading_end_flag = true; // ブートローダ用通信の終了
+            std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
+            std::cout << "# " << std::flush;
+            if(res.i == 153) bootloading_start_flag = true; // ブートローダ用通信の開始
+            if(res.i == 170) bootloading_end_flag = true; // ブートローダ用通信の終了
             data_received.emplace_back(res);
         }
         close(client_socket);

@@ -110,8 +110,8 @@ int main(int argc, char *argv[]){
 
     // レジスタの初期化
     for(int i=0; i<32; i++){ // レジスタをクリア
-        reg_list[i] = Bit32(0, Type::t_int);
-        reg_fp_list[i] = Bit32(0, Type::t_float);
+        reg_list[i] = Bit32(0);
+        reg_fp_list[i] = Bit32(0);
     }
 
     // メモリ領域の確保
@@ -326,8 +326,8 @@ bool exec_command(std::string cmd){
         pc = is_skip ? 100 : 0; // PCを0にする
         op_count = 0; // 総実行命令数を0にする
         for(int i=0; i<32; i++){ // レジスタをクリア
-            reg_list[i] = Bit32(0, Type::t_int);
-            reg_fp_list[i] = Bit32(0, Type::t_float);
+            reg_list[i] = Bit32(0);
+            reg_fp_list[i] = Bit32(0);
         }
         for(int i=0; i<1000; i++){ // メモリをクリア
             memory[i] = Bit32(0);
@@ -548,7 +548,7 @@ void exec_op(Operation &op){
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
     if(is_bootloading){
         if(op.opcode == 4 && op.funct == 2 && op.rs1 == 0 && op.rs2 == 5 && op.rd == -1 && op.imm == 0){ // std %x5
-            int x5 = reg_list[5].to_int();
+            int x5 = reg_list[5].i;
             if(x5 == 153){ // 0x99
                 is_waiting_for_lnum = true;
             }else if(x5 == 170){ // 0xaa
@@ -566,7 +566,7 @@ void exec_op(Operation &op){
 
         if(is_waiting_for_lnum && op.opcode == 6 && op.funct == 0 && op.rs1 == 6 && op.rs2 == -1 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
             is_waiting_for_lnum = false;
-            int loaded_op_num = reg_list[6].to_int() / 4;
+            int loaded_op_num = reg_list[6].i / 4;
             if(is_debug){
                 std::cout << head_info << "operations to be loaded: " << loaded_op_num << std::endl;
                 is_loading_codes = true; // 命令のロード開始
@@ -754,7 +754,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // lw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].to_int());
+                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -769,7 +769,7 @@ void exec_op(Operation &op){
                     return;
                 case 2: // lrd
                     if(!receive_buffer.empty()){
-                        write_reg(op.rd, receive_buffer.front().to_int());
+                        write_reg(op.rd, receive_buffer.front().i);
                         receive_buffer.pop();
                     }else{
                         std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
@@ -790,7 +790,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // flw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].to_float());
+                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -800,7 +800,7 @@ void exec_op(Operation &op){
                     return;
                 case 2: // flrd
                     if(!receive_buffer.empty()){
-                        write_reg(op.rd, receive_buffer.front().to_float());
+                        write_reg(op.rd, receive_buffer.front().f);
                         receive_buffer.pop();
                     }else{
                         std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
@@ -842,10 +842,8 @@ void exec_op(Operation &op){
             break;
         case 12: // itof
             switch(op.funct){
-                Int_float u;
                 case 0: // fmv.i.f
-                    u.i = read_reg(op.rs1);
-                    write_reg_fp(op.rd, u.f);
+                    write_reg_fp(op.rd, Bit32(read_reg(op.rs1)).f);
                     op_type_count[Otype::o_fmvif]++;
                     pc += 4;
                     return;
@@ -859,10 +857,8 @@ void exec_op(Operation &op){
             break;
         case 13: // ftoi
             switch(op.funct){
-                Int_float u;
                 case 0: // fmv.f.i
-                    u.f = read_reg_fp(op.rs1);
-                    write_reg(op.rd, u.i);
+                    write_reg(op.rd, Bit32(read_reg_fp(op.rs1)).i);
                     op_type_count[Otype::o_fmvfi]++;
                     pc += 4;
                     return;
@@ -967,7 +963,7 @@ void send_data(std::string data){
         if(res == 0){
             is_connected = true;
         }else{
-            std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
+            std::cout << head_error << "connection failed (check whether ./server has been started)" << std::endl;
         }
     }
     
@@ -992,7 +988,7 @@ unsigned int id_of_pc(unsigned int n){
 
 // 整数レジスタから読む
 inline int read_reg(int i){
-    return i == 0 ? 0 : reg_list[i].to_int();
+    return i == 0 ? 0 : reg_list[i].i;
 }
 
 // 整数レジスタに書き込む
@@ -1003,7 +999,7 @@ inline void write_reg(int i, int v){
 
 // 浮動小数点数レジスタから読む
 inline float read_reg_fp(int i){
-    return i == 0 ? 0 : reg_fp_list[i].to_float();
+    return i == 0 ? 0 : reg_fp_list[i].f;
 }
 
 // 浮動小数点数レジスタに書き込む

@@ -47,9 +47,7 @@ inline std::string binary_of_int(int i){
 
 // 浮動小数点数を2進数の文字列へと変換
 inline std::string binary_of_float(float f){
-    Int_float u;
-    u.f = f;
-    std::bitset<32> bs(u.i);
+    std::bitset<32> bs(Bit32(f).i);
     return bs.to_string();
 }
 
@@ -82,7 +80,7 @@ inline Bit32 bit32_of_data(std::string data){
     if(data[0] == 'i'){ // int
         return Bit32(int_of_binary(data.substr(1,32)));
     }else if(data[0] == 'f'){ // float
-        return Bit32(int_of_binary(data.substr(1,32)), Type::t_float);
+        return Bit32(int_of_binary(data.substr(1,32)));
     }else{
         std::cerr << head_error << "invalid input to 'bit32_of_data'" << std::endl;
         std::exit(EXIT_FAILURE);
