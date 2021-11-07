@@ -28,7 +28,7 @@ unsigned int pc = 0; // プログラムカウンタ
 int op_count = 0; // 命令のカウント
 int mem_size = 10000; // メモリサイズ
 
-int port = 8080; // 通信に使うポート番号
+int port = 20214; // 通信に使うポート番号
 struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
 int client_socket; // 送信用のソケット
 bool is_connected = false; // 通信が維持されているかどうかのフラグ
@@ -39,6 +39,7 @@ bool is_debug = false; // デバッグモード
 bool is_out = false; // 出力モード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
+bool is_raytracing = false; // レイトレ専用モード
 std::string filename; // 処理対象のファイル名
 std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]){
 
     // コマンドライン引数をパース
     int option;
-    while ((option = getopt(argc, argv, "f:odp:bm:s")) != -1){
+    while ((option = getopt(argc, argv, "f:odp:bm:sr")) != -1){
         switch(option){
             case 'f':
                 filename = std::string(optarg);
@@ -98,13 +99,27 @@ int main(int argc, char *argv[]){
                 break;
             case 's':
                 is_skip = true;
-                op_list.resize(100);
-                pc = 100 * 4;
+                break;
+            case 'r':
+                is_skip = true;
+                is_raytracing = true;
                 break;
             default:
                 std::cerr << head_error << "Invalid command-line argument" << std::endl;
                 std::exit(EXIT_FAILURE);
         }
+    }
+
+    // ブートローダ処理をスキップする場合の処理
+    if(is_skip){
+        op_list.resize(100);
+        pc = 100 * 4;
+    }
+
+    // レイトレを処理する場合は予めreserve
+    if(is_raytracing){
+        op_list.reserve(12000);
+        mem_size = 2500000; // 10MB
     }
 
     // レジスタの初期化
@@ -139,8 +154,9 @@ int main(int argc, char *argv[]){
     // ファイルの各行をパースしてop_listに追加
     std::string code;
     int code_id = is_skip ? 100 : 0;
+    std::regex regex = std::regex("^\\s*\\r?\\n?$");
     while(std::getline(input_file, code)){
-        if(std::regex_match(code, std::regex("^\\s*\\r?\\n?$"))){ // 空行は無視
+        if(std::regex_match(code, regex)){ // 空行は無視
             continue;
         }else{
             op_list.emplace_back(Operation(code));

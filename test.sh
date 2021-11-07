@@ -7,7 +7,8 @@ PORT=""
 IS_BOOTLOADING=""
 MEMORY=""
 IS_SKIP=""
-while getopts f:odp:bm:s OPT
+IS_RAYTRACING=""
+while getopts f:odp:bm:sr OPT
 do
     case $OPT in
         f) FILENAME=$OPTARG;;
@@ -17,6 +18,7 @@ do
         b) IS_BOOTLOADING="-b";;
         m) MEMORY="-m ${OPTARG}";;
         s) IS_SKIP="-s";;
+        r) IS_RAYTRACING="-r"
     esac
 done
 
@@ -30,11 +32,11 @@ if "${IS_DEBUG}"; then
     cd ../ || exit 1
     cp assembler/out/"${FILENAME}.dbg" simulator/code/"${FILENAME}.dbg" || exit 1
     cd simulator || exit 1
-    rlwrap ./sim -d -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP || exit 1
+    rlwrap ./sim -d -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
 else
     ./asm -f $FILENAME || exit 1
     cd ../ || exit 1
     cp assembler/out/$FILENAME simulator/code/$FILENAME || exit 1
     cd simulator || exit 1
-    ./sim -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP || exit 1
+    ./sim -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
 fi
