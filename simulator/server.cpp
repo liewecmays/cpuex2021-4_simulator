@@ -197,7 +197,7 @@ bool exec_command(std::string cmd){
         std::cout << head_info << "bootloading end" << std::endl;
         bootloading_start_flag = false;
         bootloading_end_flag = false;
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-o)\\s+(\\w+))?\\s*$"))){ // out
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out
         if(!data_received.empty()){
             bool ppm = match[3].str() == "-p";
             std::string ext = ppm ? ".ppm" : ".txt";
@@ -227,7 +227,7 @@ bool exec_command(std::string cmd){
             std::stringstream output;
             if(ppm){
                 for(auto b32 : data_received){
-                    output << (unsigned char) b32.i << std::endl;
+                    output << (unsigned char) b32.i;
                 }
             }else{
                 for(auto b32 : data_received){
