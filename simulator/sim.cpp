@@ -991,23 +991,23 @@ unsigned int id_of_pc(unsigned int n){
 }
 
 // 整数レジスタから読む
-int read_reg(int i){
+inline int read_reg(int i){
     return i == 0 ? 0 : reg_list[i].to_int();
 }
 
 // 整数レジスタに書き込む
-void write_reg(int i, int v){
+inline void write_reg(int i, int v){
     if (i != 0) reg_list[i] = Bit32(v);
     return;
 }
 
 // 浮動小数点数レジスタから読む
-float read_reg_fp(int i){
+inline float read_reg_fp(int i){
     return i == 0 ? 0 : reg_fp_list[i].to_float();
 }
 
 // 浮動小数点数レジスタに書き込む
-void write_reg_fp(int i, float v){
+inline void write_reg_fp(int i, float v){
     if (i != 0) reg_fp_list[i] = Bit32(v);
     return;
 }
@@ -1062,6 +1062,6 @@ void print_queue(std::queue<Bit32> q, int n){
 }
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-bool is_end(Operation op){
+inline bool is_end(Operation op){
     return (op.opcode == 10) && (op.funct == -1) && (op.rs1 = -1) && (op.rs2 == -1) && (op.rd == 0) && (op.imm == 0);
 }

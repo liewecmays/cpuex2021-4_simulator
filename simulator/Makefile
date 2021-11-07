@@ -1,12 +1,12 @@
 CC := g++
-OUTPUT_OPTION := -std=c++17 -Wall -O3 -pthread
+OUTPUT_OPTION := -std=c++17 -Wall -O3 -mtune=native -march=native -pthread
 
 all: sim server
 
-sim: common.o util.o sim.o
+sim: util.o common.o sim.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
 
-server: common.o util.o server.o
+server: util.o common.o server.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
 
 .cc.o:
