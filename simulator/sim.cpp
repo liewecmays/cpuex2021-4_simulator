@@ -6,7 +6,6 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <map>
 #include <queue>
 #include <boost/bimap/bimap.hpp>
 #include <thread>
@@ -21,9 +20,9 @@
 /* グローバル変数 */
 // 内部処理関係
 std::vector<Operation> op_list; // 命令のリスト(PC順)
-std::vector<Bit32> reg_list(32); // 整数レジスタのリスト
-std::vector<Bit32> reg_fp_list(32); // 浮動小数レジスタのリスト
-std::vector<Bit32> memory; // メモリ領域
+Bit32 reg_list[32]; // 整数レジスタのリスト
+Bit32 reg_fp_list[32]; // 浮動小数レジスタのリスト
+Bit32 *memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 int op_count = 0; // 命令のカウント
@@ -45,7 +44,7 @@ std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
 // 処理用のデータ構造
-std::map<Otype, int> op_type_count; // 各命令の実行数
+unsigned int op_type_count[OP_TYPES]; // 各命令の実行数
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
 bimap_t label_to_id; // ラベルと命令idの対応
 bimap_t2 id_to_line; // 命令idと行番号の対応
@@ -115,7 +114,7 @@ int main(int argc, char *argv[]){
     }
 
     // メモリ領域の確保
-    memory.resize(mem_size);
+    memory = (Bit32*) malloc(sizeof(Bit32) * mem_size);
 
     // データ送信の準備
     struct in_addr host_addr;
@@ -420,8 +419,8 @@ bool exec_command(std::string cmd){
             }
         }
         std::cout << "execution stat:" << std::endl;
-        for(auto x : op_type_count){
-            std::cout << "  " << string_of_otype(x.first) << ": " << x.second << std::endl;
+        for(int i=0; i<OP_TYPES; i++){
+            std::cout << "  " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
         }
     // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
     //

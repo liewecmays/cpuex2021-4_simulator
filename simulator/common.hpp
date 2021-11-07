@@ -18,7 +18,8 @@ class Operation{
 };
 
 // 命令の種類
-enum class Otype{
+#define OP_TYPES 40
+enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
     o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt,
     o_beq, o_blt, o_ble,
