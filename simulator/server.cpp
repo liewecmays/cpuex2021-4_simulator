@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <regex>
 #include <unistd.h>
+#include <iomanip>
 
 
 /* グローバル変数 */
@@ -91,7 +92,7 @@ bool exec_command(std::string cmd){
             std::cerr << head_error << "could not open " << input_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
-            std::cout << "opened file: " << input_filename << std::endl;
+            std::cout << head_info << "opened file: " << input_filename << std::endl;
         }
 
         std::string line;
@@ -105,7 +106,6 @@ bool exec_command(std::string cmd){
                     if(std::regex_match(buf, std::regex("(\\s|\\t)*\\r?\\n?"))){
                         continue;
                     }else{
-                        std::cout << buf << std::endl;
                         exec_command("send " + buf);
                     }
                 }
@@ -197,7 +197,38 @@ bool exec_command(std::string cmd){
         std::cout << head_info << "bootloading end" << std::endl;
         bootloading_start_flag = false;
         bootloading_end_flag = false;
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(info)\\s*$"))){ // info
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-o)\\s+(\\w+))?\\s*$"))){ // out
+        std::string ext = match[3].str() == "-p" ? ".ppm" : ".txt";
+        std::string filename;
+        if(match[4].str() == ""){
+            filename = "output";
+        }else{
+            filename = match[6].str();
+        }
+
+        time_t t = time(nullptr);
+        tm* time = localtime(&t);
+        std::stringstream timestamp;
+        timestamp << "20" << time -> tm_year - 100;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+        std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
+        std::ofstream output_file(output_filename);
+        if(!output_file){
+            std::cerr << head_error << "could not open " << output_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        std::stringstream output;
+        for(auto b32 : data_received){
+            output << (unsigned char) b32.i << std::endl;
+        }
+        output_file << output.str();
+        std::cout << head_info << "data written in " << output_filename << std::endl;
+    }else if(std::regex_match(cmd, std::regex("^\\s*(info)\\s*$"))){ // info
         std::cout << "data list: ";
         for(auto b32 : data_received){
             std::cout << b32.to_string() << "; ";
@@ -238,8 +269,8 @@ void receive(){
             // 受信したデータの処理
             std::string data(buf);
             Bit32 res = bit32_of_data(data);
-            std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
-            std::cout << "# " << std::flush;
+            // std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
+            std::cout << "\033[2D# " << std::flush;
             if(res.i == 153) bootloading_start_flag = true; // ブートローダ用通信の開始
             if(res.i == 170) bootloading_end_flag = true; // ブートローダ用通信の終了
             data_received.emplace_back(res);

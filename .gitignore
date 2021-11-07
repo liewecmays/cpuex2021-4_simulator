@@ -7,6 +7,8 @@ simulator/code/*
 !simulator/code/.gitkeep
 simulator/data/*
 !simulator/data/.gitkeep
+simulator/out/*
+!simulator/out/.gitkeep
 simulator/result/*
 !simulator/result/.gitkeep
 source/*
