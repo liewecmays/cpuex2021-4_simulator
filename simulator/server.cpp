@@ -198,40 +198,51 @@ bool exec_command(std::string cmd){
         bootloading_start_flag = false;
         bootloading_end_flag = false;
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-o)\\s+(\\w+))?\\s*$"))){ // out
-        std::string ext = match[3].str() == "-p" ? ".ppm" : ".txt";
-        std::string filename;
-        if(match[4].str() == ""){
-            filename = "output";
+        if(!data_received.empty()){
+            bool ppm = match[3].str() == "-p";
+            std::string ext = ppm ? ".ppm" : ".txt";
+            std::string filename;
+            if(match[4].str() == ""){
+                filename = "output";
+            }else{
+                filename = match[6].str();
+            }
+
+            time_t t = time(nullptr);
+            tm* time = localtime(&t);
+            std::stringstream timestamp;
+            timestamp << "20" << time -> tm_year - 100;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+            std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
+            std::ofstream output_file(output_filename);
+            if(!output_file){
+                std::cerr << head_error << "could not open " << output_filename << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+
+            std::stringstream output;
+            if(ppm){
+                for(auto b32 : data_received){
+                    output << (unsigned char) b32.i << std::endl;
+                }
+            }else{
+                for(auto b32 : data_received){
+                    output << b32.to_string(Stype::t_hex) << std::endl;
+                }
+            }
+            output_file << output.str();
+            std::cout << head_info << "data written in " << output_filename << std::endl;
         }else{
-            filename = match[6].str();
+            std::cout << head_error << "data buffer is empty" << std::endl;
         }
-
-        time_t t = time(nullptr);
-        tm* time = localtime(&t);
-        std::stringstream timestamp;
-        timestamp << "20" << time -> tm_year - 100;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-        std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
-        std::ofstream output_file(output_filename);
-        if(!output_file){
-            std::cerr << head_error << "could not open " << output_filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
-        std::stringstream output;
-        for(auto b32 : data_received){
-            output << (unsigned char) b32.i << std::endl;
-        }
-        output_file << output.str();
-        std::cout << head_info << "data written in " << output_filename << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(info)\\s*$"))){ // info
-        std::cout << "data list: ";
+        std::cout << "data list: \n  ";
         for(auto b32 : data_received){
-            std::cout << b32.to_string() << "; ";
+            std::cout << b32.to_string(Stype::t_hex) << "; ";
         }
         std::cout << std::endl;
     }else{
