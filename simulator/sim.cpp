@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <iomanip>
 #include <chrono>
+#include <cfenv>
 
 
 /* グローバル変数 */
@@ -123,6 +124,9 @@ int main(int argc, char *argv[]){
     opponent_addr.sin_family = AF_INET;
     opponent_addr.sin_port = htons(port+1);
     opponent_addr.sin_addr = host_addr;
+
+    // 丸めモードの設定
+    std::fesetround(FE_UPWARD);
 
     // ファイルを読む
     std::string input_filename;
@@ -459,6 +463,7 @@ bool exec_command(std::string cmd){
             if(match[1].str() == "x"){ // int
                 std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no].to_string(st) << std::endl;
             }else{ // float
+                if(st == Stype::t_default) st = Stype::t_float; // デフォルトはfloat
                 std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp_list[reg_no].to_string(st) << std::endl;
             }
             cmd = match.suffix();
@@ -863,7 +868,7 @@ void exec_op(Operation &op){
                     pc += 4;
                     return;
                 case 6: // fcvt.f.i
-                    write_reg(op.rd, static_cast<int>(read_reg_fp(op.rs1)));
+                    write_reg(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
                     op_type_count[Otype::o_fcvtfi]++;
                     pc += 4;
                     return;
