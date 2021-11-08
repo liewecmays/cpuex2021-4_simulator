@@ -31,7 +31,7 @@ int mem_size = 10000; // メモリサイズ
 
 int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
-boost::lockfree::queue<Bit32> send_buffer(1e6); // 外部通信での受信バッファ
+boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バッファ
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
@@ -538,47 +538,49 @@ bool exec_command(std::string cmd){
             std::cout << head_error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out (option)
-        // if(!data_received.empty()){
-        //     bool ppm = match[3].str() == "-p";
-        //     std::string ext = ppm ? ".ppm" : ".txt";
-        //     std::string filename;
-        //     if(match[4].str() == ""){
-        //         filename = "output";
-        //     }else{
-        //         filename = match[6].str();
-        //     }
+        /* notice: これは臨時のコマンド */
+        if(!send_buffer.empty()){
+            bool ppm = match[3].str() == "-p";
+            std::string ext = ppm ? ".ppm" : ".txt";
+            std::string filename;
+            if(match[4].str() == ""){
+                filename = "output";
+            }else{
+                filename = match[6].str();
+            }
 
-        //     time_t t = time(nullptr);
-        //     tm* time = localtime(&t);
-        //     std::stringstream timestamp;
-        //     timestamp << "20" << time -> tm_year - 100;
-        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
-        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
-        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
-        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
-        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-        //     std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
-        //     std::ofstream output_file(output_filename);
-        //     if(!output_file){
-        //         std::cerr << head_error << "could not open " << output_filename << std::endl;
-        //         std::exit(EXIT_FAILURE);
-        //     }
+            time_t t = time(nullptr);
+            tm* time = localtime(&t);
+            std::stringstream timestamp;
+            timestamp << "20" << time -> tm_year - 100;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+            std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
+            std::ofstream output_file(output_filename);
+            if(!output_file){
+                std::cerr << head_error << "could not open " << output_filename << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
 
-        //     std::stringstream output;
-        //     if(ppm){
-        //         for(auto b32 : data_received){
-        //             output << (unsigned char) b32.i;
-        //         }
-        //     }else{
-        //         for(auto b32 : data_received){
-        //             output << b32.to_string(Stype::t_hex) << std::endl;
-        //         }
-        //     }
-        //     output_file << output.str();
-        //     std::cout << head_info << "data written in " << output_filename << std::endl;
-        // }else{
-        //     std::cout << head_error << "data buffer is empty" << std::endl;
-        // }
+            std::stringstream output;
+            Bit32 bit32;
+            if(ppm){
+                while(send_buffer.pop(bit32)){ // todo: send_bufferを破壊しないようにしたい
+                    output << (unsigned char) bit32.i;
+                }
+            }else{
+                while(send_buffer.pop(bit32)){
+                    output << bit32.to_string(Stype::t_hex) << std::endl;
+                }
+            }
+            output_file << output.str();
+            std::cout << head_info << "data written in " << output_filename << std::endl;
+        }else{
+            std::cout << head_error << "data buffer is empty" << std::endl;
+        }
     }else{
         std::cout << head_error << "invalid command" << std::endl;
     }
@@ -1009,45 +1011,46 @@ void receive_data(){
 
 // データの送信
 void send_data(){
-    // データ送信の準備
-    struct in_addr host_addr;
-    inet_aton("127.0.0.1", &host_addr);
-    struct sockaddr_in opponent_addr; // 通信相手(./server)の情報
-    opponent_addr.sin_family = AF_INET;
-    opponent_addr.sin_port = htons(port+1);
-    opponent_addr.sin_addr = host_addr;
+    if(!is_raytracing){
+        // データ送信の準備
+        struct in_addr host_addr;
+        inet_aton("127.0.0.1", &host_addr);
+        struct sockaddr_in opponent_addr; // 通信相手(./server)の情報
+        opponent_addr.sin_family = AF_INET;
+        opponent_addr.sin_port = htons(port+1);
+        opponent_addr.sin_addr = host_addr;
 
-    int client_socket = 0; // 送信用のソケット
-    bool is_connected = false; // 通信が維持されているかどうかのフラグ
-    Bit32 b32;
-    std::string data;
-    int res;
-    char recv_buf[1];
-    int res_len;
+        int client_socket = 0; // 送信用のソケット
+        bool is_connected = false; // 通信が維持されているかどうかのフラグ
+        Bit32 b32;
+        std::string data;
+        int res;
+        char recv_buf[1];
+        int res_len;
 
-    while(true){
-        while(send_buffer.pop(b32)){
-            if(!is_connected){ // 接続されていない場合
-                client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-                res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
-                if(res == 0){
-                    is_connected = true;
-                }else{
-                    std::cout << head_error << "connection failed (check whether ./server has been started)" << std::endl;
+        while(true){
+            while(send_buffer.pop(b32)){
+                if(!is_connected){ // 接続されていない場合
+                    client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                    res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
+                    if(res == 0){
+                        is_connected = true;
+                    }else{
+                        std::cout << head_error << "connection failed (check whether ./server has been started)" << std::endl;
+                    }
+                }
+                
+                data = data_of_int(b32.i);
+                send(client_socket, data.c_str(), data.size(), 0);
+                res_len = recv(client_socket, recv_buf, 1, 0);
+                if(res_len == 0){ // 通信が切断された場合
+                    std::cout << head_error << "data transmission failed (restart ./server and try again)" << std::endl;
+                    is_connected = false;
                 }
             }
-            
-            data = data_of_int(b32.i);
-            send(client_socket, data.c_str(), data.size(), 0);
-            res_len = recv(client_socket, recv_buf, 1, 0);
-            if(res_len == 0){ // 通信が切断された場合
-                std::cout << head_error << "data transmission failed (restart ./server and try again)" << std::endl;
-                is_connected = false;
-            }
         }
+        close(client_socket);
     }
-
-    close(client_socket);
     return;
 }
 
