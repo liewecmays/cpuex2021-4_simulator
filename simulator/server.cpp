@@ -253,18 +253,7 @@ bool exec_command(std::string cmd){
 }
 
 // データの受信
-void receive(){
-    // 受信設定
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port+1);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-
-    // 受信の準備
-    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr));
-    listen(server_socket, 5);
-
+void receive_inner(int server_socket){
     // クライアントの情報を保持する変数など
     struct sockaddr_in client_addr;
     int client_socket;
@@ -287,6 +276,30 @@ void receive(){
             data_received.emplace_back(res);
         }
         close(client_socket);
+    }
+    return;
+}
+
+void receive(){
+    // 受信設定
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port+1);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    // 受信の準備
+    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr));
+    listen(server_socket, 5);
+
+    // スレッドに分散
+    std::thread threads[THREAD_NUM];
+    for(int i=0; i<THREAD_NUM; ++i){
+        threads[i] = std::thread(receive_inner, server_socket);
+    }
+
+    for(int i=0; i<THREAD_NUM; ++i){
+        threads[i].join();
     }
 
     return;
