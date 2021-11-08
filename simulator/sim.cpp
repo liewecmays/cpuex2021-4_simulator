@@ -237,13 +237,7 @@ void simulate(){
             if(exec_command(cmd)) break;
         }
     }else{ // デバッグなしモード
-        auto start = std::chrono::system_clock::now();
-        exec_command("r");
-        auto end = std::chrono::system_clock::now();
-        auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        std::cout << head << "elapsed time (execution): " << msec << std::endl;
-        std::cout << head << "operation count: " << op_count << std::endl;
-        std::cout << head << "operations per second: " << static_cast<double>(op_count) / msec * 1e6 << std::endl;
+        exec_command("run -t");
     }
 
     return;
@@ -309,13 +303,15 @@ bool exec_command(std::string cmd){
                 }
             }
         }
-    }else if(std::regex_match(cmd, std::regex("^\\s*(r|(run))\\s*$"))){ // run
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
+        bool is_time_measuring = match[4].str() == "-t";
         loop_flag = true;
         breakpoint_skip = false;
         if(simulation_end){
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
+            auto start = std::chrono::system_clock::now();
             while(true){
                 if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
                 exec_op(op_list[id_of_pc(pc)]);
@@ -327,6 +323,13 @@ bool exec_command(std::string cmd){
                     std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
+            }
+            if(is_time_measuring){
+                auto end = std::chrono::system_clock::now();
+                auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+                std::cout << head << "elapsed time (execution): " << msec << std::endl;
+                std::cout << head << "operation count: " << op_count << std::endl;
+                std::cout << head << "operations per second: " << static_cast<double>(op_count) / msec * 1e6 << std::endl;
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
