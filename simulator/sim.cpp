@@ -857,7 +857,7 @@ void exec_op(Operation &op){
                     return;
                 case 2: // flrd
                     if(!receive_buffer.empty()){
-                        write_reg(op.rd, receive_buffer.front().f);
+                        write_reg_fp(op.rd, receive_buffer.front().f);
                         receive_buffer.pop();
                     }else{
                         std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
