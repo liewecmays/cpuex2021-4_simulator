@@ -26,7 +26,7 @@ Bit32 reg_fp_list[32]; // 浮動小数レジスタのリスト
 Bit32 *memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
-int op_count = 0; // 命令のカウント
+unsigned long long op_count = 0; // 命令のカウント
 int mem_size = 10000; // メモリサイズ
 
 int port = 20214; // 通信に使うポート番号
@@ -44,7 +44,7 @@ std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
 // 処理用のデータ構造
-unsigned int op_type_count[OP_TYPES]; // 各命令の実行数
+unsigned long long op_type_count[OP_TYPES]; // 各命令の実行数
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
 bimap_t label_to_id; // ラベルと命令idの対応
 bimap_t2 id_to_line; // 命令idと行番号の対応
