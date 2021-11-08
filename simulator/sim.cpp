@@ -476,10 +476,18 @@ bool exec_command(std::string cmd){
             }
             cmd = match.suffix();
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
-        int start = std::stoi(match[4].str());
-        int width = std::stoi(match[5].str());
-        print_memory(start, width);
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(-w))?\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
+        int start = std::stoi(match[6].str());
+        int width = std::stoi(match[7].str());
+        if(match[4].str() == "-w"){
+            print_memory(start, width);
+        }else{
+            if(start % 4 == 0 && width % 4 == 0){
+                print_memory(start/4, width/4);
+            }else{
+                std::cout << head_error << "memory address should be multiple of 4 (hint: use `print -w m[N:M]` for word addressing)" << std::endl;   
+            }
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
