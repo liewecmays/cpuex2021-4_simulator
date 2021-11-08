@@ -7,6 +7,7 @@
 #include <sstream>
 #include <vector>
 #include <queue>
+#include <boost/lockfree/queue.hpp>
 #include <boost/bimap/bimap.hpp>
 #include <thread>
 #include <sys/socket.h>
@@ -29,10 +30,8 @@ int op_count = 0; // 命令のカウント
 int mem_size = 10000; // メモリサイズ
 
 int port = 20214; // 通信に使うポート番号
-struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
-int client_socket; // 送信用のソケット
-bool is_connected = false; // 通信が維持されているかどうかのフラグ
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
+boost::lockfree::queue<Bit32> send_buffer(1e6); // 外部通信での受信バッファ
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
@@ -131,13 +130,6 @@ int main(int argc, char *argv[]){
     // メモリ領域の確保
     memory = (Bit32*) malloc(sizeof(Bit32) * mem_size);
 
-    // データ送信の準備
-    struct in_addr host_addr;
-    inet_aton("127.0.0.1", &host_addr);
-    opponent_addr.sin_family = AF_INET;
-    opponent_addr.sin_port = htons(port+1);
-    opponent_addr.sin_addr = host_addr;
-
     // ファイルを読む
     std::string input_filename;
     if(is_bootloading){
@@ -197,9 +189,11 @@ int main(int argc, char *argv[]){
 
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
-    std::thread t2(receive);
+    std::thread t2(receive_data);
+    std::thread t3(send_data);
     t1.join();
     t2.detach();
+    t3.detach();
 
     // 実行結果の情報を出力
     if(is_out){
@@ -543,6 +537,48 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
         }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out (option)
+        // if(!data_received.empty()){
+        //     bool ppm = match[3].str() == "-p";
+        //     std::string ext = ppm ? ".ppm" : ".txt";
+        //     std::string filename;
+        //     if(match[4].str() == ""){
+        //         filename = "output";
+        //     }else{
+        //         filename = match[6].str();
+        //     }
+
+        //     time_t t = time(nullptr);
+        //     tm* time = localtime(&t);
+        //     std::stringstream timestamp;
+        //     timestamp << "20" << time -> tm_year - 100;
+        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+        //     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+        //     std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
+        //     std::ofstream output_file(output_filename);
+        //     if(!output_file){
+        //         std::cerr << head_error << "could not open " << output_filename << std::endl;
+        //         std::exit(EXIT_FAILURE);
+        //     }
+
+        //     std::stringstream output;
+        //     if(ppm){
+        //         for(auto b32 : data_received){
+        //             output << (unsigned char) b32.i;
+        //         }
+        //     }else{
+        //         for(auto b32 : data_received){
+        //             output << b32.to_string(Stype::t_hex) << std::endl;
+        //         }
+        //     }
+        //     output_file << output.str();
+        //     std::cout << head_info << "data written in " << output_filename << std::endl;
+        // }else{
+        //     std::cout << head_error << "data buffer is empty" << std::endl;
+        // }
     }else{
         std::cout << head_error << "invalid command" << std::endl;
     }
@@ -709,7 +745,7 @@ void exec_op(Operation &op){
                     pc += 4;
                     return;
                 case 2: // std
-                    send_data(data_of_int(read_reg(op.rs2)));
+                    send_buffer.push(read_reg(op.rs2));
                     ++op_type_count[Otype::o_std];
                     pc += 4;
                     return;
@@ -729,7 +765,7 @@ void exec_op(Operation &op){
                     pc += 4;
                     return;
                 case 2: // fstd
-                    send_data(data_of_int(read_reg_fp(op.rs2)));
+                    send_buffer.push(read_reg_fp(op.rs2));
                     ++op_type_count[Otype::o_fstd];
                     pc += 4;
                     return;
@@ -894,7 +930,7 @@ void exec_op(Operation &op){
 }
 
 // データの受信
-void receive(){
+void receive_data(){
     // 受信設定
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
@@ -921,12 +957,12 @@ void receive(){
             // 受信したデータの処理
             std::string data(buf);
             memset(buf, '\0', sizeof(buf)); // バッファをクリア
-            if(is_debug){
-                // std::cout << head_data << "received " << data << std::endl;
-                if(!loop_flag){
-                    std::cout << "\033[2D# " << std::flush;
-                }
-            }
+            // if(is_debug){
+            //     std::cout << head_data << "received " << data << std::endl;
+            //     if(!loop_flag){
+            //         std::cout << "\033[2D# " << std::flush;
+            //     }
+            // }
 
             if(is_bootloading && data[0] == 'n'){
                 filename = "boot-" + data.substr(1);
@@ -972,24 +1008,47 @@ void receive(){
 }
 
 // データの送信
-void send_data(std::string data){
-    if(!is_connected){ // 接続されていない場合
-        client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        int res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
-        if(res == 0){
-            is_connected = true;
-        }else{
-            std::cout << head_error << "connection failed (check whether ./server has been started)" << std::endl;
+void send_data(){
+    // データ送信の準備
+    struct in_addr host_addr;
+    inet_aton("127.0.0.1", &host_addr);
+    struct sockaddr_in opponent_addr; // 通信相手(./server)の情報
+    opponent_addr.sin_family = AF_INET;
+    opponent_addr.sin_port = htons(port+1);
+    opponent_addr.sin_addr = host_addr;
+
+    int client_socket = 0; // 送信用のソケット
+    bool is_connected = false; // 通信が維持されているかどうかのフラグ
+    Bit32 b32;
+    std::string data;
+    int res;
+    char recv_buf[1];
+    int res_len;
+
+    while(true){
+        while(send_buffer.pop(b32)){
+            if(!is_connected){ // 接続されていない場合
+                client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
+                if(res == 0){
+                    is_connected = true;
+                }else{
+                    std::cout << head_error << "connection failed (check whether ./server has been started)" << std::endl;
+                }
+            }
+            
+            data = data_of_int(b32.i);
+            send(client_socket, data.c_str(), data.size(), 0);
+            res_len = recv(client_socket, recv_buf, 1, 0);
+            if(res_len == 0){ // 通信が切断された場合
+                std::cout << head_error << "data transmission failed (restart ./server and try again)" << std::endl;
+                is_connected = false;
+            }
         }
     }
-    
-    char recv_buf[1];
-    send(client_socket, data.c_str(), data.size(), 0);
-    int res_len = recv(client_socket, recv_buf, 1, 0);
-    if(res_len == 0){ // 通信が切断された場合
-        std::cout << head_error << "data transmission failed (restart ./server and try again)" << std::endl;
-        is_connected = false;
-    }
+
+    close(client_socket);
+    return;
 }
 
 // PCから命令IDへの変換(4の倍数になっていない場合エラー)

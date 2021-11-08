@@ -14,8 +14,8 @@ typedef bimap_t2::value_type bimap_value_t2;
 /* プロトタイプ宣言 */
 void simulate(); // シミュレーションの本体処理
 bool exec_command(std::string cmd); // デバッグモードのコマンドを認識して実行
-void receive(); // データの受信
-void send_data(std::string data);
+void receive_data(); // データの受信
+void send_data(); // データの送信
 void exec_op(Operation &op); // 命令を実行し、PCを変化させる
 unsigned int id_of_pc(unsigned int n); // PCから命令IDへの変換
 int read_reg(int i); // 整数レジスタから読む
