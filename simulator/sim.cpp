@@ -496,7 +496,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // break label
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(.+)\\s*$"))){ // break label
         std::string label = match[3].str();
         if(bp_to_id.left.find(label) == bp_to_id.left.end()){
             if(label_to_id.left.find(label) != label_to_id.left.end()){
