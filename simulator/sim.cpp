@@ -498,16 +498,34 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // break label
         std::string label = match[3].str();
-        if(label_to_id.left.find(label) != label_to_id.left.end()){
-            if(bp_to_id.left.find(label) == bp_to_id.left.end()){
+        if(bp_to_id.left.find(label) == bp_to_id.left.end()){
+            if(label_to_id.left.find(label) != label_to_id.left.end()){
                 int label_id = label_to_id.left.at(label); // 0-indexed
                 bp_to_id.insert(bimap_value_t(label, label_id));
                 std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id * 4 << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
+            
             }else{
-                std::cout << head_error << "breakpoint '" << label << "' has already been set" << std::endl;  
+                std::vector<std::string> matched_labels;
+                for(auto x : label_to_id.left){
+                    if(x.first.find(label) == 0){ // 先頭一致
+                        matched_labels.emplace_back(x.first);
+                    }
+                }
+                unsigned int matched_num = matched_labels.size();
+                if(matched_num == 1){
+                    std::cout << "one label matched: '" << matched_labels[0] << "'" << std::endl;
+                    exec_command("break " + matched_labels[0]);
+                }else if(matched_num > 1){
+                    std::cout << head_info << "more than one labels matched:" << std::endl;
+                    for(auto label : matched_labels){
+                        std::cout << "  " << label << " (line " << label_to_id.left.at(label) << ")" << std::endl;
+                    }
+                }else{
+                    std::cout << head_error << "no label matched for '" << label << "'" << std::endl;
+                }
             }
         }else{
-            std::cout << head_error << "label '" << label << "' is not found" << std::endl;
+            std::cout << head_error << "breakpoint '" << label << "' has already been set" << std::endl;  
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // break N id (Nはアセンブリコードの行数)
         unsigned int line_no = std::stoi(match[3].str());
