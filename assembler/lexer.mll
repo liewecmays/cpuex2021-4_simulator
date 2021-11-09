@@ -4,7 +4,7 @@ let space = ' ' | '\t' | '\r'
 let newline = '\n'
 let alpha = ['a'-'z' 'A'-'Z' '_' ]
 let ident = alpha (alpha | digit)*
-let label = alpha (alpha | digit)* ('.' (digit)+)
+let label = alpha (alpha | digit)* ('.' (digit)+)*
 
 rule token = parse
 | space+ { token lexbuf }

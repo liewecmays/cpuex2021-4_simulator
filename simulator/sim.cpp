@@ -159,13 +159,13 @@ int main(int argc, char *argv[]){
                     std::smatch match;
                     if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)$"))){
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルのみ
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                         label_to_id.insert(bimap_value_t(match[2].str(), code_id));             
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ブレークポイントのみ
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                         bp_to_id.insert(bimap_value_t(match[2].str(), code_id));
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルとブレークポイントの両方
                         id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                         label_to_id.insert(bimap_value_t(match[2].str(), code_id));
                         bp_to_id.insert(bimap_value_t(match[3].str(), code_id));
@@ -379,7 +379,7 @@ bool exec_command(std::string cmd){
                 }
             }
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // continue break
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // continue break
         if(simulation_end){
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
@@ -496,7 +496,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break label
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // break label
         std::string label = match[3].str();
         if(label_to_id.left.find(label) != label_to_id.left.end()){
             if(bp_to_id.left.find(label) == bp_to_id.left.end()){
@@ -509,7 +509,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "label '" << label << "' is not found" << std::endl;
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // break N id (Nはアセンブリコードの行数)
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // break N id (Nはアセンブリコードの行数)
         unsigned int line_no = std::stoi(match[3].str());
         std::string bp = match[4].str();
         if(bp != "__ret"){ // そのブレークポイント名は__retではない？
@@ -540,7 +540,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "do not use '__ret' as a breakpoint name (it is reserved)" << std::endl;    
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(delete))\\s+(([a-zA-Z_]\\w*(.\\d+)?))\\s*$"))){ // delete id
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(delete))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // delete id
         std::string bp_id = match[3].str();
         if(bp_to_id.left.find(bp_id) != bp_to_id.left.end()){
             bp_to_id.left.erase(bp_id);
@@ -990,13 +990,13 @@ void receive_data(){
                     std::smatch match;
                     if(std::regex_match(text, match, std::regex("^@(-?\\d+)$"))){
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
-                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルのみ
+                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルのみ
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
                         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));             
-                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ブレークポイントのみ
+                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ブレークポイントのみ
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
                         bp_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
-                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)?))!(([a-zA-Z_]\\w*(.\\d+)?))$"))){ // ラベルとブレークポイントの両方
+                    }else if(std::regex_match(text, match, std::regex("^@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルとブレークポイントの両方
                         id_to_line_loaded.insert(bimap_value_t2(loading_id, std::stoi(match[1].str())));
                         label_to_id_loaded.insert(bimap_value_t(match[2].str(), loading_id));
                         bp_to_id_loaded.insert(bimap_value_t(match[3].str(), loading_id));
