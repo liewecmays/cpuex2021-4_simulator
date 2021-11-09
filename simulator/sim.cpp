@@ -185,7 +185,7 @@ int main(int argc, char *argv[]){
 
     auto end = std::chrono::system_clock::now();
     auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << head << "elapsed time (preperation): " << msec << std::endl;
+    std::cout << head << "time elapsed (preparation): " << msec << std::endl;
 
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
@@ -327,7 +327,7 @@ bool exec_command(std::string cmd){
             if(is_time_measuring){
                 auto end = std::chrono::system_clock::now();
                 auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-                std::cout << head << "elapsed time (execution): " << msec << std::endl;
+                std::cout << head << "time elapsed (execution): " << msec << std::endl;
                 std::cout << head << "operation count: " << op_count << std::endl;
                 std::cout << head << "operations per second: " << static_cast<double>(op_count) / msec * 1e6 << std::endl;
             }

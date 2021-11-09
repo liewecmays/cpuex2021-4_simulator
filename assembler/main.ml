@@ -827,7 +827,7 @@ let () =
 		print_endline (head ^ "source file: ./source/" ^ !filename ^ ".s");
 		let raw_result = assemble codes in
 		let result = List.fast_sort (fun (n1, _, _, _, _) (n2, _, _, _, _) -> compare n1 n2) raw_result in (* idでソート *)
-		print_endline (head ^ "Succeeded in assembling " ^ !filename ^ ".s\x1b[0m" ^ (if !is_debug then " (in debug-mode)" else ""));
+		print_endline (head ^ "succeeded in assembling " ^ !filename ^ ".s\x1b[0m" ^ (if !is_debug then " (in debug-mode)" else ""));
 		let out_channel = open_out ("./out/" ^ !filename ^ (if !is_debug then ".dbg" else "")) in
 		let rec output_result result = (* アセンブルの結果をidごとにファイルに出力 *)
 			match result with
