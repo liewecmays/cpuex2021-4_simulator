@@ -100,7 +100,6 @@ int main(int argc, char *argv[]){
                 is_skip = true;
                 break;
             case 'r':
-                is_skip = true;
                 is_raytracing = true;
                 break;
             default:

@@ -14,9 +14,11 @@ let new_line = ref (-1) (* 新しく導入された命令を何行目扱いに�
 (* コマンドライン引数処理用の変数 *)
 let filename = ref ""
 let is_debug = ref false
+let is_skip = ref false
 let speclist = [
-	("-f", Arg.Set_string filename, "Name of the input file");
-	("-d", Arg.Set is_debug, "Select debug mode")
+	("-f", Arg.Set_string filename, "filename");
+	("-d", Arg.Set is_debug, "debug mode");
+	("-s", Arg.Set is_skip, "bootloading skip mode")
 ]
 let usage_msg = "" (* todo *)
 
@@ -44,10 +46,15 @@ let is_float r =
 	| Int_reg _ -> false
 	| Float_reg _ -> true
 
+(* idを絶対アドレスに変換 *)
+let address_of_id id =
+	if !is_skip then
+		4 * (100 + id - 1)
+	else
+		4 * (id - 1)
 
 (* 即値を指定された桁数の二進数に変換 *)
 exception Argument_error
-let address_of_id id = 4 * (100 + id - 1)
 let rec binary_of_imm imm len =
 	match imm with
 	| Dec i -> binary_of_int_signed i len
