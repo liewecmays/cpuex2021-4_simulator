@@ -14,11 +14,13 @@ let new_line = ref (-1) (* 新しく導入された命令を何行目扱いに�
 (* コマンドライン引数処理用の変数 *)
 let filename = ref ""
 let is_debug = ref false
+let is_bootloading = ref false
 let is_skip = ref false
 let speclist = [
 	("-f", Arg.Set_string filename, "filename");
 	("-d", Arg.Set is_debug, "debug mode");
-	("-s", Arg.Set is_skip, "bootloading skip mode")
+	("-b", Arg.Set is_bootloading, "bootloading mode");
+	("-s", Arg.Set is_skip, "bootloading-skip mode");
 ]
 let usage_msg = "" (* todo *)
 
@@ -48,7 +50,7 @@ let is_float r =
 
 (* idを絶対アドレスに変換 *)
 let address_of_id id =
-	if !is_skip then
+	if (!is_bootloading || !is_skip) then
 		4 * (100 + id - 1)
 	else
 		4 * (id - 1)

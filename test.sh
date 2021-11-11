@@ -28,13 +28,13 @@ cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
 cd assembler || exit 1
 
 if "${IS_DEBUG}"; then
-    ./asm -d -f $FILENAME $IS_SKIP || exit 1
+    ./asm -d -f $FILENAME $IS_BOOTLOADING $IS_SKIP || exit 1
     cd ../ || exit 1
     cp assembler/out/"${FILENAME}.dbg" simulator/code/"${FILENAME}.dbg" || exit 1
     cd simulator || exit 1
     rlwrap ./sim -d -f $FILENAME $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
 else
-    ./asm -f $FILENAME $IS_SKIP || exit 1
+    ./asm -f $FILENAME $IS_BOOTLOADING $IS_SKIP || exit 1
     cd ../ || exit 1
     cp assembler/out/$FILENAME simulator/code/$FILENAME || exit 1
     cd simulator || exit 1
