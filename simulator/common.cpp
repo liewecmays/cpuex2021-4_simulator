@@ -404,6 +404,11 @@ Bit32::Bit32(int i){
     this->i = i;
 }
 
+// unsigned intを引数に取るコンストラクタ
+Bit32::Bit32(unsigned int i){
+    this->ui = i;
+}
+
 // floatを引数に取るコンストラクタ
 Bit32::Bit32(float f){
     this->f = f;

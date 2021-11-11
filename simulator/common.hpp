@@ -63,6 +63,7 @@ union Bit32{
     Float F;
     Bit32();
     Bit32(int i);
+    Bit32(unsigned int ui);
     Bit32(float f);
     std::string to_string();
     std::string to_string(Stype t);
