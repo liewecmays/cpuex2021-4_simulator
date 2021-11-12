@@ -27,6 +27,7 @@ Bit32 *memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
+constexpr unsigned long long max_op_count = 10000000000;
 int mem_size = 10000; // メモリサイズ
 
 int port = 20214; // 通信に使うポート番号
@@ -663,6 +664,12 @@ void exec_op(Operation &op){
             }
             op_list.resize(100 + loaded_op_num); // 受け取る命令の数に合わせてop_listを拡大
         }
+    }
+
+    if(is_raytracing && op_count >= max_op_count){
+        std::cout << head_error << "too many operations executed for raytracing program" << std::endl;
+        std::exit(EXIT_FAILURE);
+
     }
 
     switch(op.opcode){
