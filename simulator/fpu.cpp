@@ -152,7 +152,7 @@ Bit32 finv(Bit32 x){
     ui b = ram_finv_b[addr];
 
     // stage2
-    ui e3 = 253 - x.F.e;
+    ui e3 = x.F.e > 253 ? 0 : 253 - x.F.e;
     ull m2 = static_cast<ull>(m1) * static_cast<ull>(a);
     ull b2 = static_cast<ull>(b) << 1;
 
