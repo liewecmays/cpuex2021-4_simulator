@@ -29,6 +29,8 @@ unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
 constexpr unsigned long long max_op_count = 10000000000;
 int mem_size = 10000; // メモリサイズ
+constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
+bool memory_exceeding_flag = false;
 
 int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
@@ -347,7 +349,7 @@ bool exec_command(std::string cmd){
             reg_list[i] = Bit32(0);
             reg_fp_list[i] = Bit32(0);
         }
-        for(int i=0; i<1000; ++i){ // メモリをクリア
+        for(int i=0; i<mem_size; ++i){ // メモリをクリア
             memory[i] = Bit32(0);
         }
 
@@ -669,7 +671,6 @@ void exec_op(Operation &op){
     if(is_raytracing && op_count >= max_op_count){
         std::cout << head_error << "too many operations executed for raytracing program" << std::endl;
         std::exit(EXIT_FAILURE);
-
     }
 
     switch(op.opcode){
@@ -771,7 +772,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // sw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        memory[(read_reg(op.rs1) + op.imm) / 4] = Bit32(read_reg(op.rs2));
+                        write_memory((read_reg(op.rs1) + op.imm) / 4, Bit32(read_reg(op.rs2)));
                     }else{
                         std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -801,7 +802,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // fsw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        memory[(read_reg(op.rs1) + op.imm) / 4] = Bit32(read_reg_fp(op.rs2));
+                        write_memory((read_reg(op.rs1) + op.imm) / 4, Bit32(read_reg_fp(op.rs2)));
                     }else{
                         std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -851,7 +852,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // lw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].i);
+                        write_reg(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4).i);
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -887,7 +888,7 @@ void exec_op(Operation &op){
             switch(op.funct){
                 case 0: // flw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg_fp(op.rd, memory[(read_reg(op.rs1) + op.imm) / 4].f);
+                        write_reg_fp(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4).f);
                     }else{
                         std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
                         std::exit(EXIT_FAILURE);
@@ -1127,6 +1128,22 @@ inline float read_reg_fp(int i){
 inline void write_reg_fp(int i, float v){
     if (i != 0) reg_fp_list[i] = Bit32(v);
     return;
+}
+
+inline Bit32 read_memory(int w){
+    if(!memory_exceeding_flag && w >= max_mem_size){
+        memory_exceeding_flag = true;
+        std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
+    }
+    return memory[w];
+}
+
+inline void write_memory(int w, Bit32 v){
+    if(!memory_exceeding_flag && w >= max_mem_size){
+        memory_exceeding_flag = true;
+        std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
+    }
+    memory[w] = v;
 }
 
 // 整数レジスタの内容を表示

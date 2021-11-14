@@ -8,6 +8,7 @@
 extern std::string head_error;
 extern std::string head_info;
 extern std::string head_data;
+extern std::string head_warning;
 
 /* プロトタイプ宣言 */
 // 2進数を表す文字列から整数に変換
