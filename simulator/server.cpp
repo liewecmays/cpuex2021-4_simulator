@@ -22,8 +22,8 @@ bool is_debug = false;
 // 通信関連
 int port = 20214; // 通信に使うポート番号
 struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
-int client_socket; // 送信用のソケット
-bool is_connected = false; // 通信が維持されているかどうかのフラグ
+// int client_socket; // 送信用のソケット
+// bool is_connected = false; // 通信が維持されているかどうかのフラグ
 
 // ブートローダ関連
 bool bootloading_start_flag = false; // ブートローダ用通信開始のフラグ
@@ -47,13 +47,6 @@ int main(int argc, char *argv[]){
                 std::exit(EXIT_FAILURE);
         }
     }
-
-    // データ送信の準備
-    struct in_addr host_addr;
-    inet_aton("127.0.0.1", &host_addr);
-    opponent_addr.sin_family = AF_INET;
-    opponent_addr.sin_port = htons(port);
-    opponent_addr.sin_addr = host_addr;
 
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(server);
@@ -129,23 +122,36 @@ bool exec_command(std::string cmd){
             std::exit(EXIT_FAILURE);
         }
 
-        if(!is_connected){ // 接続されていない場合
-            client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-            int res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
-            if(res == 0){
-                is_connected = true;
-            }else{
-                std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
-            }
+        // if(!is_connected){ // 接続されていない場合
+        //     client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        //     int res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
+        //     if(res == 0){
+        //         is_connected = true;
+        //     }else{
+        //         std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
+        //     }
+        // }
+
+        // データ送信の準備
+        struct in_addr host_addr;
+        inet_aton("127.0.0.1", &host_addr);
+        opponent_addr.sin_family = AF_INET;
+        opponent_addr.sin_port = htons(port);
+        opponent_addr.sin_addr = host_addr;
+
+        int client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if(connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr)) != 0){
+            std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
         }
+        
         
         char recv_buf[1];
         send(client_socket, data.c_str(), data.size(), 0);
-        int res_len = recv(client_socket, recv_buf, 1, 0);
-        if(res_len == 0){ // 通信が切断された場合
-            std::cout << head_error << "data transmission failed (restart ./sim and try again)" << std::endl;
-            is_connected = false;
-        }
+        // int res_len = recv(client_socket, recv_buf, 1, 0);
+        // if(res_len == 0){ // 通信が切断された場合
+        //     std::cout << head_error << "data transmission failed (restart ./sim and try again)" << std::endl;
+        //     is_connected = false;
+        // }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
         std::string filename = match[2].str();
         std::string input_filename;
