@@ -22,8 +22,6 @@ do
     esac
 done
 
-make || exit 1
-echo -e ""
 cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
 cd assembler || exit 1
 

@@ -997,7 +997,7 @@ void receive_data(){
 
     while(true){
         client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
-        recv_len = recv(client_socket, buf, 64, 0);
+        recv(client_socket, buf, 64, 0);
         std::string data(buf);
         memset(buf, '\0', sizeof(buf)); // バッファをクリア
         receive_buffer.push(bit32_of_data(data));
