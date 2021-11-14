@@ -1,6 +1,7 @@
 #include "fpu.hpp"
 #include "common.hpp"
 #include <cmath>
+#include<iostream>
 
 using ui = unsigned int;
 using ull = unsigned long long;
@@ -163,6 +164,27 @@ Bit32 finv(Bit32 x){
     return Bit32(y);
 }
 
+Bit32 fsqrt(Bit32 x){
+    // stage1
+    ull m1 = (1LU << 46) + (static_cast<ull>(x.F.m) << 23);
+    
+    // ram
+    ui addr = take_bits(x.ui, 13, 22);
+    ui a = ram_fsqrt[addr];
+    
+    // stage2
+    ui e2 = x.F.e;
+    ull x0_2 = a >> 1;
+    ull m2 = m1 / (a << 1);
+    
+    // assign
+    ull m3 = isset_bit(e2, 0) ? x0_2 + m2 : (((x0_2 + m2) * 0xb504f3) >> 23);
+    ui e3 = ((e2 - 127) >> 1) + 127;
+    ui y = (e2 == 0) ? 0 : (e3 << 23) + static_cast<ui>(take_bits(m3, 0, 22));
+
+    return Bit32(y);
+}
+
 Bit32 itof(Bit32 x){
     // stage1
     ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
@@ -196,23 +218,25 @@ Bit32 itof(Bit32 x){
     return Bit32(y);
 }
 
-Bit32 fsqrt(Bit32 x){
-    // stage1
-    ull m1 = (1LU << 46) + (static_cast<ull>(x.F.m) << 23);
-    
-    // ram
-    ui addr = take_bits(x.ui, 13, 22);
-    ui a = ram_fsqrt[addr];
-    
-    // stage2
-    ui e2 = x.F.e;
-    ull x0_2 = a >> 1;
-    ull m2 = m1 / (a << 1);
-    
-    // assign
-    ull m3 = isset_bit(e2, 0) ? x0_2 + m2 : (((x0_2 + m2) * 0xb504f3) >> 23);
-    ui e3 = ((e2 - 127) >> 1) + 127;
-    ui y = (e2 == 0) ? 0 : (e3 << 23) + static_cast<ui>(take_bits(m3, 0, 22));
+Bit32 ftoi(Bit32 x){
+    ui m1 = (1 << 23) + x.F.m;
 
+    // stage1
+    ui e1 = x.F.e;
+    ui y1 = 0;
+    if(150 <= e1 && e1 <= 158){
+        y1 = m1 << (e1 - 150);
+    }else{
+        for(int i = 0; i < 24; i++){ // 126, ..., 149
+            if(e1 == static_cast<ui>(149 - i)){
+                y1 = isset_bit(m1, i) ? ((m1 >> (i+1)) + 1) : (m1 >> (i+1));
+                break;
+            }
+        }
+    }
+
+    // stage2
+    ui y = x.F.s == 1 ? (~y1 + 1) : y1;
+    
     return Bit32(y);
 }

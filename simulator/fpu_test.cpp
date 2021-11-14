@@ -13,13 +13,14 @@ int main(){
     std::random_device seed_gen;
     std::default_random_engine engine(seed_gen());
 
-    std::uniform_real_distribution<> dist(0, 100);
+    std::uniform_real_distribution<> dist(-100, 100);
     Bit32 u1, u2;
 
-    for(int i=0; i<10; ++i){        
+    for(int i=0; i<10; ++i){
         u1.f = dist(engine);
+        // u1.f = 19.6f;
         // u2.f = dist(engine);
         // std::cout << std::setprecision(10) << "fmul(" << u1.f << ", " << u2.f << ") = " << fmul(u1, u2).f << " (" << u1.f * u2.f << ")" << std::endl;
-        std::cout << std::setprecision(10) << "finv(" << u1.f << ") = " << finv(u1).f << " (" << 1 / u1.f << ")" << std::endl;
+        std::cout << std::setprecision(10) << "ftoi(" << u1.f << ") = " << ftoi(u1).i << " (" << std::nearbyint(u1.f) << ")" << std::endl;
     }
 }

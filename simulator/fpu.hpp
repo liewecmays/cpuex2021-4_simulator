@@ -16,3 +16,4 @@ Bit32 floor(Bit32);
 Bit32 finv(Bit32);
 Bit32 fsqrt(Bit32);
 Bit32 itof(Bit32);
+Bit32 ftoi(Bit32);
