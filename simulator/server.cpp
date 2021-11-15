@@ -122,16 +122,6 @@ bool exec_command(std::string cmd){
             std::exit(EXIT_FAILURE);
         }
 
-        // if(!is_connected){ // 接続されていない場合
-        //     client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        //     int res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
-        //     if(res == 0){
-        //         is_connected = true;
-        //     }else{
-        //         std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
-        //     }
-        // }
-
         // データ送信の準備
         struct in_addr host_addr;
         inet_aton("127.0.0.1", &host_addr);
@@ -144,14 +134,7 @@ bool exec_command(std::string cmd){
             std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
         }
         
-        
-        char recv_buf[1];
         send(client_socket, data.c_str(), data.size(), 0);
-        // int res_len = recv(client_socket, recv_buf, 1, 0);
-        // if(res_len == 0){ // 通信が切断された場合
-        //     std::cout << head_error << "data transmission failed (restart ./sim and try again)" << std::endl;
-        //     is_connected = false;
-        // }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
         std::string filename = match[2].str();
         std::string input_filename;
