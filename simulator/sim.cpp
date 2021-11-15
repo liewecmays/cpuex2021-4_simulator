@@ -47,7 +47,7 @@ std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
 // 処理用のデータ構造
-unsigned long long op_type_count[OP_TYPES]; // 各命令の実行数
+unsigned long long op_type_count[op_type_num]; // 各命令の実行数
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
 bimap_t label_to_id; // ラベルと命令idの対応
 bimap_t2 id_to_line; // 命令idと行番号の対応
@@ -442,7 +442,7 @@ bool exec_command(std::string cmd){
             }
         }
         std::cout << "execution stat:" << std::endl;
-        for(int i=0; i<OP_TYPES; ++i){
+        for(int i=0; i<op_type_num; ++i){
             std::cout << "  " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
         }
     // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
@@ -1097,7 +1097,7 @@ void send_data(){
                 data = data_of_int(b32.i);
                 send(client_socket, data.c_str(), data.size(), 0);
                 res_len = recv(client_socket, recv_buf, 1, 0);
-                if(res_len == 0){ // 通信が切断された場合
+                if(res_len == 0 || recv_buf[0] != '0'){ // 通信が切断された場合
                     std::cout << head_error << "data transmission failed (restart both ./sim and ./server)" << std::endl;
                     is_connected = false;
                 }

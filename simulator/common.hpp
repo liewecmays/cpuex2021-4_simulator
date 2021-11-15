@@ -18,7 +18,7 @@ class Operation{
 };
 
 // 命令の種類
-#define OP_TYPES 40
+inline constexpr int op_type_num = 41;
 enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
     o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt,
