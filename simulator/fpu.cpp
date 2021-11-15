@@ -164,6 +164,18 @@ Bit32 finv(Bit32 x){
     return Bit32(y);
 }
 
+Bit32 fdiv(Bit32 x1, Bit32 x2){
+    ui e_diff = x2.F.e >= 253 ? 4 : 0;
+    ui modified_x2 = (x2.F.s << 31) + ((x2.F.e - e_diff) << 23) + x2.F.m;
+
+    Bit32 inv_x2 = finv(Bit32(modified_x2));
+    ui tmp = fmul(x1, inv_x2).ui;
+
+    ui y = tmp - (e_diff << 23);
+
+    return Bit32(y);
+}
+
 Bit32 fsqrt(Bit32 x){
     // stage1
     ull m1 = (1LU << 46) + (static_cast<ull>(x.F.m) << 23);
