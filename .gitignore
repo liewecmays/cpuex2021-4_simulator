@@ -1,4 +1,6 @@
 .vscode
+
+# データ・ソースのフォルダ管理
 assembler/out/*
 !assembler/out/.gitkeep
 assembler/source/*
@@ -13,3 +15,17 @@ simulator/result/*
 !simulator/result/.gitkeep
 source/*
 !source/.gitkeep
+
+# 実行ファイルなどの管理
+assembler/**/*.cmi
+assembler/**/*.cmx
+assembler/**/*.o
+assembler/**/*.output
+assembler/lexer.ml
+assembler/parser.ml
+assembler/parser.mli
+assembler/asm
+simulator/**/*.o
+simulator/sim
+simulator/server
+simulator/fpu_test
