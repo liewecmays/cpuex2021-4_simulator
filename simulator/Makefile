@@ -1,7 +1,9 @@
 CC := g++
-OUTPUT_OPTION := -std=c++17 -Wall -O3 -mtune=native -march=native -pthread
+OUTPUT_OPTION := -I./ -std=c++17 -Wall -O3 -mtune=native -march=native -pthread
 
-all: sim server
+default: sim server
+
+all: clean sim server fpu_test
 
 sim: util.o common.o sim.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
@@ -12,7 +14,8 @@ server: util.o common.o server.o
 fpu_test: util.o common.o fpu.o fpu_test.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
 
-.cc.o:
+%.o: %.cpp %.hpp
+	$(CC) $(OUTPUT_OPTION) -o $@ -c $<
 
 clean:
 	rm -f sim server fpu_test *.o
