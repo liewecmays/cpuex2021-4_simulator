@@ -83,6 +83,46 @@ void init_ram(){
 
 
 /* 浮動小数点演算の定義 */
+Bit32 fadd(Bit32 x1, Bit32 x2){
+    ui big =
+        x1.F.e == x2.F.e ?
+            (x1.F.m >= x2.F.m ? 1 : 0) :
+            (x1.F.e > x2.F.e ? 1 : 0);
+    ui x1_m = (1 << 23) + x1.F.m;
+    ui x2_m = (1 << 23) + x2.F.m;
+    
+    // stage1
+    ui s1 = big == 1 ? x1.F.s : x2.F.s;
+    ui e1 = big == 1 ? x1.F.e : x2.F.e;
+    ui calc = x1.F.s ^ x2.F.s;
+    ui big_x =
+        big == 1 ?
+            (x1.F.e == 0 ? 0 : x1_m) :
+            (x2.F.e == 0 ? 0 : x2_m);
+    ui small_x =
+        big == 1 ?
+            (x2.F.e == 0 ? 0 : x2_m >> (x1.F.e - x2.F.e)) :
+            (x1.F.e == 0 ? 0 : x1_m >> (x2.F.e - x1.F.e));
+    
+    // stage2
+    ui m2 = calc == 1 ? take_bits(((1 << 24) + big_x) - ((1 << 24) + small_x), 0, 24) : take_bits(((1 << 24) + big_x) + ((1 << 24) + small_x), 0, 24);
+
+    // stage3
+    ui y = 0;
+    for(ui i = 0; i <= 24; ++i){
+        if(isset_bit(m2, 24 - i)){
+            y = (s1 << 31) + ((e1 + (1 - i)) << 23) + take_bits(m2, 1-i, 23-i);
+            break;
+        }
+    }
+    
+    return Bit32(y);
+}
+
+Bit32 fsub(Bit32 x1, Bit32 x2){
+    return fadd(x1, ((~x2.F.s) << 31) + (x2.F.e << 23) + x2.F.m);
+}
+
 Bit32 fmul(Bit32 x1, Bit32 x2){
     ui m1h = (1 << 12) + take_bits(x1.F.m, 11, 22);
     ui m2h = (1 << 12) + take_bits(x2.F.m, 11, 22);
@@ -104,41 +144,6 @@ Bit32 fmul(Bit32 x1, Bit32 x2){
     ui e3 = !isset_bit(e3a, 8) ? 0 : ((isset_bit(sum, 25)) ? take_bits(e3b, 0, 7) : take_bits(e3a, 0, 7));
     ui m3 = isset_bit(sum, 25) ? take_bits(sum, 2, 24) : take_bits(sum, 1, 23);
     ui y = (e3 == 0) ? 0 : ((s3 << 31) + (e3 << 23) + m3);
-    
-    return Bit32(y);
-}
-
-Bit32 floor(Bit32 x){
-    // stage1
-    ui e1 = x.F.e;
-    ui m1 = x.F.m;
-    ui m2=0, over=0;
-    ui tmp = 0;
-    ui all_zero = 0;
-    for(ui i=0; i<23; ++i){ // 127, 128, ..., 149
-        if(e1 == 127 + i){
-            m2 = (1 << 23) + (m1 & tmp);
-            over = x.F.s << (23-i);
-            all_zero = ~or_all(take_bits(m1, 0, 22-i));
-            break;
-        }
-        tmp += 1 << (22 - i);
-    }
-    if(e1 > 149){
-        m2 = m1;
-        over = all_zero = 0;
-    }else if(e1 <= 126){
-        m2 = over = all_zero = 0;
-    }
-    
-    // assign
-    ui m3 = (all_zero == 1) ? m2 : m2 + over;
-    ui s3 = e1 < 126 ? 0 : x.F.s;
-    ui y = e1 <= 126 ?
-            (s3 == 0 ? 0 : 0xf800000) :
-            (isset_bit(m3, 24) ?
-                ((s3 << 31) + ((e1 + 1) << 23) + take_bits(m3, 23, 1)) :
-                ((s3 << 31) + (e1 << 23) + take_bits(m3, 0, 22)));
     
     return Bit32(y);
 }
@@ -197,6 +202,41 @@ Bit32 fsqrt(Bit32 x){
     return Bit32(y);
 }
 
+Bit32 floor(Bit32 x){
+    // stage1
+    ui e1 = x.F.e;
+    ui m1 = x.F.m;
+    ui m2=0, over=0;
+    ui tmp = 0;
+    ui all_zero = 0;
+    for(ui i=0; i<23; ++i){ // 127, 128, ..., 149
+        if(e1 == 127 + i){
+            m2 = (1 << 23) + (m1 & tmp);
+            over = x.F.s << (23-i);
+            all_zero = ~or_all(take_bits(m1, 0, 22-i));
+            break;
+        }
+        tmp += 1 << (22 - i);
+    }
+    if(e1 > 149){
+        m2 = m1;
+        over = all_zero = 0;
+    }else if(e1 <= 126){
+        m2 = over = all_zero = 0;
+    }
+    
+    // assign
+    ui m3 = (all_zero == 1) ? m2 : m2 + over;
+    ui s3 = e1 < 126 ? 0 : x.F.s;
+    ui y = e1 <= 126 ?
+            (s3 == 0 ? 0 : 0xf800000) :
+            (isset_bit(m3, 24) ?
+                ((s3 << 31) + ((e1 + 1) << 23) + take_bits(m3, 23, 1)) :
+                ((s3 << 31) + (e1 << 23) + take_bits(m3, 0, 22)));
+    
+    return Bit32(y);
+}
+
 Bit32 itof(Bit32 x){
     // stage1
     ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
@@ -239,7 +279,7 @@ Bit32 ftoi(Bit32 x){
     if(150 <= e1 && e1 <= 158){
         y1 = m1 << (e1 - 150);
     }else{
-        for(int i = 0; i < 24; i++){ // 126, ..., 149
+        for(int i = 0; i < 24; ++i){ // 126, ..., 149
             if(e1 == static_cast<ui>(149 - i)){
                 y1 = isset_bit(m1, i) ? ((m1 >> (i+1)) + 1) : (m1 >> (i+1));
                 break;

@@ -19,6 +19,6 @@ int main(){
     for(int i=0; i<10; ++i){
         u1.f = dist(engine);
         u2.f = dist(engine);
-        std::cout << std::setprecision(10) << "fdiv(" << u1.f << ", " << u2.f << ") = " << fdiv(u1, u2).f << " (" << u1.f / u2.f << ")" << std::endl;
+        std::cout << std::setprecision(10) << "fsub(" << u1.f << ", " << u2.f << ") = " << fsub(u1, u2).f << " (" << u1.f - u2.f << ")" << std::endl;
     }
 }
