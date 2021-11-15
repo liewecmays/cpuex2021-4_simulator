@@ -49,6 +49,7 @@ type operation =
 	| Fcvtif of reg * reg (* rs1, rd *)
 	| Fmvfi of reg * reg (* rs1, rd *)
 	| Fcvtfi of reg * reg (* rs1, rd *)
+	| Floor of reg * reg (* rs1, rd *)
 
 type code =
 	| Labels of string list

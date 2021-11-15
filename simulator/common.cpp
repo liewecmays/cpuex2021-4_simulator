@@ -340,6 +340,11 @@ std::string Operation::to_string(){
                     res += ("rs1=f" + std::to_string(this->rs1) + ", ");
                     res += ("rd=x" + std::to_string(this->rd));
                     break;
+                case 7: // floor
+                    res += "floor ";
+                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
+                    res += ("rd=x" + std::to_string(this->rd));
+                    break;
                 default: return "";
             }
             return res;
@@ -390,6 +395,7 @@ std::string string_of_otype(Otype t){
         case Otype::o_fcvtif: return "fcvt.i.f";
         case Otype::o_fmvfi: return "fmv.f.i";
         case Otype::o_fcvtfi: return "fcvt.f.i";
+        case Otype::o_floor: return "floor";
         default: std::exit(EXIT_FAILURE);
     }
 }
@@ -402,6 +408,11 @@ Bit32::Bit32(){
 // intを引数に取るコンストラクタ
 Bit32::Bit32(int i){
     this->i = i;
+}
+
+// unsigned intを引数に取るコンストラクタ
+Bit32::Bit32(unsigned int i){
+    this->ui = i;
 }
 
 // floatを引数に取るコンストラクタ

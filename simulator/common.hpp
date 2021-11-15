@@ -33,7 +33,7 @@ enum Otype{
     o_jal,
     o_lui, o_auipc,
     o_fmvif, o_fcvtif,
-    o_fmvfi, o_fcvtfi
+    o_fmvfi, o_fcvtfi, o_floor
 };
 
 std::string string_of_otype(Otype t); // Otypeを文字列に変換
@@ -64,6 +64,7 @@ union Bit32{
     Float F;
     Bit32();
     Bit32(int i);
+    Bit32(unsigned int ui);
     Bit32(float f);
     std::string to_string();
     std::string to_string(Stype t);

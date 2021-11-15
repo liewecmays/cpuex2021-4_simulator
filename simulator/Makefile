@@ -9,7 +9,10 @@ sim: util.o common.o sim.o
 server: util.o common.o server.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
 
+fpu_test: util.o common.o fpu.o fpu_test.o
+	$(CC) $(OUTPUT_OPTION) -o $@ $^
+
 .cc.o:
 
 clean:
-	rm -f sim server *.o
+	rm -f sim server fpu_test *.o

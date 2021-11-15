@@ -9,7 +9,7 @@
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
-%token ADD SUB AND FADD FSUB FMUL FDIV FSQRT SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW SI STD FSW FSTD ADDI SLLI SRLI SRAI ANDI LW LRE LRD LTF FLW FLRD JALR JAL LUI AUIPC FMVIF FCVTIF FMVFI FCVTFI
+%token ADD SUB AND FADD FSUB FMUL FDIV FSQRT SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW SI STD FSW FSTD ADDI SLLI SRLI SRAI ANDI LW LRE LRD LTF FLW FLRD JALR JAL LUI AUIPC FMVIF FCVTIF FMVFI FCVTFI FLOOR
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -99,6 +99,7 @@ operation_: // 命令とその行番号の組を返す
 	| FCVTIF reg COMMA reg { Fcvtif ($4, $2) } // fcvt.i.f rd,rs1
 	| FMVFI reg COMMA reg { Fmvfi ($4, $2) } // fmv.f.i rd,rs1
 	| FCVTFI reg COMMA reg { Fcvtfi ($4, $2) } // fcvt.f.i rd,rs1
+	| FLOOR reg COMMA reg { Floor ($4, $2) } // floor rd,rs1
 ;
 
 reg:
