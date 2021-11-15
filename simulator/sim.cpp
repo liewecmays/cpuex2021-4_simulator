@@ -864,7 +864,7 @@ void exec_op(Operation &op){
                     pc += 4;
                     return;
                 case 6: // fcvt.f.i
-                    write_reg(op.rd, static_cast<int>(std::floor(read_reg_fp(op.rs1) + 0.5)));
+                    write_reg(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
                     op_type_count[Otype::o_fcvtfi]++;
                     pc += 4;
                     return;
