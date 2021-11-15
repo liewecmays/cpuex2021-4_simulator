@@ -56,6 +56,7 @@ rule token = parse
 | "fcvt.i.f" { Parser.FCVTIF }
 | "fmv.f.i" { Parser.FMVFI }
 | "fcvt.f.i" { Parser.FCVTFI }
+| "floor" { Parser.FLOOR }
 | "%x" { Parser.INTREG }
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }

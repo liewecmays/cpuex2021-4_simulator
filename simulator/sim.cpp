@@ -868,6 +868,11 @@ void exec_op(Operation &op){
                     op_type_count[Otype::o_fcvtfi]++;
                     pc += 4;
                     return;
+                case 7: // floor
+                    write_reg(op.rd, static_cast<int>(std::floor(read_reg_fp(op.rs1))));
+                    op_type_count[Otype::o_floor]++;
+                    pc += 4;
+                    return;
                 default: break;
             }
             break;

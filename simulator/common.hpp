@@ -32,7 +32,7 @@ enum class Otype{
     o_jal,
     o_lui, o_auipc,
     o_fmvif, o_fcvtif,
-    o_fmvfi, o_fcvtfi
+    o_fmvfi, o_fcvtfi, o_floor
 };
 
 std::string string_of_otype(Otype t); // Otypeを文字列に変換
