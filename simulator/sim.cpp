@@ -1017,7 +1017,7 @@ void receive_data(){
         recv(client_socket, buf, 32, 0);
         std::string data(buf);
         memset(buf, '\0', sizeof(buf)); // バッファをクリア
-        for(int i=3; i>=0; --i){ // little endianで受信したものとしてバッファに追加
+        for(int i=0; i<4; ++i){ // big endianで受信したものとしてバッファに追加
             receive_buffer.push(bit32_of_data(data.substr(i * 8, 8)));
         }
 

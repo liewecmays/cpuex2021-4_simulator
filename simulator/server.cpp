@@ -97,7 +97,7 @@ bool exec_command(std::string cmd){
         if(is_bin){ // バイナリファイルの場合の処理
             int i;
             while(!input_file.eof()){
-                input_file.read((char*) &i, sizeof(int));
+                input_file.read((char*) &i, sizeof(int)); // 32bit取り出す
                 exec_command("send " + std::to_string(i)); // todo: なぜか-1が末尾に追加されて送信されている
             }
         }else{ // テキストファイルの場合の処理
@@ -287,8 +287,6 @@ void receive(){
     char buf[8];
     int recv_len;
 
-    int recv_count = 0; // 8bitずつ受信する際のカウント
-    std::string data_acc = ""; // 8bitずつ受信する際の蓄積
     while(true){
         client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
         while((recv_len = recv(client_socket, buf, 8, 0)) != 0){
@@ -301,12 +299,8 @@ void receive(){
             // std::cout << "\033[2D# " << std::flush;
             // if(res.i == 153) bootloading_start_flag = true; // ブートローダ用通信の開始
             // if(res.i == 170) bootloading_end_flag = true; // ブートローダ用通信の終了
-            recv_count++;
-            data_acc = data + data_acc;
-            if(recv_count % 4 == 0){
-                data_received.emplace_back(bit32_of_data(data_acc));
-                data_acc = "";
-            }
+            std::cout << data << std::endl;
+            data_received.emplace_back(bit32_of_data(data));
         }
         close(client_socket);
     }
