@@ -77,29 +77,43 @@ bool exec_command(std::string cmd){
         // do nothing
     }else if(std::regex_match(cmd, std::regex("^\\s*(q|(quit))\\s*$"))){ // quit
         res = true;
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(-f)\\s+([a-zA-Z_]+)\\s*$"))){ // send filename
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(send)\\s+(-f|-b)\\s+([a-zA-Z_]+)\\s*$"))){ // send filename
+        bool is_bin = match[2].str() == "-b";
         std::string filename = match[3].str();
-        std::string input_filename = "./data/" + filename + ".dat";
-        std::ifstream input_file(input_filename);
-        if(!input_file.is_open()){
+        std::string input_filename = "./data/" + filename + (is_bin ? ".bin" : ".txt");
+        std::ifstream input_file;
+        if(is_bin){
+            input_file.open(input_filename, std::ios::in | std::ios::binary);
+        }else{
+            input_file.open(input_filename);
+        }
+        if(!input_file){
             std::cerr << head_error << "could not open " << input_filename << std::endl;
             std::exit(EXIT_FAILURE);
         }else{
             std::cout << head_info << "opened file: " << input_filename << std::endl;
         }
 
-        std::string line;
-        while(std::getline(input_file, line)){
-            if(std::regex_match(line, std::regex("^\\s*\\r?\\n?$"))){
-                continue;
-            }else{
-                std::stringstream ss{line};
-                std::string buf;
-                while(std::getline(ss, buf, ' ')){
-                    if(std::regex_match(buf, std::regex("(\\s|\\t)*\\r?\\n?"))){
-                        continue;
-                    }else{
-                        exec_command("send " + buf);
+        if(is_bin){ // バイナリファイルの場合の処理
+            int i;
+            while(!input_file.eof()){
+                input_file.read((char*) &i, sizeof(int));
+                exec_command("send " + std::to_string(i)); // todo: なぜか-1が末尾に追加されて送信されている
+            }
+        }else{ // テキストファイルの場合の処理
+            std::string line;
+            while(std::getline(input_file, line)){
+                if(std::regex_match(line, std::regex("^\\s*\\r?\\n?$"))){
+                    continue;
+                }else{
+                    std::stringstream ss{line};
+                    std::string buf;
+                    while(std::getline(ss, buf, ' ')){
+                        if(std::regex_match(buf, std::regex("(\\s|\\t)*\\r?\\n?"))){
+                            continue;
+                        }else{
+                            exec_command("send " + buf);
+                        }
                     }
                 }
             }
@@ -108,18 +122,18 @@ bool exec_command(std::string cmd){
         std::string input = match[2].str();
         std::string data;
         if(std::regex_match(input, std::regex("(-)?\\d+"))){
-            data = data_of_int(std::stoi(input));
+            data = binary_of_int(std::stoi(input));
         }else if(std::regex_match(input, std::regex("0f.+"))){
-            data = data_of_float(std::stof(input.substr(2)));
+            data = binary_of_float(std::stof(input.substr(2)));
         }else if(std::regex_match(input, std::regex("0b(0|1)+"))){
             data = data_of_binary(input.substr(2));
-        }else if(std::regex_match(input, std::regex("0t.+"))){
-            data = "t" + input.substr(2);
-        }else if(std::regex_match(input, std::regex("0n.+"))){
-            data = "n" + input.substr(2);
+        // }else if(std::regex_match(input, std::regex("0t.+"))){
+        //     data = "t" + input.substr(2);
+        // }else if(std::regex_match(input, std::regex("0n.+"))){
+        //     data = "n" + input.substr(2);
         }else{
             std::cout << head_error << "invalid argument for 'send'" << std::endl;
-            std::exit(EXIT_FAILURE);
+            return false;
         }
 
         // データ送信の準備
@@ -133,70 +147,72 @@ bool exec_command(std::string cmd){
         if(connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr)) != 0){
             std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
         }
-        
+
         send(client_socket, data.c_str(), data.size(), 0);
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
-        std::string filename = match[2].str();
-        std::string input_filename;
-        filename += is_debug ? ".dbg" : "";
-        input_filename = "./code/" + filename;
-        std::ifstream input_file(input_filename);
-        if(!input_file.is_open()){
-            std::cerr << head_error << "could not open " << input_filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }else{
-            std::cout << head_info << "opened file: " << input_filename << std::endl;
-        }
+    // }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
+    //     std::string filename = match[2].str();
+    //     std::string input_filename;
+    //     filename += is_debug ? ".dbg" : "";
+    //     input_filename = "./code/" + filename;
+    //     std::ifstream input_file(input_filename);
+    //     if(!input_file.is_open()){
+    //         std::cerr << head_error << "could not open " << input_filename << std::endl;
+    //         std::exit(EXIT_FAILURE);
+    //     }else{
+    //         std::cout << head_info << "opened file: " << input_filename << std::endl;
+    //     }
         
-        std::cout << head_info << "waiting for start signal (0x99) ..." << std::endl;
-        while(true){
-            std::cout << std::ends;
-            if(bootloading_start_flag) break;
-        }
-        std::cout << head_info << "received start signal (0x99)" << std::endl;
+    //     std::cout << head_info << "waiting for start signal (0x99) ..." << std::endl;
+    //     while(true){
+    //         std::cout << std::ends;
+    //         if(bootloading_start_flag) break;
+    //     }
+    //     std::cout << head_info << "received start signal (0x99)" << std::endl;
 
-        exec_command("send 0n" + filename);
+    //     exec_command("send 0n" + filename);
 
-        int line_count = 0;
-        std::string line;
-        while(std::getline(input_file, line)){
-            line_count++;
-        }
-        std::string line_count_b = binary_of_int(line_count*4);
-        for(int i=0; i<4; i++){
-            exec_command("send 0b" + line_count_b.substr(i*8, 8));
-        }
+    //     int line_count = 0;
+    //     std::string line;
+    //     while(std::getline(input_file, line)){
+    //         line_count++;
+    //     }
+    //     std::string line_count_b = binary_of_int(line_count*4);
+    //     for(int i=0; i<4; i++){
+    //         exec_command("send 0b" + line_count_b.substr(i*8, 8));
+    //     }
 
-        input_file.clear();
-        input_file.seekg(0, std::ios::beg);
-        while(std::getline(input_file, line)){
-            if(is_debug){
-                exec_command("send 0t" + line.substr(32));
-            }
-            for(int i=0; i<4; i++){
-                exec_command("send 0b" + line.substr(i*8, 8));
-            }
-        }
+    //     input_file.clear();
+    //     input_file.seekg(0, std::ios::beg);
+    //     while(std::getline(input_file, line)){
+    //         if(is_debug){
+    //             exec_command("send 0t" + line.substr(32));
+    //         }
+    //         for(int i=0; i<4; i++){
+    //             exec_command("send 0b" + line.substr(i*8, 8));
+    //         }
+    //     }
 
-        std::cout << head_info << "waiting for end signal (0xaa) ..." << std::endl;
-        while(true){
-            if(bootloading_end_flag) break;
-        }
-        std::cout << head_info << "received end signal (0xaa)" << std::endl;
-        std::cout << head_info << "bootloading end" << std::endl;
-        bootloading_start_flag = false;
-        bootloading_end_flag = false;
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out
+    //     std::cout << head_info << "waiting for end signal (0xaa) ..." << std::endl;
+    //     while(true){
+    //         if(bootloading_end_flag) break;
+    //     }
+    //     std::cout << head_info << "received end signal (0xaa)" << std::endl;
+    //     std::cout << head_info << "bootloading end" << std::endl;
+    //     bootloading_start_flag = false;
+    //     bootloading_end_flag = false;
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p|-b))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out
         if(!data_received.empty()){
-            bool ppm = match[3].str() == "-p";
-            std::string ext = ppm ? ".ppm" : ".txt";
+            bool is_ppm = match[3].str() == "-p";
+            bool is_bin = match[3].str() == "-b";
+            
+            // ファイル名関連の処理
+            std::string ext = is_ppm ? ".ppm" : (is_bin ? ".bin" : ".txt");
             std::string filename;
             if(match[4].str() == ""){
                 filename = "output";
             }else{
                 filename = match[6].str();
             }
-
             time_t t = time(nullptr);
             tm* time = localtime(&t);
             std::stringstream timestamp;
@@ -207,16 +223,26 @@ bool exec_command(std::string cmd){
             timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
             timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
             std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
-            std::ofstream output_file(output_filename);
+            std::ofstream output_file;
+            if(is_bin){
+                output_file.open(output_filename, std::ios::out | std::ios::binary | std::ios::trunc);
+            }else{
+                output_file.open(output_filename);
+            }
             if(!output_file){
                 std::cerr << head_error << "could not open " << output_filename << std::endl;
                 std::exit(EXIT_FAILURE);
             }
 
+            // 出力
             std::stringstream output;
-            if(ppm){
+            if(is_ppm){
                 for(auto b32 : data_received){
                     output << (unsigned char) b32.i;
+                }
+            }else if(is_bin){
+                for(auto b32 : data_received){
+                    output.write((char*) &b32, sizeof(char)); // 8bitだけ書き込む
                 }
             }else{
                 for(auto b32 : data_received){
@@ -258,22 +284,29 @@ void receive(){
     struct sockaddr_in client_addr;
     int client_socket;
     int client_addr_size = sizeof(client_addr);
-    char buf[64];
+    char buf[8];
     int recv_len;
 
+    int recv_count = 0; // 8bitずつ受信する際のカウント
+    std::string data_acc = ""; // 8bitずつ受信する際の蓄積
     while(true){
         client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
-        while((recv_len = recv(client_socket, buf, 64, 0)) != 0){
+        while((recv_len = recv(client_socket, buf, 8, 0)) != 0){
             send(client_socket, "0", 1, 0); // 成功したらループバック
 
             // 受信したデータの処理
             std::string data(buf);
-            Bit32 res = bit32_of_data(data);
+            // Bit32 res = bit32_of_data(data);
             // std::cout << head_data << "received " << bit32_of_data(data).to_string(Stype::t_hex) << std::endl;
             // std::cout << "\033[2D# " << std::flush;
-            if(res.i == 153) bootloading_start_flag = true; // ブートローダ用通信の開始
-            if(res.i == 170) bootloading_end_flag = true; // ブートローダ用通信の終了
-            data_received.emplace_back(res);
+            // if(res.i == 153) bootloading_start_flag = true; // ブートローダ用通信の開始
+            // if(res.i == 170) bootloading_end_flag = true; // ブートローダ用通信の終了
+            recv_count++;
+            data_acc = data + data_acc;
+            if(recv_count % 4 == 0){
+                data_received.emplace_back(bit32_of_data(data_acc));
+                data_acc = "";
+            }
         }
         close(client_socket);
     }

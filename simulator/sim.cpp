@@ -576,11 +576,14 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
         }
-    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out (option)
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p|-b))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out (option)
         /* notice: これは臨時のコマンド */
         if(!send_buffer.empty()){
-            bool ppm = match[3].str() == "-p";
-            std::string ext = ppm ? ".ppm" : ".txt";
+            bool is_ppm = match[3].str() == "-p";
+            bool is_bin = match[3].str() == "-b";
+            
+            // ファイル名関連の処理
+            std::string ext = is_ppm ? ".ppm" : (is_bin ? ".bin" : ".txt");
             std::string filename;
             if(match[4].str() == ""){
                 filename = "output";
@@ -598,21 +601,30 @@ bool exec_command(std::string cmd){
             timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
             timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
             std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
-            std::ofstream output_file(output_filename);
+            std::ofstream output_file;
+            if(is_bin){
+                output_file.open(output_filename, std::ios::out | std::ios::binary | std::ios::trunc);
+            }else{
+                output_file.open(output_filename);
+            }
             if(!output_file){
                 std::cerr << head_error << "could not open " << output_filename << std::endl;
                 std::exit(EXIT_FAILURE);
             }
 
             std::stringstream output;
-            Bit32 bit32;
-            if(ppm){
-                while(send_buffer.pop(bit32)){ // todo: send_bufferを破壊しないようにしたい
-                    output << (unsigned char) bit32.i;
+            Bit32 b32;
+            if(is_ppm){
+                while(send_buffer.pop(b32)){ // todo: send_bufferを破壊しないようにしたい
+                    output << (unsigned char) b32.i;
+                }
+            }else if(is_bin){
+                while(send_buffer.pop(b32)){
+                    output.write((char*) &b32, sizeof(char)); // 8bitだけ書き込む
                 }
             }else{
-                while(send_buffer.pop(bit32)){
-                    output << bit32.to_string(Stype::t_hex) << std::endl;
+                while(send_buffer.pop(b32)){
+                    output << b32.to_string(Stype::t_hex) << std::endl;
                 }
             }
             output_file << output.str();
@@ -997,15 +1009,17 @@ void receive_data(){
     struct sockaddr_in client_addr;
     int client_socket;
     int client_addr_size = sizeof(client_addr);
-    char buf[64];
+    char buf[32];
     // int recv_len;
 
     while(true){
         client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
-        recv(client_socket, buf, 64, 0);
+        recv(client_socket, buf, 32, 0);
         std::string data(buf);
         memset(buf, '\0', sizeof(buf)); // バッファをクリア
-        receive_buffer.push(bit32_of_data(data));
+        for(int i=3; i>=0; --i){ // little endianで受信したものとしてバッファに追加
+            receive_buffer.push(bit32_of_data(data.substr(i * 8, 8)));
+        }
 
         // while((recv_len = recv(client_socket, buf, 64, 0)) != 0){
         //     send(client_socket, "0", 1, 0); // 成功したらループバック
@@ -1094,8 +1108,8 @@ void send_data(){
                     }
                 }
                 
-                data = data_of_int(b32.i);
-                send(client_socket, data.c_str(), data.size(), 0);
+                data = binary_of_int(b32.i);
+                send(client_socket, data.substr(24, 8).c_str(), 8, 0); // 下8bitだけ送信
                 res_len = recv(client_socket, recv_buf, 1, 0);
                 if(res_len == 0 || recv_buf[0] != '0'){ // 通信が切断された場合
                     std::cout << head_error << "data transmission failed (restart both ./sim and ./server)" << std::endl;

@@ -54,12 +54,12 @@ inline std::string binary_of_float(float f){
 
 // 整数を送信データへと変換
 inline std::string data_of_int(int i){
-    return "i" + binary_of_int(i);
+    return binary_of_int(i);
 }
 
 // 浮動小数点数を送信データへと変換
 inline std::string data_of_float(float f){
-    return "f" + binary_of_float(f);
+    return binary_of_float(f);
 }
 
 // 2進数の文字列を送信データへと変換
@@ -73,17 +73,21 @@ inline std::string data_of_binary(std::string s){
         std::exit(EXIT_FAILURE);
     }
 
-    return "i" + s;
+    return s;
 }
 
 // 送信データをBit32へと変換
 inline Bit32 bit32_of_data(std::string data){
-    if(data[0] == 'i'){ // int
-        return Bit32(int_of_binary(data.substr(1,32)));
-    }else if(data[0] == 'f'){ // float
-        return Bit32(int_of_binary(data.substr(1,32)));
-    }else{
-        std::cerr << head_error << "invalid input to 'bit32_of_data'" << std::endl;
-        std::exit(EXIT_FAILURE);
+    if(data.size() < 32){
+        data = "0" + data; // 8ビットのデータなので、先頭に0を追加して変換
     }
+    return Bit32(int_of_binary(data));
+    // if(data[0] == 'i'){ // int
+    //     return Bit32(int_of_binary(data.substr(1,32)));
+    // }else if(data[0] == 'f'){ // float
+    //     return Bit32(int_of_binary(data.substr(1,32)));
+    // }else{
+    //     std::cerr << head_error << "invalid input to 'bit32_of_data'" << std::endl;
+    //     std::exit(EXIT_FAILURE);
+    // }
 }
