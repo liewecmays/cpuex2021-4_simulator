@@ -95,10 +95,18 @@ bool exec_command(std::string cmd){
         }
 
         if(is_bin){ // バイナリファイルの場合の処理
-            int i;
+            int recv_count = 3;
+            unsigned char c;
+            int acc = 0;
             while(!input_file.eof()){
-                input_file.read((char*) &i, sizeof(int)); // 32bit取り出す
-                exec_command("send " + std::to_string(i)); // todo: なぜか-1が末尾に追加されて送信されている
+                input_file.read((char*) &c, sizeof(char)); // 8bit取り出す
+                acc += static_cast<int>(c) << (recv_count * 8);
+                --recv_count;
+                if(recv_count == -1){
+                    exec_command("send " + std::to_string(acc)); // todo: なぜか-1が末尾に追加されて送信されている
+                    acc = 0;
+                    recv_count = 3;
+                }
             }
         }else{ // テキストファイルの場合の処理
             std::string line;
@@ -147,7 +155,7 @@ bool exec_command(std::string cmd){
         if(connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr)) != 0){
             std::cout << head_error << "connection failed (check whether ./sim has been started)" << std::endl;
         }
-
+        
         send(client_socket, data.c_str(), data.size(), 0);
     // }else if(std::regex_match(cmd, match, std::regex("^\\s*(boot)\\s+([a-zA-Z_]+)\\s*$"))){ // boot filename
     //     std::string filename = match[2].str();
@@ -299,7 +307,6 @@ void receive(){
             // std::cout << "\033[2D# " << std::flush;
             // if(res.i == 153) bootloading_start_flag = true; // ブートローダ用通信の開始
             // if(res.i == 170) bootloading_end_flag = true; // ブートローダ用通信の終了
-            std::cout << data << std::endl;
             data_received.emplace_back(bit32_of_data(data));
         }
         close(client_socket);
