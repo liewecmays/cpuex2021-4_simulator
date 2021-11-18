@@ -445,7 +445,7 @@ std::string Bit32::to_string(Stype t){
         case Stype::t_bin: // 2進数
             {
                 std::bitset<32> bs(this->i);
-                res = "0b" + bs.to_string();
+                res = bs.to_string();
             }
             break;
         case Stype::t_hex: // 16進数
