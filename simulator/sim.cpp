@@ -159,9 +159,13 @@ int main(int argc, char *argv[]){
     std::string code;
     int code_id = is_skip ? 100 : 0;
     if(!is_bin){
-        std::regex regex = std::regex("^\\s*\\r?\\n?$");
+        std::regex regex_empty = std::regex("^\\s*\\r?\\n?$");
+        std::regex regex_dbg = std::regex("^\\d{32}@(-?\\d+)$");
+        std::regex regex_dbg_label = std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))$");
+        std::regex regex_dbg_bp = std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)*))$");
+        std::regex regex_dbg_label_bp = std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))!(([a-zA-Z_]\\w*(.\\d+)*))$");
         while(std::getline(input_file, code)){
-            if(std::regex_match(code, regex)){ // 空行は無視
+            if(std::regex_match(code, regex_empty)){ // 空行は無視
                 continue;
             }else{
                 op_list.emplace_back(Operation(code));
@@ -170,15 +174,15 @@ int main(int argc, char *argv[]){
                 if(code.size() > 32){
                     if(is_debug){ // デバッグモード
                         std::smatch match;
-                        if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)$"))){
+                        if(std::regex_match(code, match, regex_dbg)){
                             id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                        }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルのみ
+                        }else if(std::regex_match(code, match, regex_dbg_label)){ // ラベルのみ
                             id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                             label_to_id.insert(bimap_value_t(match[2].str(), code_id));             
-                        }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ブレークポイントのみ
+                        }else if(std::regex_match(code, match, regex_dbg_bp)){ // ブレークポイントのみ
                             id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                             bp_to_id.insert(bimap_value_t(match[2].str(), code_id));
-                        }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルとブレークポイントの両方
+                        }else if(std::regex_match(code, match, regex_dbg_label_bp)){ // ラベルとブレークポイントの両方
                             id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
                             label_to_id.insert(bimap_value_t(match[2].str(), code_id));
                             bp_to_id.insert(bimap_value_t(match[3].str(), code_id));
