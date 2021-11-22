@@ -1182,7 +1182,7 @@ void output_info(){
     int m = is_raytracing ? max_mem_size : mem_size;
     ss_mem << "address,value,read,write" << std::endl;
     for(int i=0; i<m; i++){
-        ss_mem << i << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
+        ss_mem << i*4 << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
     }
     output_file_mem << ss_mem.str();
 
