@@ -19,3 +19,11 @@ fpu_test: util.o common.o fpu.o fpu_test.o
 
 clean:
 	rm -f sim server fpu_test *.o
+
+clean-info:
+	rm -f info/*.md info/*.csv
+
+clean-out:
+	rm -f out/*.ppm out/*.bin
+
+clean-all: clean clean-info clean-out
