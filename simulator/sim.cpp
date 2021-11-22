@@ -215,10 +215,12 @@ int main(int argc, char *argv[]){
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
     std::thread t2(receive_data);
-    std::thread t3(send_data);
+    cancel_flag flg;
+    std::thread t3(send_data, std::ref(flg));
     t1.join();
     t2.detach();
-    t3.detach();
+    flg.signal();
+    t3.join();
 
     // 実行結果の情報を出力
     if(is_out){
@@ -1096,12 +1098,11 @@ void receive_data(){
         // }
         // close(client_socket);
     }
-
     return;
 }
 
 // データの送信
-void send_data(){
+void send_data(cancel_flag& flg){
     if(!is_raytracing){
         // データ送信の準備
         struct in_addr host_addr;
@@ -1119,7 +1120,7 @@ void send_data(){
         char recv_buf[1];
         int res_len;
 
-        while(true){
+        while(!flg){
             while(send_buffer.pop(b32)){
                 if(!is_connected){ // 接続されていない場合
                     client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
