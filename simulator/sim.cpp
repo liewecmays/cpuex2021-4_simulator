@@ -50,7 +50,8 @@ std::string filename; // 処理対象のファイル名
 unsigned long long op_type_count[op_type_num]; // 各命令の実行数
 int max_x2 = 0;
 constexpr unsigned int stack_border = 4000;
-unsigned int *mem_accessed; // メモリのアクセス回数
+unsigned int *mem_accessed_read; // メモリのreadによるアクセス回数
+unsigned int *mem_accessed_write; // メモリのwriteによるアクセス回数
 double exec_time; // 実行時間
 double op_per_sec; // 秒あたりの実行命令数
 
@@ -144,7 +145,8 @@ int main(int argc, char *argv[]){
     memory = (Bit32*) malloc(sizeof(Bit32) * mem_size);
 
     // 統計データの初期化
-    mem_accessed = (unsigned int*) malloc(sizeof(unsigned int) * mem_size);
+    mem_accessed_read = (unsigned int*) malloc(sizeof(unsigned int) * mem_size);
+    mem_accessed_write = (unsigned int*) malloc(sizeof(unsigned int) * mem_size);
 
     // ファイルを読む
     std::string input_filename;
@@ -1168,9 +1170,9 @@ void output_info(){
     }
     std::stringstream ss_mem;
     int m = is_raytracing ? max_mem_size : mem_size;
-    ss_mem << "address,value,accessed" << std::endl;
+    ss_mem << "address,value,read,write" << std::endl;
     for(int i=0; i<m; i++){
-        ss_mem << i << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed[i] << std::endl;
+        ss_mem << i << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
     }
     output_file_mem << ss_mem.str();
 
@@ -1215,7 +1217,7 @@ inline Bit32 read_memory(int w){
         memory_exceeding_flag = true;
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
-    ++mem_accessed[w];
+    ++mem_accessed_read[w];
     return memory[w];
 }
 
@@ -1224,7 +1226,7 @@ inline void write_memory(int w, Bit32 v){
         memory_exceeding_flag = true;
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
-    ++mem_accessed[w];
+    ++mem_accessed_write[w];
     memory[w] = v;
 }
 
