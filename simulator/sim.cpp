@@ -1170,6 +1170,7 @@ void output_info(){
         ss << "- " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
     }
     output_file << ss.str();
+    std::cout << head << "information output: " << output_filename << std::endl;
 
     // メモリの情報
     std::string output_filename_mem = "./info/" + filename + (is_debug ? "-dbg" : "") + "_mem_" + timestamp.str() + ".csv";
@@ -1185,6 +1186,7 @@ void output_info(){
         ss_mem << i*4 << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
     }
     output_file_mem << ss_mem.str();
+    std::cout << head << "memory-information output: " << output_filename_mem << std::endl;
 
     return;
 }
