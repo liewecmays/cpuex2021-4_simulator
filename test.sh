@@ -28,10 +28,10 @@ do
 done
 
 EXT=""
-if test IS_BIN = "-b"; then
+if test $IS_BIN = "-b"; then
     EXT=".bin"
 else
-    if test IS_DEBUG = "-d"; then
+    if test $IS_DEBUG = "-d"; then
         EXT=".dbg"
     fi
 fi
