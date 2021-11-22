@@ -13,10 +13,11 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <regex>
-#include <unistd.h>
 #include <iomanip>
+#include <boost/program_options.hpp>
 #include <chrono>
 
+namespace po = boost::program_options;
 
 /* グローバル変数 */
 // 内部処理関係
@@ -39,6 +40,7 @@ boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バ
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
 bool is_out = false; // 出力モード
+bool is_bin = false; // バイナリファイルモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
@@ -70,46 +72,50 @@ std::string head = "\x1b[1m[sim]\x1b[0m ";
 
 
 int main(int argc, char *argv[]){
-    // todo: 実行環境における型のバイト数などの確認
+    // コマンドライン引数をパース
+    po::options_description opt("./sim option");
+	opt.add_options()
+        ("help,h", "show help")
+        ("file,f", po::value<std::string>(), "filename")
+        ("debug,d", "debug mode")
+        ("out,o", "output mode")
+        ("bin", "binary-input mode")
+        ("port,p", po::value<int>(), "port number")
+        ("mem,m", po::value<int>(), "memory size")
+        ("raytracing,r", "specialized for ray-tracing program")
+        ("skip,s", "skipping bootloading")
+        ("boot,b", "bootloading mode");
+	po::variables_map vm;
+    try{
+        po::store(po::parse_command_line(argc, argv, opt), vm);
+        po::notify(vm);
+    }catch(po::error& e){
+        std::cout << e.what() << std::endl;
+        std::cout << opt << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+	if(vm.count("help")){
+        std::cout << opt << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if(vm.count("file")){
+        filename = vm["file"].as<std::string>();
+    }else{
+        std::cout << head_error << "filename is required (use -f option)" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if(vm.count("debug")) is_debug = true;
+    if(vm.count("out")) is_out = true;
+    if(vm.count("bin")) is_bin = true;
+    if(vm.count("port")) port = vm["port"].as<int>();
+    if(vm.count("mem")) mem_size = vm["mem"].as<int>();
+    if(vm.count("raytracing")) is_raytracing = true;
+    if(vm.count("skip")) is_skip = true;
+    if(vm.count("boot")) is_bootloading = true;
 
     std::cout << head << "simulation start" << std::endl;
     auto start = std::chrono::system_clock::now();
-
-    // コマンドライン引数をパース
-    int option;
-    while ((option = getopt(argc, argv, "f:odp:bm:sr")) != -1){
-        switch(option){
-            case 'f':
-                filename = std::string(optarg);
-                break;
-            case 'o':
-                is_out = true;
-                std::cout << head << "output mode enabled" << std::endl;
-                break;
-            case 'd':
-                is_debug = true;
-                std::cout << head << "entering debug mode ..." << std::endl;
-                break;
-            case 'p':
-                port = std::stoi(std::string(optarg));
-                break;
-            case 'b':
-                is_bootloading = true;
-                break;
-            case 'm':
-                mem_size = std::stoi(std::string(optarg));
-                break;
-            case 's':
-                is_skip = true;
-                break;
-            case 'r':
-                is_raytracing = true;
-                break;
-            default:
-                std::cerr << head_error << "Invalid command-line argument" << std::endl;
-                std::exit(EXIT_FAILURE);
-        }
-    }
 
     // ブートローダ処理をスキップする場合の処理
     if(is_skip){
@@ -137,7 +143,7 @@ int main(int argc, char *argv[]){
     if(is_bootloading){
         input_filename = "./code/bootloader";
     }else{
-        input_filename = "./code/" + filename + (is_debug ? ".dbg" : "");
+        input_filename = "./code/" + filename + (is_debug ? ".dbg" : "") + (is_bin ? ".bin" : "");
     }
     std::ifstream input_file(input_filename);
     if(!input_file.is_open()){
@@ -148,40 +154,57 @@ int main(int argc, char *argv[]){
     // ファイルの各行をパースしてop_listに追加
     std::string code;
     int code_id = is_skip ? 100 : 0;
-    std::regex regex = std::regex("^\\s*\\r?\\n?$");
-    while(std::getline(input_file, code)){
-        if(std::regex_match(code, regex)){ // 空行は無視
-            continue;
-        }else{
-            op_list.emplace_back(Operation(code));
-            
-            // ラベル・ブレークポイントの処理
-            if(code.size() > 32){
-                if(is_debug){ // デバッグモード
-                    std::smatch match;
-                    if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)$"))){
-                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルのみ
-                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                        label_to_id.insert(bimap_value_t(match[2].str(), code_id));             
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ブレークポイントのみ
-                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                        bp_to_id.insert(bimap_value_t(match[2].str(), code_id));
-                    }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルとブレークポイントの両方
-                        id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
-                        label_to_id.insert(bimap_value_t(match[2].str(), code_id));
-                        bp_to_id.insert(bimap_value_t(match[3].str(), code_id));
-                    }else{
-                        std::cerr << head_error << "could not parse the code" << std::endl;
+    if(!is_bin){
+        std::regex regex = std::regex("^\\s*\\r?\\n?$");
+        while(std::getline(input_file, code)){
+            if(std::regex_match(code, regex)){ // 空行は無視
+                continue;
+            }else{
+                op_list.emplace_back(Operation(code));
+                
+                // ラベル・ブレークポイントの処理
+                if(code.size() > 32){
+                    if(is_debug){ // デバッグモード
+                        std::smatch match;
+                        if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)$"))){
+                            id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                        }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルのみ
+                            id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                            label_to_id.insert(bimap_value_t(match[2].str(), code_id));             
+                        }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ブレークポイントのみ
+                            id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                            bp_to_id.insert(bimap_value_t(match[2].str(), code_id));
+                        }else if(std::regex_match(code, match, std::regex("^\\d{32}@(-?\\d+)#(([a-zA-Z_]\\w*(.\\d+)*))!(([a-zA-Z_]\\w*(.\\d+)*))$"))){ // ラベルとブレークポイントの両方
+                            id_to_line.insert(bimap_value_t2(code_id, std::stoi(match[1].str())));
+                            label_to_id.insert(bimap_value_t(match[2].str(), code_id));
+                            bp_to_id.insert(bimap_value_t(match[3].str(), code_id));
+                        }else{
+                            std::cerr << head_error << "could not parse the code" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+                    }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
+                        std::cerr << head_error << "could not parse the code (maybe it is encoded in debug-style)" << std::endl;
                         std::exit(EXIT_FAILURE);
                     }
-                }else{ // デバッグモードでないのにラベルやブレークポイントの情報が入っている場合エラー
-                    std::cerr << head_error << "could not parse the code (maybe it is encoded in debug-style)" << std::endl;
-                    std::exit(EXIT_FAILURE);
                 }
-            }
 
-            ++code_id;
+                ++code_id;
+            }
+        }
+    }else{
+        int read_state = 0;
+        unsigned char c;
+        int acc = 0;
+        while(!input_file.eof()){
+            input_file.read((char*) &c, sizeof(char)); // 8bit取り出す
+            acc += static_cast<int>(c) << ((3 - read_state) * 8);
+            ++read_state;
+            if(read_state == 4){
+                op_list.emplace_back(Operation(acc));
+                acc = 0;
+                read_state = 0;
+                ++code_id;
+            }
         }
     }
 
