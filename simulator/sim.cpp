@@ -49,9 +49,13 @@ std::string filename; // 処理対象のファイル名
 // 統計・出力関連
 unsigned long long op_type_count[op_type_num]; // 各命令の実行数
 int max_x2 = 0;
-constexpr unsigned int stack_border = 4000;
+constexpr int stack_border = 4000;
 unsigned int *mem_accessed_read; // メモリのreadによるアクセス回数
 unsigned int *mem_accessed_write; // メモリのwriteによるアクセス回数
+unsigned int stack_accessed_read_count = 0; // スタックのreadによるアクセスの総回数
+unsigned int stack_accessed_write_count = 0; // スタックのwriteによるアクセスの総回数
+unsigned int heap_accessed_read_count = 0; // ヒープのreadによるアクセスの総回数
+unsigned int heap_accessed_write_count = 0; // ヒープのwriteによるアクセスの総回数
 double exec_time; // 実行時間
 double op_per_sec; // 秒あたりの実行命令数
 
@@ -1132,11 +1136,11 @@ void output_info(){
     tm* time = localtime(&t);
     std::stringstream timestamp;
     timestamp << "20" << time -> tm_year - 100;
-    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+    timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
-    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+    timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
     timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
-    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+    timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
     
     // 実行情報
     std::string output_filename = "./info/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp.str() + ".md";
@@ -1151,8 +1155,14 @@ void output_info(){
     ss << "- execution time(s): " << exec_time << std::endl;
     ss << "- operations per second: " << op_per_sec << std::endl;
     if(is_raytracing){
-        ss << "- heap size: " << max_x2 << std::endl;
-        ss << "- stack size: " << reg_list[3].i - 4000 << std::endl;
+        ss << "- stack:" << std::endl;
+        ss << "\t- size: " << reg_list[3].i - stack_border << std::endl;
+        ss << "\t- read: " << stack_accessed_read_count << std::endl;
+        ss << "\t- write: " << stack_accessed_write_count << std::endl;
+        ss << "- heap: " << std::endl;
+        ss << "\t- size: " << max_x2 << std::endl;
+        ss << "\t- read: " << heap_accessed_read_count << std::endl;
+        ss << "\t- write: " << heap_accessed_write_count << std::endl;
     }
     ss << std::endl;
     ss << "# operation stat" << std::endl;
@@ -1218,6 +1228,7 @@ inline Bit32 read_memory(int w){
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
     ++mem_accessed_read[w];
+    w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
     return memory[w];
 }
 
@@ -1227,6 +1238,7 @@ inline void write_memory(int w, Bit32 v){
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
     ++mem_accessed_write[w];
+    w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
     memory[w] = v;
 }
 
