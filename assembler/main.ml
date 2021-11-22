@@ -20,9 +20,9 @@ let is_bin = ref false
 let speclist = [
 	("-f", Arg.Set_string filename, "filename");
 	("-d", Arg.Set is_debug, "debug mode");
-	("-b", Arg.Set is_bootloading, "bootloading mode");
+	("--boot", Arg.Set is_bootloading, "bootloading mode");
 	("-s", Arg.Set is_skip, "bootloading-skip mode");
-	("--bin", Arg.Set is_bin, "binary-output mode");
+	("-b", Arg.Set is_bin, "binary-output mode");
 ]
 let usage_msg = "" (* todo *)
 
@@ -870,24 +870,24 @@ let assemble codes =
 *)
 let head = "\x1b[1m[asm]\x1b[0m "
 let error = "\x1b[1m\x1b[31mError: \x1b[0m"
-exception Commandline_argument_error of string
+let warning = "\x1b[1m\x1b[33mWarning: \x1b[0m"
 let () =
 	try
 		Arg.parse speclist (fun _ -> ()) usage_msg;
-		if (!is_debug && !is_bin) then raise (Commandline_argument_error "do not designate both -d and --bin at once") else ();
 		let codes = Parser.toplevel Lexer.token (Lexing.from_channel (open_in ("./source/" ^ !filename ^ ".s"))) in
 		print_endline (head ^ "source file: ./source/" ^ !filename ^ ".s");
 		let raw_result = assemble codes in
 		let result = List.fast_sort (fun (n1, _, _, _, _) (n2, _, _, _, _) -> compare n1 n2) raw_result in (* idでソート *)
 		print_endline (head ^ "succeeded in assembling " ^ !filename ^ ".s\x1b[0m" ^ (if !is_debug then " (in debug-mode)" else ""));
-		let output_filename = "./out/" ^ !filename ^ (if !is_debug then ".dbg" else "") ^ (if !is_bin then ".bin" else "") in
+		if(!is_bin && !is_debug) then print_endline (warning ^ "debug information is ignored as output is binary file") else ();
+		let output_filename = "./out/" ^ !filename ^ (if !is_bin then ".bin" else (if !is_debug then ".dbg" else "")) in
 		let out_channel = open_out output_filename in
 		let rec output_result result = (* アセンブルの結果をidごとにファイルに出力 *)
 			match result with
 			| [] -> ()
 			| (_, c, lno, l_o, b_o) :: rest -> 
 				let line = ref c in
-				if !is_bin then
+				if !is_bin then (* バイナリ出力モードの場合、行数などの情報をすべて無視 *)
 					(let (b1, b2, b3, b4) = split_line !line in
 						output_byte out_channel b1;
 						output_byte out_channel b2;
@@ -906,10 +906,9 @@ let () =
 					Printf.fprintf out_channel "%s\n" !line); (* テキスト形式で出力 *)
 				output_result rest
 		in output_result result;
-		print_endline (head ^ "output file: ./out/" ^ output_filename);
+		print_endline (head ^ "output file: " ^ output_filename);
 		close_out out_channel
 	with
-	| Commandline_argument_error s -> print_endline (head ^ error ^ s); exit 1
 	| Failure s -> print_endline (head ^ error ^ s); exit 1
 	| Sys_error s -> print_endline (head ^ error ^ s); exit 1
 	| Translate_error s -> print_endline (head ^ error ^ s); exit 1

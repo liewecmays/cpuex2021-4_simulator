@@ -79,12 +79,12 @@ int main(int argc, char *argv[]){
         ("file,f", po::value<std::string>(), "filename")
         ("debug,d", "debug mode")
         ("out,o", "output mode")
-        ("bin", "binary-input mode")
+        ("bin,b", "binary-input mode")
         ("port,p", po::value<int>(), "port number")
         ("mem,m", po::value<int>(), "memory size")
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
-        ("boot,b", "bootloading mode");
+        ("boot", "bootloading mode");
 	po::variables_map vm;
     try{
         po::store(po::parse_command_line(argc, argv, opt), vm);
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]){
     if(is_bootloading){
         input_filename = "./code/bootloader";
     }else{
-        input_filename = "./code/" + filename + (is_debug ? ".dbg" : "") + (is_bin ? ".bin" : "");
+        input_filename = "./code/" + filename + (is_bin ? ".bin" : (is_debug ? ".dbg" : ""));
     }
     std::ifstream input_file(input_filename);
     if(!input_file.is_open()){
