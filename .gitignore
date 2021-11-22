@@ -11,8 +11,8 @@ simulator/data/*
 !simulator/data/.gitkeep
 simulator/out/*
 !simulator/out/.gitkeep
-simulator/result/*
-!simulator/result/.gitkeep
+simulator/info/*
+!simulator/info/.gitkeep
 source/*
 !source/.gitkeep
 

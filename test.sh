@@ -1,7 +1,7 @@
 #!/bin/bash
 
 FILENAME=""
-IS_OUT=""
+IS_INFO_OUT=""
 IS_DEBUG=""
 PORT=""
 IS_BOOTLOADING=""
@@ -17,7 +17,7 @@ do
                 boot) IS_BOOTLOADING="--boot";;
             esac;;
         f) FILENAME=$OPTARG;;
-        o) IS_OUT="-o";;
+        o) IS_INFO_OUT="-o";;
         d) IS_DEBUG="-d";;
         p) PORT="-p ${OPTARG}";;
         b) IS_BIN="-b";;
@@ -42,4 +42,4 @@ cd assembler || exit 1
 cd ../ || exit 1
 cp assembler/out/$FILENAME$EXT simulator/code/$FILENAME$EXT || exit 1
 cd simulator || exit 1
-rlwrap ./sim -f $FILENAME $IS_DEBUG $IS_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
+rlwrap ./sim -f $FILENAME $IS_DEBUG $IS_INFO_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1

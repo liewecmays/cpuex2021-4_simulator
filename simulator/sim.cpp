@@ -29,7 +29,7 @@ Bit32 *memory; // メモリ領域
 unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
 constexpr unsigned long long max_op_count = 10000000000;
-int mem_size = 10000; // メモリサイズ
+int mem_size = 100; // メモリサイズ
 constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
 bool memory_exceeding_flag = false;
 
@@ -39,7 +39,7 @@ boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バ
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
-bool is_out = false; // 出力モード
+bool is_info_output = false; // 出力モード
 bool is_bin = false; // バイナリファイルモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
@@ -50,8 +50,9 @@ std::string filename; // 処理対象のファイル名
 unsigned long long op_type_count[op_type_num]; // 各命令の実行数
 int max_x2 = 0;
 constexpr unsigned int stack_border = 4000;
-std::string output_filename; // 出力用のファイル名
-std::stringstream output; // 出力内容
+unsigned int *mem_accessed; // メモリのアクセス回数
+double exec_time; // 実行時間
+double op_per_sec; // 秒あたりの実行命令数
 
 // 処理用のデータ構造
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
@@ -82,7 +83,7 @@ int main(int argc, char *argv[]){
         ("help,h", "show help")
         ("file,f", po::value<std::string>(), "filename")
         ("debug,d", "debug mode")
-        ("out,o", "output mode")
+        ("info,i", "information-output mode")
         ("bin,b", "binary-input mode")
         ("port,p", po::value<int>(), "port number")
         ("mem,m", po::value<int>(), "memory size")
@@ -110,7 +111,7 @@ int main(int argc, char *argv[]){
         std::exit(EXIT_FAILURE);
     }
     if(vm.count("debug")) is_debug = true;
-    if(vm.count("out")) is_out = true;
+    if(vm.count("info")) is_info_output = true;
     if(vm.count("bin")) is_bin = true;
     if(vm.count("port")) port = vm["port"].as<int>();
     if(vm.count("mem")) mem_size = vm["mem"].as<int>();
@@ -118,7 +119,7 @@ int main(int argc, char *argv[]){
     if(vm.count("skip")) is_skip = true;
     if(vm.count("boot")) is_bootloading = true;
 
-    std::cout << head << "simulation start" << std::endl;
+    std::cout << head << "simulation start" << (is_debug ? " (in debug-mode)" : "") << std::endl;
     auto start = std::chrono::system_clock::now();
 
     // ブートローダ処理をスキップする場合の処理
@@ -141,6 +142,9 @@ int main(int argc, char *argv[]){
 
     // メモリ領域の確保
     memory = (Bit32*) malloc(sizeof(Bit32) * mem_size);
+
+    // 統計データの初期化
+    mem_accessed = (unsigned int*) malloc(sizeof(unsigned int) * mem_size);
 
     // ファイルを読む
     std::string input_filename;
@@ -231,34 +235,7 @@ int main(int argc, char *argv[]){
     t3.join();
 
     // 実行結果の情報を出力
-    if(is_out){
-        time_t t = time(nullptr);
-        tm* time = localtime(&t);
-        std::stringstream timestamp;
-        timestamp << "20" << time -> tm_year - 100;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
-        timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-        output_filename = "./result/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp.str() + ".txt";
-        std::ofstream output_file(output_filename);
-        if(!output_file){
-            std::cerr << head_error << "could not open " << output_filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        output_file << output.str();
-
-        std::string output_filename2 = "./result/" + filename + (is_debug ? "-dbg" : "") + "_dump_" + timestamp.str() + ".txt";
-        std::ofstream output_file2(output_filename2);
-        if(!output_file){
-            std::cerr << head_error << "could not open " << output_filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        std::streambuf* strbuf = std::cout.rdbuf(output_file2.rdbuf());
-        print_memory(0, 1000);
-        std::cout.rdbuf(strbuf);
-    }
+    if(is_info_output) output_info();
 }
 
 
@@ -367,14 +344,11 @@ bool exec_command(std::string cmd){
             }
             if(is_time_measuring){
                 auto end = std::chrono::system_clock::now();
-                auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-                std::cout << head << "time elapsed (execution): " << msec << std::endl;
+                exec_time = std::chrono::duration<double>(end - start).count();
+                std::cout << head << "time elapsed (execution): " << exec_time << std::endl;
                 std::cout << head << "operation count: " << op_count << std::endl;
-                std::cout << head << "operations per second: " << static_cast<double>(op_count) / msec * 1e6 << std::endl;
-                if(is_raytracing){
-                    std::cout << head << "stack: " << max_x2 << std::endl;
-                    std::cout << head << "heap: " << reg_list[3].i - 4000 << std::endl;
-                }
+                op_per_sec = static_cast<double>(op_count) / exec_time;
+                std::cout << head << "operations per second: " << op_per_sec << std::endl;
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
@@ -678,15 +652,6 @@ bool exec_command(std::string cmd){
 
 // 命令を実行し、PCを変化させる
 void exec_op(Operation &op){
-    // 出力用処理
-    if(is_out){
-        if(is_debug){
-            output << op_count << ": pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << " (" << op.to_string() << ")\n";
-        }else{
-            output << op_count << ": pc " << pc << " (" << op.to_string() << ")\n";
-        }
-    }
-    
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
     if(is_bootloading){
         if(op.opcode == 4 && op.funct == 2 && op.rs1 == 0 && op.rs2 == 5 && op.rd == -1 && op.imm == 0){ // std %x5
@@ -1158,6 +1123,60 @@ void send_data(cancel_flag& flg){
     return;
 }
 
+// 情報の出力
+void output_info(){
+    // タイムスタンプ
+    time_t t = time(nullptr);
+    tm* time = localtime(&t);
+    std::stringstream timestamp;
+    timestamp << "20" << time -> tm_year - 100;
+    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+    
+    // 実行情報
+    std::string output_filename = "./info/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp.str() + ".md";
+    std::ofstream output_file(output_filename);
+    if(!output_file){
+        std::cerr << head_error << "could not open " << output_filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    std::stringstream ss;
+    ss << "# basic stat" << std::endl;
+    ss << "- operation count: " << op_count << std::endl;
+    ss << "- execution time(s): " << exec_time << std::endl;
+    ss << "- operations per second: " << op_per_sec << std::endl;
+    if(is_raytracing){
+        ss << "- heap size: " << max_x2 << std::endl;
+        ss << "- stack size: " << reg_list[3].i - 4000 << std::endl;
+    }
+    ss << std::endl;
+    ss << "# operation stat" << std::endl;
+    for(int i=0; i<op_type_num; ++i){
+        ss << "- " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
+    }
+    output_file << ss.str();
+
+    // メモリの情報
+    std::string output_filename_mem = "./info/" + filename + (is_debug ? "-dbg" : "") + "_mem_" + timestamp.str() + ".csv";
+    std::ofstream output_file_mem(output_filename_mem);
+    if(!output_file_mem){
+        std::cerr << head_error << "could not open " << output_filename_mem << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    std::stringstream ss_mem;
+    int m = is_raytracing ? max_mem_size : mem_size;
+    ss_mem << "address,value,accessed" << std::endl;
+    for(int i=0; i<m; i++){
+        ss_mem << i << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed[i] << std::endl;
+    }
+    output_file_mem << ss_mem.str();
+
+    return;
+}
+
 // PCから命令IDへの変換(4の倍数になっていない場合エラー)
 inline unsigned int id_of_pc(unsigned int n){
     if(n % 4 == 0){
@@ -1196,6 +1215,7 @@ inline Bit32 read_memory(int w){
         memory_exceeding_flag = true;
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
+    ++mem_accessed[w];
     return memory[w];
 }
 
@@ -1204,6 +1224,7 @@ inline void write_memory(int w, Bit32 v){
         memory_exceeding_flag = true;
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
+    ++mem_accessed[w];
     memory[w] = v;
 }
 
