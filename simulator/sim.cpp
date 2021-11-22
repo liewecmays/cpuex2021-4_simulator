@@ -45,11 +45,15 @@ bool is_skip = false; // ブートローディングの過程をスキップす�
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
 std::string filename; // 処理対象のファイル名
+
+// 統計・出力関連
+unsigned long long op_type_count[op_type_num]; // 各命令の実行数
+int max_x2 = 0;
+constexpr unsigned int stack_border = 4000;
 std::string output_filename; // 出力用のファイル名
 std::stringstream output; // 出力内容
 
 // 処理用のデータ構造
-unsigned long long op_type_count[op_type_num]; // 各命令の実行数
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
 bimap_t label_to_id; // ラベルと命令idの対応
 bimap_t2 id_to_line; // 命令idと行番号の対応
@@ -363,6 +367,10 @@ bool exec_command(std::string cmd){
                 std::cout << head << "time elapsed (execution): " << msec << std::endl;
                 std::cout << head << "operation count: " << op_count << std::endl;
                 std::cout << head << "operations per second: " << static_cast<double>(op_count) / msec * 1e6 << std::endl;
+                if(is_raytracing){
+                    std::cout << head << "stack: " << max_x2 << std::endl;
+                    std::cout << head << "heap: " << reg_list[3].i - 4000 << std::endl;
+                }
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
@@ -1164,6 +1172,7 @@ inline int read_reg(int i){
 // 整数レジスタに書き込む
 inline void write_reg(int i, int v){
     if (i != 0) reg_list[i] = Bit32(v);
+    if(is_raytracing && i == 2 && v > max_x2) max_x2 = v;
     return;
 }
 
