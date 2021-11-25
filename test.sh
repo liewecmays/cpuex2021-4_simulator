@@ -16,7 +16,7 @@ do
         -)
             case $OPTARG in
                 boot) IS_BOOTLOADING="--boot";;
-                detailed) IS_DETAILED="--detailed"
+                detailed) IS_DEBUG="-d"; IS_DETAILED="--detailed";;
             esac;;
         f) FILENAME=$OPTARG;;
         i) IS_INFO_OUT="-i";;
