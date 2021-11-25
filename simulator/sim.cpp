@@ -52,6 +52,7 @@ unsigned long long op_type_count[op_type_num]; // 各命令の実行数
 int input_line_num = 0; // ファイルの行数
 unsigned int *line_exec_count; // 行ごとの実行回数
 int max_x2 = 0;
+int memory_used = 0;
 constexpr int stack_border = 4000;
 unsigned int *mem_accessed_read; // メモリのreadによるアクセス回数
 unsigned int *mem_accessed_write; // メモリのwriteによるアクセス回数
@@ -376,6 +377,10 @@ bool exec_command(std::string cmd){
                 std::cout << head << "operation count: " << op_count << std::endl;
                 op_per_sec = static_cast<double>(op_count) / exec_time;
                 std::cout << head << "operations per second: " << op_per_sec << std::endl;
+            }
+            // メモリ使用量を保存しておく
+            if(is_raytracing){
+                memory_used = reg_list[3].i;
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
@@ -1185,11 +1190,11 @@ void output_info(){
     ss << "- operations per second: " << op_per_sec << std::endl;
     if(is_raytracing){
         ss << "- stack:" << std::endl;
-        ss << "\t- size: " << reg_list[3].i - stack_border << std::endl;
+        ss << "\t- size: " << max_x2 << std::endl;
         ss << "\t- read: " << stack_accessed_read_count << std::endl;
         ss << "\t- write: " << stack_accessed_write_count << std::endl;
         ss << "- heap: " << std::endl;
-        ss << "\t- size: " << max_x2 << std::endl;
+        ss << "\t- size: " << memory_used - stack_border << std::endl;
         ss << "\t- read: " << heap_accessed_read_count << std::endl;
         ss << "\t- write: " << heap_accessed_write_count << std::endl;
     }
@@ -1210,7 +1215,7 @@ void output_info(){
             std::exit(EXIT_FAILURE);
         }
         std::stringstream ss_mem;
-        int m = is_raytracing ? max_mem_size : mem_size;
+        int m = is_raytracing ? memory_used : mem_size;
         ss_mem << "address,value,read,write" << std::endl;
         for(int i=0; i<m; ++i){
             ss_mem << i*4 << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
