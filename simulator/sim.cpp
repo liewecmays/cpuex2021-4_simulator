@@ -62,6 +62,7 @@ unsigned int heap_accessed_read_count = 0; // ヒープのreadによるアクセ
 unsigned int heap_accessed_write_count = 0; // ヒープのwriteによるアクセスの総回数
 double exec_time; // 実行時間
 double op_per_sec; // 秒あたりの実行命令数
+std::string timestamp;
 
 // 処理用のデータ構造
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
@@ -133,6 +134,20 @@ int main(int argc, char *argv[]){
     if(vm.count("skip")) is_skip = true;
     if(vm.count("boot")) is_bootloading = true;
 
+    // タイムスタンプの取得
+    time_t t = time(nullptr);
+    tm* time = localtime(&t);
+    std::stringstream ss_timestamp;
+    ss_timestamp << "20" << time -> tm_year - 100;
+    ss_timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+    ss_timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+    ss_timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+    ss_timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+    ss_timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+    timestamp = ss_timestamp.str();
+
+
+    // ここからシミュレータの処理開始
     std::cout << head << "simulation start" << (is_detailed_debug ? " (in detailed-debug-mode)" : (is_debug ? " (in debug-mode)" : "")) << std::endl;
     auto start = std::chrono::system_clock::now();
 
@@ -634,16 +649,7 @@ bool exec_command(std::string cmd){
                 filename = match[6].str();
             }
 
-            time_t t = time(nullptr);
-            tm* time = localtime(&t);
-            std::stringstream timestamp;
-            timestamp << "20" << time -> tm_year - 100;
-            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
-            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
-            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
-            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
-            timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-            std::string output_filename = "./out/" + filename + "_" + timestamp.str() + ext;
+            std::string output_filename = "./out/" + filename + "_" + timestamp + ext;
             std::ofstream output_file;
             if(is_bin){
                 output_file.open(output_filename, std::ios::out | std::ios::binary | std::ios::trunc);
@@ -1165,19 +1171,8 @@ void send_data(cancel_flag& flg){
 
 // 情報の出力
 void output_info(){
-    // タイムスタンプ
-    time_t t = time(nullptr);
-    tm* time = localtime(&t);
-    std::stringstream timestamp;
-    timestamp << "20" << time -> tm_year - 100;
-    timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
-    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
-    timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
-    timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
-    timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
-    
     // 実行情報
-    std::string output_filename = "./info/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp.str() + ".md";
+    std::string output_filename = "./info/" + filename + (is_debug ? "-dbg" : "") + "_" + timestamp + ".md";
     std::ofstream output_file(output_filename);
     if(!output_file){
         std::cerr << head_error << "could not open " << output_filename << std::endl;
@@ -1204,11 +1199,11 @@ void output_info(){
         ss << "- " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
     }
     output_file << ss.str();
-    std::cout << head << "information output: " << output_filename << std::endl;
+    std::cout << head << "simulation stat: " << output_filename << std::endl;
 
     if(is_detailed_debug){
         // メモリの情報
-        std::string output_filename_mem = "./info/" + filename + "_mem_" + timestamp.str() + ".csv";
+        std::string output_filename_mem = "./info/" + filename + "_mem_" + timestamp + ".csv";
         std::ofstream output_file_mem(output_filename_mem);
         if(!output_file_mem){
             std::cerr << head_error << "could not open " << output_filename_mem << std::endl;
@@ -1221,9 +1216,9 @@ void output_info(){
             ss_mem << i*4 << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
         }
         output_file_mem << ss_mem.str();
-        std::cout << head << "memory-information output: " << output_filename_mem << std::endl;
+        std::cout << head << "memory info: " << output_filename_mem << std::endl;
 
-        std::string output_filename_exec = "./info/" + filename + "_exec_" + timestamp.str() + ".csv";
+        std::string output_filename_exec = "./info/" + filename + "_exec_" + timestamp + ".csv";
         std::ofstream output_file_exec(output_filename_exec);
         if(!output_file_exec){
             std::cerr << head_error << "could not open " << output_filename_exec << std::endl;
@@ -1235,7 +1230,7 @@ void output_info(){
             ss_exec << i+1 << "," << line_exec_count[i] << std::endl;
         }
         output_file_exec << ss_exec.str();
-        std::cout << head << "execution-information output: " << output_filename_exec << std::endl;
+        std::cout << head << "execution info: " << output_filename_exec << std::endl;
     }
 
     return;
