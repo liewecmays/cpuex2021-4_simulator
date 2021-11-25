@@ -1210,7 +1210,7 @@ void output_info(){
             std::exit(EXIT_FAILURE);
         }
         std::stringstream ss_mem;
-        int m = is_raytracing ? memory_used : mem_size;
+        int m = is_raytracing ? memory_used/4 : mem_size/4;
         ss_mem << "address,value,read,write" << std::endl;
         for(int i=0; i<m; ++i){
             ss_mem << i*4 << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
