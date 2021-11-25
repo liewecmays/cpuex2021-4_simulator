@@ -3,6 +3,7 @@
 FILENAME=""
 IS_INFO_OUT=""
 IS_DEBUG=""
+IS_DETAILED=""
 PORT=""
 IS_BOOTLOADING=""
 MEMORY=""
@@ -15,6 +16,7 @@ do
         -)
             case $OPTARG in
                 boot) IS_BOOTLOADING="--boot";;
+                detailed) IS_DETAILED="--detailed"
             esac;;
         f) FILENAME=$OPTARG;;
         i) IS_INFO_OUT="-i";;
@@ -42,4 +44,4 @@ cd assembler || exit 1
 cd ../ || exit 1
 cp assembler/out/$FILENAME$EXT simulator/code/$FILENAME$EXT || exit 1
 cd simulator || exit 1
-rlwrap ./sim -f $FILENAME $IS_DEBUG $IS_INFO_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
+rlwrap ./sim -f $FILENAME $IS_DEBUG $IS_DETAILED $IS_INFO_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
