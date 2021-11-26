@@ -302,6 +302,27 @@ int main(int argc, char *argv[]){
 
     // 実行結果の情報を出力
     if(is_info_output || is_detailed_debug) output_info();
+    
+    // レイトレの場合は画像も出力
+    if(is_raytracing){
+        if(!send_buffer.empty()){
+            std::string output_filename = "./out/output_" + timestamp + ".ppm";
+            std::ofstream output_file(output_filename);
+            if(!output_file){
+                std::cerr << head_error << "could not open " << output_filename << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            std::stringstream output;
+            Bit32 b32;
+            while(send_buffer.pop(b32)){
+                output << (unsigned char) b32.i;
+            }
+            output_file << output.str();
+            std::cout << head << "output image written in " << output_filename << std::endl;
+        }else{
+            std::cout << head_error << "send-buffer is empty" << std::endl;
+        }
+    }
 }
 
 
@@ -700,9 +721,9 @@ bool exec_command(std::string cmd){
                 }
             }
             output_file << output.str();
-            std::cout << head_info << "data written in " << output_filename << std::endl;
+            std::cout << head_info << "send-buffer data written in " << output_filename << std::endl;
         }else{
-            std::cout << head_error << "data buffer is empty" << std::endl;
+            std::cout << head_error << "send-buffer is empty" << std::endl;
         }
     }else{
         std::cout << head_error << "invalid command" << std::endl;
