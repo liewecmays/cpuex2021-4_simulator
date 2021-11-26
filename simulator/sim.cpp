@@ -170,12 +170,12 @@ int main(int argc, char *argv[]){
     }
 
     // メモリ領域の確保
-    memory = (Bit32*) malloc(sizeof(Bit32) * mem_size);
+    memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
 
     // 統計データの初期化
     if(is_detailed_debug){
-        mem_accessed_read = (unsigned int*) malloc(sizeof(unsigned int) * mem_size);
-        mem_accessed_write = (unsigned int*) malloc(sizeof(unsigned int) * mem_size);
+        mem_accessed_read = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
+        mem_accessed_write = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
     }
     
     // ファイルを読む
@@ -260,7 +260,7 @@ int main(int argc, char *argv[]){
     }
 
     if(is_detailed_debug){
-        line_exec_count = (unsigned int*) malloc(sizeof(unsigned int) * input_line_num);
+        line_exec_count = (unsigned int*) calloc(input_line_num, sizeof(unsigned int));
     }
 
     auto end = std::chrono::system_clock::now();
@@ -695,7 +695,7 @@ void exec_op(){
     // 詳細デバッグモードの場合、行数ごとの実行回数を更新
     if(is_detailed_debug){
         int l = id_to_line.left.at(id_of_pc(pc));
-        if(l >= 0) ++line_exec_count[l];
+        if(l > 0) ++line_exec_count[l-1];
     }
 
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
