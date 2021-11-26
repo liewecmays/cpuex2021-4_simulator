@@ -10,6 +10,7 @@ MEMORY=""
 IS_SKIP=""
 IS_RAYTRACING=""
 IS_BIN=""
+IS_PRELOADING=""
 while getopts f:idp:bm:sr-: OPT
 do
     case $OPT in
@@ -17,6 +18,7 @@ do
             case $OPTARG in
                 boot) IS_BOOTLOADING="--boot";;
                 detailed) IS_DEBUG="-d"; IS_DETAILED="--detailed";;
+                preload) IS_PRELOADING="--preload";;
             esac;;
         f) FILENAME=$OPTARG;;
         i) IS_INFO_OUT="-i";;
@@ -44,4 +46,4 @@ cd assembler || exit 1
 cd ../ || exit 1
 cp assembler/out/$FILENAME$EXT simulator/code/$FILENAME$EXT || exit 1
 cd simulator || exit 1
-rlwrap ./sim -f $FILENAME $IS_DEBUG $IS_DETAILED $IS_INFO_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING || exit 1
+rlwrap ./sim -f $FILENAME $IS_DEBUG $IS_DETAILED $IS_INFO_OUT $PORT $IS_BOOTLOADING $MEMORY $IS_SKIP $IS_RAYTRACING $IS_PRELOADING || exit 1

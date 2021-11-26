@@ -46,6 +46,8 @@ bool is_skip = false; // ブートローディングの過程をスキップす�
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
 std::string filename; // 処理対象のファイル名
+bool is_preloading = false; // バッファのデータを予め取得しておくモード
+std::string preload_filename; // プリロード対象のファイル名
 
 // 統計・出力関連
 unsigned long long op_type_count[op_type_num]; // 各命令の実行数
@@ -100,7 +102,8 @@ int main(int argc, char *argv[]){
         ("mem,m", po::value<int>(), "memory size")
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
-        ("boot", "bootloading mode");
+        ("boot", "bootloading mode")
+        ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
 	po::variables_map vm;
     try{
         po::store(po::parse_command_line(argc, argv, opt), vm);
@@ -133,6 +136,10 @@ int main(int argc, char *argv[]){
     if(vm.count("raytracing")) is_raytracing = true;
     if(vm.count("skip")) is_skip = true;
     if(vm.count("boot")) is_bootloading = true;
+    if(vm.count("preload")){
+        is_preloading = true;
+        preload_filename = vm["preload"].as<std::string>();
+    };
 
     // タイムスタンプの取得
     time_t t = time(nullptr);
@@ -178,6 +185,22 @@ int main(int argc, char *argv[]){
         mem_accessed_write = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
     }
     
+    // バッファのデータのプリロード
+    if(is_preloading){
+        preload_filename = "./data/" + preload_filename + ".bin";
+        std::ifstream preload_file(preload_filename, std::ios::in | std::ios::binary);
+        if(!preload_file){
+            std::cerr << head_error << "could not open " << preload_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        unsigned char c;
+        while(!preload_file.eof()){
+            preload_file.read((char*) &c, sizeof(char)); // 8bit取り出す
+            receive_buffer.push(Bit32(static_cast<int>(c)));
+        }
+        std::cout << head << "preloaded data to the receive-buffer from " + preload_filename << std::endl;
+    }
+
     // ファイルを読む
     std::string input_filename;
     if(is_bootloading){
