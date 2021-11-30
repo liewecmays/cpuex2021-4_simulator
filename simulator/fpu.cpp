@@ -224,15 +224,15 @@ Bit32 floor(Bit32 x){
     }else if(e1 <= 126){
         m2 = over = all_zero = 0;
     }
+    ui s2 = x.F.s;
     
     // assign
     ui m3 = (all_zero == 1) ? m2 : m2 + over;
-    ui s3 = e1 < 126 ? 0 : x.F.s;
     ui y = e1 <= 126 ?
-            (s3 == 0 ? 0 : 0xf800000) :
+            (s2 == 0 ? 0 : 0xbf800000) :
             (isset_bit(m3, 24) ?
-                ((s3 << 31) + ((e1 + 1) << 23) + take_bits(m3, 23, 1)) :
-                ((s3 << 31) + (e1 << 23) + take_bits(m3, 0, 22)));
+                ((s2 << 31) + ((e1 + 1) << 23) + take_bits(m3, 23, 1)) :
+                ((s2 << 31) + (e1 << 23) + take_bits(m3, 0, 22)));
     
     return Bit32(y);
 }

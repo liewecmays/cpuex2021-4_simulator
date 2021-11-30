@@ -103,8 +103,9 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
         case Ftype::o_floor:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
+                && d_x1 != d_y
                 && (/*std::nearbyint(d_y) != d_y // 整数ではない
-                ||*/ d_y > d_x1 || d_x1 >= d_y);
+                ||*/ d_y > d_x1 || d_x1 >= d_y + 1);
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
