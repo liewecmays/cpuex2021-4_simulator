@@ -16,11 +16,13 @@ let filename = ref ""
 let is_debug = ref false
 let is_bootloading = ref false
 let is_skip = ref false
+let is_bin = ref false
 let speclist = [
 	("-f", Arg.Set_string filename, "filename");
 	("-d", Arg.Set is_debug, "debug mode");
-	("-b", Arg.Set is_bootloading, "bootloading mode");
+	("--boot", Arg.Set is_bootloading, "bootloading mode");
 	("-s", Arg.Set is_skip, "bootloading-skip mode");
+	("-b", Arg.Set is_bin, "binary-output mode");
 ]
 let usage_msg = "" (* todo *)
 
@@ -55,7 +57,7 @@ let address_of_id id =
 	else
 		4 * (id - 1)
 
-(* 即値を指定された桁数の二進数に変換 *)
+(* 即値を指定された桁数の2進数に変換 *)
 exception Argument_error
 let rec binary_of_imm imm len =
 	match imm with
@@ -66,7 +68,7 @@ let rec binary_of_imm imm len =
 		let id = List.assoc l !label_to_id in
 			binary_of_int_signed (address_of_id id) len (* ブートローダによってロードされるのは命令メモリの100ワード目から *)
 
-(* 整数を指定された桁数の二進数に変換 *)
+(* 整数を指定された桁数の2進数に変換 *)
 and binary_of_int n len =
 	if n >= (1 lsl len) then raise Argument_error else
 	if n < 0 then raise Argument_error else
@@ -124,6 +126,20 @@ and dec_of_hex h =
 			in dec_of_hex_inner rest (i-1) (acc + n * (1 lsl (i*4))) 
 	in dec_of_hex_inner h_digits (List.length h_digits - 1) 0
 
+(* (符号なし)2進数を整数に変換 *)
+let int_of_binary b =
+	let len = String.length b in
+	if len < 32 then (* 0～2^32-1まで対応 *)
+		let rec int_of_binary_inner b n base acc =
+			if n <= 0 then acc else
+				match b.[n-1] with
+				| '0' -> int_of_binary_inner b (n-1) (base * 2) acc
+				| '1' -> int_of_binary_inner b (n-1) (base * 2) (acc + base)
+				| _ -> raise Argument_error
+		in int_of_binary_inner b len 1 0
+	else
+		raise Argument_error
+
 
 (* 連想配列からkeyに対応する値を全て取り出す *)
 let assoc_all l key =
@@ -140,6 +156,19 @@ let assoc_delete l keys =
 		| [] -> acc
 		| (k, v) :: rest -> if List.mem k keys then assoc_delete_inner rest keys acc else assoc_delete_inner rest keys ((k, v) :: acc)
 	in assoc_delete_inner l keys []
+
+
+(* 文字列で表現された機械語コードを4つの整数に変換 *)
+let split_line line =
+	if String.length line = 32 then
+		(
+			int_of_binary (String.sub line 0 8), (* ビッグエンディアン *)
+			int_of_binary (String.sub line 8 8),
+			int_of_binary (String.sub line 16 8),
+			int_of_binary (String.sub line 24 8)
+		)
+	else
+		raise Argument_error
 
 
 (*
@@ -841,6 +870,7 @@ let assemble codes =
 *)
 let head = "\x1b[1m[asm]\x1b[0m "
 let error = "\x1b[1m\x1b[31mError: \x1b[0m"
+let warning = "\x1b[1m\x1b[33mWarning: \x1b[0m"
 let () =
 	try
 		Arg.parse speclist (fun _ -> ()) usage_msg;
@@ -849,25 +879,34 @@ let () =
 		let raw_result = assemble codes in
 		let result = List.fast_sort (fun (n1, _, _, _, _) (n2, _, _, _, _) -> compare n1 n2) raw_result in (* idでソート *)
 		print_endline (head ^ "succeeded in assembling " ^ !filename ^ ".s\x1b[0m" ^ (if !is_debug then " (in debug-mode)" else ""));
-		let out_channel = open_out ("./out/" ^ !filename ^ (if !is_debug then ".dbg" else "")) in
+		if(!is_bin && !is_debug) then print_endline (warning ^ "debug information is ignored as output is binary file") else ();
+		let output_filename = "./out/" ^ !filename ^ (if !is_bin then ".bin" else (if !is_debug then ".dbg" else "")) in
+		let out_channel = open_out output_filename in
 		let rec output_result result = (* アセンブルの結果をidごとにファイルに出力 *)
 			match result with
 			| [] -> ()
 			| (_, c, lno, l_o, b_o) :: rest -> 
 				let line = ref c in
-				(if !is_debug then
-					(line := !line ^ "@" ^ (string_of_int lno);
-					(match l_o with
-					| Some labels -> line := !line ^ "#" ^ (List.hd (List.rev labels))
-					| None -> ());
-					(match b_o with
-					| Some bp -> line := !line ^ "!" ^ bp
-					| None -> ()))
-				else ());
-				Printf.fprintf out_channel "%s\n" !line;
+				if !is_bin then (* バイナリ出力モードの場合、行数などの情報をすべて無視 *)
+					(let (b1, b2, b3, b4) = split_line !line in
+						output_byte out_channel b1;
+						output_byte out_channel b2;
+						output_byte out_channel b3;
+						output_byte out_channel b4)
+				else
+					((if !is_debug then (* デバッグモードの場合は、行数・ラベル・ブレークポイントの情報を末尾に追加 *)
+						(line := !line ^ "@" ^ (string_of_int lno);
+						(match l_o with
+						| Some labels -> line := !line ^ "#" ^ (List.hd (List.rev labels))
+						| None -> ());
+						(match b_o with
+						| Some bp -> line := !line ^ "!" ^ bp
+						| None -> ()))
+					else ());
+					Printf.fprintf out_channel "%s\n" !line); (* テキスト形式で出力 *)
 				output_result rest
 		in output_result result;
-		print_endline (head ^ "output file: ./out/" ^ !filename ^ (if !is_debug then ".dbg" else ""));
+		print_endline (head ^ "output file: " ^ output_filename);
 		close_out out_channel
 	with
 	| Failure s -> print_endline (head ^ error ^ s); exit 1

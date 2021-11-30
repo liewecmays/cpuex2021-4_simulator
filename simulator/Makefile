@@ -6,7 +6,7 @@ default: sim server
 all: clean sim server fpu_test
 
 sim: util.o common.o sim.o
-	$(CC) $(OUTPUT_OPTION) -o $@ $^
+	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
 server: util.o common.o server.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
@@ -19,3 +19,11 @@ fpu_test: util.o common.o fpu.o fpu_test.o
 
 clean:
 	rm -f sim server fpu_test *.o
+
+clean-info:
+	rm -f info/*.md info/*.csv
+
+clean-out:
+	rm -f out/*.ppm out/*.bin
+
+clean-all: clean clean-info clean-out
