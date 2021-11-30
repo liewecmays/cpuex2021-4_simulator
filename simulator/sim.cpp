@@ -37,6 +37,12 @@ int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バッファ
 
+cache_line *cache; // キャッシュ本体
+unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
+unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
+unsigned int cache_read_times = 0; // キャッシュへのアクセス回数(読み込み)
+unsigned int cache_hit_times = 0; // キャッシュのヒット率
+
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
 bool is_detailed_debug = false; // 詳細なデバッグモード
@@ -183,6 +189,11 @@ int main(int argc, char *argv[]){
     if(is_detailed_debug){
         mem_accessed_read = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
         mem_accessed_write = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
+    }
+
+    // キャッシュの初期化
+    if(is_debug){
+        cache = (cache_line*) calloc(1 << index_width, sizeof(cache_line));
     }
     
     // バッファのデータのプリロード
@@ -1227,6 +1238,11 @@ void output_info(){
     ss << "- operation count: " << op_count << std::endl;
     ss << "- execution time(s): " << exec_time << std::endl;
     ss << "- operations per second: " << op_per_sec << std::endl;
+    if(is_debug){
+        ss << "- cache:" << std::endl;
+        ss << "\t- accessed: " << cache_read_times << std::endl;
+        ss << "\t- hit rate: " << static_cast<double>(cache_hit_times) / cache_read_times << std::endl;
+    }
     if(is_raytracing){
         ss << "- stack:" << std::endl;
         ss << "\t- size: " << max_x2 << std::endl;
@@ -1321,6 +1337,25 @@ inline Bit32 read_memory(int w){
     if(is_detailed_debug){
         ++mem_accessed_read[w];
         w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
+
+        // キャッシュ関連の処理
+        ++cache_read_times;
+        unsigned int tag = ((w * 4) >> (index_width + offset_width)) & ((1 << (32 - (index_width + offset_width))) - 1);
+        unsigned int index = ((w * 4) >> offset_width) & ((1 << index_width) - 1);
+        // int offset = (w * 4) & ((1 << offset_width) - 1);
+        cache_line line = cache[index];
+        if(line.tag == tag){
+            if(line.is_valid){
+                ++cache_hit_times;
+            }else{
+                line.is_valid = true;
+                cache[index] = line;
+            }
+        }else{
+            line.is_valid = true;
+            line.tag = tag;
+            cache[index] = line;
+        }
     }
     return memory[w];
 }
