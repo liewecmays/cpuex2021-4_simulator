@@ -375,6 +375,30 @@ let rec translate_code code untranslated op_id labels_option =
 					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
+		| Fcvtif (rs1, rd) ->
+			if (is_float rs1) && (is_float rd) then
+				let opcode = binary_of_int 1 4 in
+				let funct = binary_of_int 5 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let rs2 = "00000" in
+				let rd = binary_of_int (int_of_reg rd) 5 in
+				let margin = "0000000000" in
+				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+					Code (op_id, code, line_no, labels_option, bp_option)
+			else
+				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
+		| Fcvtfi (rs1, rd) ->
+			if (is_float rs1) && (is_float rd) then
+				let opcode = binary_of_int 1 4 in
+				let funct = binary_of_int 6 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let rs2 = "00000" in
+				let rd = binary_of_int (int_of_reg rd) 5 in
+				let margin = "0000000000" in
+				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+					Code (op_id, code, line_no, labels_option, bp_option)
+			else
+				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* branch *)
 		| Beq (rs1, rs2, label) ->
 			if (is_int rs1) && (is_int rs2) then
@@ -410,30 +434,13 @@ let rec translate_code code untranslated op_id labels_option =
 				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Ble (rs1, rs2, label) ->
-			if (is_int rs1) && (is_int rs2) then
-				try
-					let label_id = List.assoc label !label_to_id
-					in let opcode = binary_of_int 2 4 in
-					let funct = binary_of_int 2 3 in
-					let rs1 = binary_of_int (int_of_reg rs1) 5 in
-					let rs2 = binary_of_int (int_of_reg rs2) 5 in
-					let imm =
-						try binary_of_int_signed (label_id - op_id) 15 with
-						| Argument_error -> raise (Translate_error ("invalid jump distance at line " ^ (string_of_int line_no))) in
-					let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-						Code (op_id, code, line_no, labels_option, bp_option)
-				with
-				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* branch_fp *)
 		| Fbeq (rs1, rs2, label) ->
 			if (is_float rs1) && (is_float rs2) then
 				try
 					let label_id = List.assoc label !label_to_id
 					in let opcode = binary_of_int 3 4 in
-					let funct = binary_of_int 0 3 in
+					let funct = binary_of_int 2 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
 					let imm =
@@ -450,7 +457,7 @@ let rec translate_code code untranslated op_id labels_option =
 				try
 					let label_id = List.assoc label !label_to_id
 					in let opcode = binary_of_int 3 4 in
-					let funct = binary_of_int 1 3 in
+					let funct = binary_of_int 3 3 in
 					let rs1 = binary_of_int (int_of_reg rs1) 5 in
 					let rs2 = binary_of_int (int_of_reg rs2) 5 in
 					let imm =
@@ -510,17 +517,6 @@ let rec translate_code code untranslated op_id labels_option =
 				let imm =
 					try binary_of_imm imm 15 with
 					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
-				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
-					Code (op_id, code, line_no, labels_option, bp_option)
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Fstd rs2 ->
-			if is_float rs2 then
-				let opcode = binary_of_int 5 4 in
-				let funct = binary_of_int 2 3 in
-				let rs1 = "00000" in
-				let rs2 = binary_of_int (int_of_reg rs2) 5 in
-				let imm = "000000000000000" in
 				let code = String.concat "" [opcode; funct; rs1; rs2; imm] in
 					Code (op_id, code, line_no, labels_option, bp_option)
 			else
@@ -679,17 +675,6 @@ let rec translate_code code untranslated op_id labels_option =
 					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Flrd rd ->
-			if is_float rd then
-				let opcode = binary_of_int 8 4 in
-				let funct = binary_of_int 2 3 in
-				let rs1 = "00000" in
-				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm = "000000000000000" in
-				let code = String.concat "" [opcode; funct; rs1; String.sub imm 0 5; rd; String.sub imm 5 10] in
-					Code (op_id, code, line_no, labels_option, bp_option)
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* jalr *)
 		| Jalr (rs1, rd, imm) ->
 			if (is_int rs1) && (is_int rd) then
@@ -719,29 +704,11 @@ let rec translate_code code untranslated op_id labels_option =
 				| Not_found -> Fail (label, (op_id, op, line_no, labels_option, bp_option))
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		(* long_imm *)
+		(* lui *)
 		| Lui (rd, imm) ->
 			if is_int rd then
 				let opcode = binary_of_int 11 4 in
 				let funct = binary_of_int 0 3 in
-				let rd = binary_of_int (int_of_reg rd) 5 in
-				(match imm with
-				| Dec i ->
-					if i < 0 then raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")")) else ()
-				| Hex _ -> ()
-				| Neghex _ -> raise (Translate_error ("long_imm operations does not accept negative immdediates (at line " ^ (string_of_int line_no) ^ ")"))
-				| Label _ -> raise (Translate_error ("long_imm operations does not accept label immdediates (at line " ^ (string_of_int line_no) ^ ")")));
-				let imm =
-					try binary_of_imm imm 21 with (* 20桁ぶん確保するためにわざと符号ビットに余裕を持たせている *)
-					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
-				let code = String.concat "" [opcode; funct; String.sub imm 1 10; rd; String.sub imm 11 10] in
-					Code (op_id, code, line_no, labels_option, bp_option)
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Auipc (rd, imm) ->
-			if is_int rd then
-				let opcode = binary_of_int 11 4 in
-				let funct = binary_of_int 1 3 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
 				(match imm with
 				| Dec i ->
@@ -769,47 +736,11 @@ let rec translate_code code untranslated op_id labels_option =
 					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Fcvtif (rs1, rd) ->
-			if (is_int rs1) && (is_float rd) then
-				let opcode = binary_of_int 12 4 in
-				let funct = binary_of_int 5 3 in
-				let rs1 = binary_of_int (int_of_reg rs1) 5 in
-				let margin1 = "00000" in
-				let rd = binary_of_int (int_of_reg rd) 5 in
-				let margin2 = "0000000000" in
-				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, labels_option, bp_option)
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* ftoi *)
 		| Fmvfi (rs1, rd) ->
 			if (is_float rs1) && (is_int rd) then
 				let opcode = binary_of_int 13 4 in
 				let funct = binary_of_int 0 3 in
-				let rs1 = binary_of_int (int_of_reg rs1) 5 in
-				let margin1 = "00000" in
-				let rd = binary_of_int (int_of_reg rd) 5 in
-				let margin2 = "0000000000" in
-				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, labels_option, bp_option)
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Fcvtfi (rs1, rd) ->
-			if (is_float rs1) && (is_int rd) then
-				let opcode = binary_of_int 13 4 in
-				let funct = binary_of_int 6 3 in
-				let rs1 = binary_of_int (int_of_reg rs1) 5 in
-				let margin1 = "00000" in
-				let rd = binary_of_int (int_of_reg rd) 5 in
-				let margin2 = "0000000000" in
-				let code = String.concat "" [opcode; funct; rs1; margin1; rd; margin2] in
-					Code (op_id, code, line_no, labels_option, bp_option)
-			else
-				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
-		| Floor (rs1, rd) ->
-			if (is_float rs1) && (is_int rd) then
-				let opcode = binary_of_int 13 4 in
-				let funct = binary_of_int 7 3 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let margin1 = "00000" in
 				let rd = binary_of_int (int_of_reg rd) 5 in

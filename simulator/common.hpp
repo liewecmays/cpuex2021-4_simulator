@@ -18,22 +18,22 @@ class Operation{
 };
 
 // 命令の種類
-inline constexpr int op_type_num = 41;
+inline constexpr int op_type_num = 36;
 enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
-    o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt,
-    o_beq, o_blt, o_ble,
+    o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt, o_fcvtif, o_fcvtfi,
+    o_beq, o_blt,
     o_fbeq, o_fblt,
     o_sw, o_si, o_std,
-    o_fsw, o_fstd,
+    o_fsw,
     o_addi, o_slli, o_srli, o_srai, o_andi,
     o_lw, o_lre, o_lrd, o_ltf,
-    o_flw, o_flrd,
+    o_flw,
     o_jalr,
     o_jal,
-    o_lui, o_auipc,
-    o_fmvif, o_fcvtif,
-    o_fmvfi, o_fcvtfi, o_floor
+    o_lui,
+    o_fmvif,
+    o_fmvfi
 };
 
 std::string string_of_otype(Otype t); // Otypeを文字列に変換

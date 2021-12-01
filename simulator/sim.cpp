@@ -805,7 +805,7 @@ void exec_op(){
                     ++op_type_count[Otype::o_sra];
                     pc += 4;
                     return;
-                case 5: // andi
+                case 5: // and
                     write_reg(op.rd, read_reg(op.rs1) & read_reg(op.rs2));
                     ++op_type_count[Otype::o_and];
                     pc += 4;
@@ -840,6 +840,16 @@ void exec_op(){
                     ++op_type_count[Otype::o_fsqrt];
                     pc += 4;
                     return;
+                case 5: // fcvt.i.f
+                    write_reg_fp(op.rd, static_cast<float>(Bit32(read_reg_fp(op.rs1)).i));
+                    ++op_type_count[Otype::o_fcvtif];
+                    pc += 4;
+                    return;
+                case 6: // fcvt.f.i
+                    write_reg_fp(op.rd, std::nearbyint(read_reg_fp(op.rs1)));
+                    ++op_type_count[Otype::o_fcvtfi];
+                    pc += 4;
+                    return;
             }
             break;
         case 2: // branch
@@ -852,20 +862,16 @@ void exec_op(){
                     read_reg(op.rs1) < read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
                     ++op_type_count[Otype::o_blt];
                     return;
-                case 2: // ble
-                    read_reg(op.rs1) <= read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
-                    ++op_type_count[Otype::o_ble];
-                    return;
                 default: break;
             }
             break;
         case 3: // branch_fp
             switch(op.funct){
-                case 0: // fbeq
+                case 2: // fbeq
                     read_reg_fp(op.rs1) == read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
                     ++op_type_count[Otype::o_fbeq];
                     return;
-                case 1: // fblt
+                case 3: // fblt
                     read_reg_fp(op.rs1) < read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
                     ++op_type_count[Otype::o_fblt];
                     return;
@@ -912,11 +918,6 @@ void exec_op(){
                         std::exit(EXIT_FAILURE);
                     }
                     ++op_type_count[Otype::o_fsw];
-                    pc += 4;
-                    return;
-                case 2: // fstd
-                    send_buffer.push(read_reg_fp(op.rs2));
-                    ++op_type_count[Otype::o_fstd];
                     pc += 4;
                     return;
                 default: break;
@@ -1000,17 +1001,6 @@ void exec_op(){
                     ++op_type_count[Otype::o_flw];
                     pc += 4;
                     return;
-                case 2: // flrd
-                    if(!receive_buffer.empty()){
-                        write_reg_fp(op.rd, receive_buffer.front().f);
-                        receive_buffer.pop();
-                    }else{
-                        std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
-                    }
-                    ++op_type_count[Otype::o_flrd];
-                    pc += 4;
-                    return;
                 default: break;
             }
             break;
@@ -1027,16 +1017,11 @@ void exec_op(){
             ++op_type_count[Otype::o_jal];
             pc += op.imm * 4;
             return;
-        case 11: // long_imm
+        case 11: // lui
             switch(op.funct){
                 case 0: // lui
                     write_reg(op.rd, op.imm << 12);
                     ++op_type_count[Otype::o_lui];
-                    pc += 4;
-                    return;
-                case 1: // auipc
-                    write_reg(op.rd, pc + (op.imm << 12));
-                    ++op_type_count[Otype::o_auipc];
                     pc += 4;
                     return;
                 default: break;
@@ -1049,11 +1034,6 @@ void exec_op(){
                     ++op_type_count[Otype::o_fmvif];
                     pc += 4;
                     return;
-                case 5: // fcvt.i.f
-                    write_reg_fp(op.rd, static_cast<float>(read_reg(op.rs1)));
-                    ++op_type_count[Otype::o_fcvtif];
-                    pc += 4;
-                    return;
                 default: break;
             }
             break;
@@ -1062,16 +1042,6 @@ void exec_op(){
                 case 0: // fmv.f.i
                     write_reg(op.rd, Bit32(read_reg_fp(op.rs1)).i);
                     ++op_type_count[Otype::o_fmvfi];
-                    pc += 4;
-                    return;
-                case 6: // fcvt.f.i
-                    write_reg(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
-                    ++op_type_count[Otype::o_fcvtfi];
-                    pc += 4;
-                    return;
-                case 7: // floor
-                    write_reg(op.rd, static_cast<int>(std::floor(read_reg_fp(op.rs1))));
-                    ++op_type_count[Otype::o_floor];
                     pc += 4;
                     return;
                 default: break;
