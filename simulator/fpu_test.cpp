@@ -27,8 +27,8 @@ int main(){
     std::mt19937 mt(rnd());
 
     Bit32 x1, x2, y;
-    Ftype t = Ftype::o_floor;
-    for(int i=0; i<10; i++){     
+    Ftype t = Ftype::o_fdiv;
+    for(int i=0; i<1000000000; i++){     
         x1.ui = mt();
         if(is_invalid(x1)) break;
         if(has_two_args(t)){

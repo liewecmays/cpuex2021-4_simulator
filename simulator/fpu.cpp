@@ -176,8 +176,9 @@ Bit32 fdiv(Bit32 x1, Bit32 x2){
     Bit32 inv_x2 = finv(Bit32(modified_x2));
     ui tmp = fmul(x1, inv_x2).ui;
 
-    ui y = tmp - (e_diff << 23);
-
+    ui y = take_bits(tmp, 23, 30) >= e_diff ?
+        (take_bit(tmp, 31) << 31) + ((take_bits(tmp, 23, 30) - e_diff) << 23) + take_bits(tmp, 0, 22)
+        : 0;
     return Bit32(y);
 }
 
