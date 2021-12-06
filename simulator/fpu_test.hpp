@@ -8,7 +8,7 @@ union Bit64{
 
 enum class Ftype{
     o_fadd, o_fsub, o_fmul, o_finv, o_fdiv, o_fsqrt,
-    o_itof, o_ftoi, o_floor
+    o_itof, o_ftoi
 };
 
 /* プロトタイプ宣言 */

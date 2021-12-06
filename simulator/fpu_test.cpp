@@ -100,12 +100,6 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
         //     return ???
         //         -e31_32.f + 1 <= x1.f && x1.f <= e31_32.f - 1
         //         &&
-        case Ftype::o_floor:
-            return
-                -e127_32.f < x1.f && x1.f < e127_32.f
-                && d_x1 != d_y
-                && (/*std::nearbyint(d_y) != d_y // 整数ではない
-                ||*/ d_y > d_x1 || d_x1 >= d_y + 1);
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -129,8 +123,6 @@ Bit32 calc_fpu(Bit32 x1, Bit32 x2, Ftype t){
             return itof(x1);
         case Ftype::o_ftoi:
             return ftoi(x1);
-        case Ftype::o_floor:
-            return floor(x1);
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -156,8 +148,6 @@ double calc_std(Bit32 x1, Bit32 x2, Ftype t){
             return static_cast<double>(x1.i);
         case Ftype::o_ftoi:
             return std::nearbyint(d_x1);
-        case Ftype::o_floor:
-            return 0.0; // 比較対象がいらない
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -191,7 +181,6 @@ std::string string_of_ftype(Ftype t){
         case Ftype::o_fsqrt: return "fsqrt";
         case Ftype::o_itof: return "itof";
         case Ftype::o_ftoi: return "ftoi";
-        case Ftype::o_floor: return "floor";
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);

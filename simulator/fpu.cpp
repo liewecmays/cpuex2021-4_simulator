@@ -203,41 +203,6 @@ Bit32 fsqrt(Bit32 x){
     return Bit32(y);
 }
 
-Bit32 floor(Bit32 x){
-    // stage1
-    ui e1 = x.F.e;
-    ui m1 = x.F.m;
-    ui m2=0, over=0;
-    ui tmp = 0;
-    ui all_zero = 0;
-    for(ui i=0; i<23; ++i){ // 127, 128, ..., 149
-        if(e1 == 127 + i){
-            m2 = (1 << 23) + (m1 & tmp);
-            over = x.F.s << (23-i);
-            all_zero = ~or_all(take_bits(m1, 0, 22-i));
-            break;
-        }
-        tmp += 1 << (22 - i);
-    }
-    if(e1 > 149){
-        m2 = m1;
-        over = all_zero = 0;
-    }else if(e1 <= 126){
-        m2 = over = all_zero = 0;
-    }
-    ui s2 = x.F.s;
-    
-    // assign
-    ui m3 = (all_zero == 1) ? m2 : m2 + over;
-    ui y = e1 <= 126 ?
-            (s2 == 0 ? 0 : 0xbf800000) :
-            (isset_bit(m3, 24) ?
-                ((s2 << 31) + ((e1 + 1) << 23) + take_bits(m3, 23, 1)) :
-                ((s2 << 31) + (e1 << 23) + take_bits(m3, 0, 22)));
-    
-    return Bit32(y);
-}
-
 Bit32 itof(Bit32 x){
     // stage1
     ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
