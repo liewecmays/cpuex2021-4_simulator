@@ -99,10 +99,20 @@ Bit32 fadd(Bit32 x1, Bit32 x2){
         big == 1 ?
             (x1.F.e == 0 ? 0 : x1_m) :
             (x2.F.e == 0 ? 0 : x2_m);
-    ui small_x =
-        big == 1 ?
-            (x2.F.e == 0 ? 0 : x2_m >> (x1.F.e - x2.F.e)) :
-            (x1.F.e == 0 ? 0 : x1_m >> (x2.F.e - x1.F.e));
+    ui small_x = 0;
+    if(big == 1){
+        if(x2.F.e == 0 || x1.F.e - x2.F.e >= 32){
+            small_x = 0;
+        }else{
+            small_x = x2_m >> (x1.F.e - x2.F.e);
+        }
+    }else{
+        if(x1.F.e == 0 || x2.F.e - x1.F.e >= 32){
+            small_x = 0;
+        }else{
+            small_x = x1_m >> (x2.F.e - x1.F.e);
+        }
+    }
     
     // stage2
     ui m2 = calc == 1 ? take_bits(((1 << 24) + big_x) - ((1 << 24) + small_x), 0, 24) : take_bits(((1 << 24) + big_x) + ((1 << 24) + small_x), 0, 24);
