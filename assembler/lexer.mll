@@ -16,47 +16,56 @@ rule token = parse
 | "." { Parser.PERIOD }
 | "-" { Parser.MINUS }
 | "!" { Parser.EXCLAM }
+(* op *)
 | "add" { Parser.ADD }
 | "sub" { Parser.SUB }
+| "sll" { Parser.SLL }
+| "srl" { Parser.SRL }
+| "sra" { Parser.SRA }
 | "and" { Parser.AND }
+(* op_fp *)
 | "fadd" { Parser.FADD }
 | "fsub" { Parser.FSUB }
 | "fmul" { Parser.FMUL }
 | "fdiv" { Parser.FDIV }
 | "fsqrt" { Parser.FSQRT }
-| "sll" { Parser.SLL }
-| "srl" { Parser.SRL }
-| "sra" { Parser.SRA }
+| "fcvt.i.f" { Parser.FCVTIF }
+| "fcvt.f.i" { Parser.FCVTFI }
+(* branch *)
 | "beq" { Parser.BEQ }
 | "blt" { Parser.BLT }
-| "ble" { Parser.BLE }
+(* branch_fp *)
 | "fbeq" { Parser.FBEQ }
 | "fblt" { Parser.FBLT }
+(* store *)
 | "sw" { Parser.SW }
 | "si" { Parser.SI }
 | "std" { Parser.STD }
+(* store_fp *)
 | "fsw" { Parser.FSW }
-| "fstd" { Parser.FSTD }
+(* op_fp *)
 | "addi" { Parser.ADDI }
 | "slli" { Parser.SLLI }
 | "srli" { Parser.SRLI }
 | "srai" { Parser.SRAI }
 | "andi" { Parser.ANDI }
+(* load *)
 | "lw" { Parser.LW }
 | "lre" { Parser.LRE }
 | "lrd" { Parser.LRD }
 | "ltf" { Parser.LTF }
+(* load_fp *)
 | "flw" { Parser.FLW }
-| "flrd" { Parser.FLRD }
+(* jald *)
 | "jalr" { Parser.JALR }
+(* jal *)
 | "jal" { Parser.JAL }
+(* lui *)
 | "lui" { Parser.LUI }
-| "auipc" { Parser.AUIPC }
+(* itof *)
 | "fmv.i.f" { Parser.FMVIF }
-| "fcvt.i.f" { Parser.FCVTIF }
+(* ftoi *)
 | "fmv.f.i" { Parser.FMVFI }
-| "fcvt.f.i" { Parser.FCVTFI }
-| "floor" { Parser.FLOOR }
 | "%x" { Parser.INTREG }
 | "%f" { Parser.FLOATREG }
 | digit+ as n  { Parser.INT (int_of_string n) }

@@ -9,7 +9,20 @@
 %token <string> LABEL
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
-%token ADD SUB AND FADD FSUB FMUL FDIV FSQRT SLL SRL SRA BEQ BLT FBEQ FBLT BLE SW SI STD FSW FSTD ADDI SLLI SRLI SRAI ANDI LW LRE LRD LTF FLW FLRD JALR JAL LUI AUIPC FMVIF FCVTIF FMVFI FCVTFI FLOOR
+%token ADD SUB SLL SRL SRA AND
+%token FADD FSUB FMUL FDIV FSQRT FCVTIF FCVTFI
+%token BEQ BLT
+%token FBEQ FBLT
+%token SW SI STD
+%token FSW
+%token ADDI SLLI SRLI SRAI ANDI
+%token LW LRE LRD LTF
+%token FLW
+%token JALR
+%token JAL
+%token LUI
+%token FMVIF
+%token FMVFI
 
 %start toplevel
 %type <Syntax.code list> toplevel
@@ -59,47 +72,56 @@ operation:
 ;
 
 operation_: // 命令とその行番号の組を返す
+	// op
 	| ADD reg COMMA reg COMMA reg { Add ($4, $6, $2) } // add rd,rs1,rs2
 	| SUB reg COMMA reg COMMA reg { Sub ($4, $6, $2) } // sub rd,rs1,rs2
+	| SLL reg COMMA reg COMMA reg { Sll ($4, $6, $2) } // sll rd,rs1,rs2
+	| SRL reg COMMA reg COMMA reg { Srl ($4, $6, $2) } // srl rd,rs1,rs2
+	| SRA reg COMMA reg COMMA reg { Sra ($4, $6, $2) } // sra rd,rs1,rs2
 	| AND reg COMMA reg COMMA reg { And ($4, $6, $2) } // and rd,rs1,rs2
+	// op_fp
 	| FADD reg COMMA reg COMMA reg { Fadd ($4, $6, $2) } // fadd rd,rs1,rs2
 	| FSUB reg COMMA reg COMMA reg { Fsub ($4, $6, $2) } // fsub rd,rs1,rs2
 	| FMUL reg COMMA reg COMMA reg { Fmul ($4, $6, $2) } // fmul rd,rs1,rs2
 	| FDIV reg COMMA reg COMMA reg { Fdiv ($4, $6, $2) } // fdiv rd,rs1,rs2
 	| FSQRT reg COMMA reg { Fsqrt ($4, $2) } // fsqrt rd,rs1
-	| SLL reg COMMA reg COMMA reg { Sll ($4, $6, $2) } // sll rd,rs1,rs2
-	| SRL reg COMMA reg COMMA reg { Srl ($4, $6, $2) } // srl rd,rs1,rs2
-	| SRA reg COMMA reg COMMA reg { Sra ($4, $6, $2) } // sra rd,rs1,rs2
+	| FCVTIF reg COMMA reg { Fcvtif ($4, $2) } // fcvt.i.f rd,rs1
+	| FCVTFI reg COMMA reg { Fcvtfi ($4, $2) } // fcvt.f.i rd,rs1
+	// branch
 	| BEQ reg COMMA reg COMMA label { Beq ($2, $4, $6) } // beq rs1,rs2,label
 	| BLT reg COMMA reg COMMA label { Blt ($2, $4, $6) } // blt rs1,rs2,label
-	| BLE reg COMMA reg COMMA label { Ble ($2, $4, $6) } // ble rs1,rs2,label
+	// branch_fp
 	| FBEQ reg COMMA reg COMMA label { Fbeq ($2, $4, $6) } // fbeq rs1,rs2,label
 	| FBLT reg COMMA reg COMMA label { Fblt ($2, $4, $6) } // fblt rs1,rs2,label
+	// store
 	| SW reg COMMA immediate LPAR reg RPAR { Sw ($6, $2, $4) } // sw rs2,offset(rs1)
 	| SI reg COMMA immediate LPAR reg RPAR { Si ($6, $2, $4) } // si rs2,offset(rs1)
 	| STD reg { Std $2 } // std rs1
+	// store_fp
 	| FSW reg COMMA immediate LPAR reg RPAR { Fsw ($6, $2, $4) } // fsw rs2,offset(rs1)
-	| FSTD reg { Fstd $2 } // fstd rs1
+	// op_imm
 	| ADDI reg COMMA reg COMMA immediate { Addi ($4, $2, $6) } // addi rd,rs1,imm
 	| SLLI reg COMMA reg COMMA immediate { Slli ($4, $2, $6) } // slli rd,rs1,imm
 	| SRLI reg COMMA reg COMMA immediate { Srli ($4, $2, $6) } // srli rd,rs1,imm
 	| SRAI reg COMMA reg COMMA immediate { Srai ($4, $2, $6) } // srai rd,rs1,imm
 	| ANDI reg COMMA reg COMMA immediate { Andi ($4, $2, $6) } // andi rd,rs1,imm
+	// load
 	| LW reg COMMA immediate LPAR reg RPAR { Lw ($6, $2, $4) } // lw rd,offset(rs1)
 	| LRE reg { Lre $2 } // lre rd
 	| LRD reg { Lrd $2 } // lrd rd
 	| LTF reg { Ltf $2 } // ltf rd
+	// load_fp
 	| FLW reg COMMA immediate LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
-	| FLRD reg { Flrd $2 } // flrd rd
+	// jalr
 	| JALR reg COMMA reg COMMA immediate { Jalr ($4, $2, $6) } // jalr rd,rs,offset
+	// jal
 	| JAL reg COMMA label { Jal ($2, $4) } // jal rd,label
+	// lui
 	| LUI reg COMMA immediate { Lui($2, $4) } // lui rd,imm
-	| AUIPC reg COMMA immediate { Auipc($2, $4) } // auipc rd,imm
+	// itof
 	| FMVIF reg COMMA reg { Fmvif ($4, $2) } // fmv.i.f rd,rs1
-	| FCVTIF reg COMMA reg { Fcvtif ($4, $2) } // fcvt.i.f rd,rs1
+	// ftoi
 	| FMVFI reg COMMA reg { Fmvfi ($4, $2) } // fmv.f.i rd,rs1
-	| FCVTFI reg COMMA reg { Fcvtfi ($4, $2) } // fcvt.f.i rd,rs1
-	| FLOOR reg COMMA reg { Floor ($4, $2) } // floor rd,rs1
 ;
 
 reg:
