@@ -27,8 +27,8 @@ int main(){
     std::mt19937 mt(rnd());
 
     Bit32 x1, x2, y;
-    Ftype t = Ftype::o_fdiv;
-    for(int i=0; i<1000000000; i++){     
+    Ftype t = Ftype::o_fadd;
+    for(int i=0; i<1000000; i++){     
         x1.ui = mt();
         if(is_invalid(x1)) break;
         if(has_two_args(t)){
@@ -40,14 +40,7 @@ int main(){
 
         y = calc_fpu(x1, x2, t);
 
-        if(is_invalid(y)){
-            std::cout << "\x1b[1m" << string_of_ftype(t) << ": \x1b[31minvalid value\x1b[0m" << std::endl;
-            std::cout << std::setprecision(10) << "  x1 = " << x1.f << "\t(" << x1.to_string(Stype::t_bin) << ")" << std::endl;
-            if(has_two_args(t)){
-                std::cout << std::setprecision(10) << "  x2 = " << x2.f << "\t(" << x2.to_string(Stype::t_bin) << ")" << std::endl;
-            }
-            std::cout << std::setprecision(10) << "  y  = " << y.f << "\t(" << y.to_string(Stype::t_bin) << ")" << std::endl;
-        }else if(verify(x1, x2, y, t)){
+        if(verify(x1, x2, y, t)){
             std::cout << "\x1b[1m" << string_of_ftype(t) << ": \x1b[31mdoes not meet specification\x1b[0m" << std::endl;
             std::cout << std::setprecision(10) << "  x1 = " << x1.f << "\t(" << x1.to_string(Stype::t_bin) << ")" << std::endl;
             if(has_two_args(t)){
@@ -70,30 +63,35 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
-                && std::abs(d_y - d_std) >= max_of_4(std::abs(d_x1) * e_23.d, std::abs(d_x2) * e_23.d, std::abs(d_std) * e_23.d, e_126.d);
+                && (is_invalid(y)
+                || std::abs(d_y - d_std) >= max_of_4(std::abs(d_x1) * e_23.d, std::abs(d_x2) * e_23.d, std::abs(d_std) * e_23.d, e_126.d));
         case Ftype::o_fsub:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
-                && std::abs(d_y - d_std) >= max_of_4(std::abs(d_x1) * e_23.d, std::abs(d_x2) * e_23.d, std::abs(d_std) * e_23.d, e_126.d);
+                && (is_invalid(y)
+                || std::abs(d_y - d_std) >= max_of_4(std::abs(d_x1) * e_23.d, std::abs(d_x2) * e_23.d, std::abs(d_std) * e_23.d, e_126.d));
         case Ftype::o_fmul:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
-                && std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_22.d, e_126.d);
+                && (is_invalid(y)
+                || std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_22.d, e_126.d));
         case Ftype::o_fdiv:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
                 && x2.f != 0.0f
-                && std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_20.d, e_126.d);
+                && (is_invalid(y)
+                || std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_20.d, e_126.d));
         case Ftype::o_fsqrt:
             return
                 0.0f <= x1.f && x1.f < e127_32.f
-                && std::abs(d_y - d_std) >= std::max(d_std * e_20.d, e_126.d);
+                && (is_invalid(y)
+                || std::abs(d_y - d_std) >= std::max(d_std * e_20.d, e_126.d));
         // case Ftype::o_itof:
         //     return ???
         // case Ftype::o_ftoi:
