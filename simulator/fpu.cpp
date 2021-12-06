@@ -173,7 +173,7 @@ Bit32 finv(Bit32 x){
     ull b2 = static_cast<ull>(b) << 1;
 
     // assign
-    ull m3 = (b2 - (m2 >> 23));
+    ull m3 = b2 - (m2 >> 23);
     ui y = (x.F.s << 31) + (e3 << 23) + static_cast<ui>(take_bits(m3, 0, 22));
 
     return Bit32(y);
@@ -184,10 +184,10 @@ Bit32 fdiv(Bit32 x1, Bit32 x2){
     ui modified_x2 = (x2.F.s << 31) + ((x2.F.e - e_diff) << 23) + x2.F.m;
 
     Bit32 inv_x2 = finv(Bit32(modified_x2));
-    ui tmp = fmul(x1, inv_x2).ui;
+    Bit32 tmp = fmul(x1, inv_x2);
 
-    ui y = take_bits(tmp, 23, 30) >= e_diff ?
-        (take_bit(tmp, 31) << 31) + ((take_bits(tmp, 23, 30) - e_diff) << 23) + take_bits(tmp, 0, 22)
+    ui y = tmp.F.e >= e_diff ?
+        (tmp.F.s << 31) + ((tmp.F.e - e_diff) << 23) + tmp.F.m
         : 0;
     return Bit32(y);
 }

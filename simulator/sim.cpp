@@ -183,6 +183,9 @@ int main(int argc, char *argv[]){
     // メモリ領域の確保
     memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
 
+    // RAMの初期化
+    init_ram();
+
     // 統計データの初期化
     if(is_detailed_debug){
         mem_accessed_read = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
@@ -1319,7 +1322,7 @@ inline void write_reg_fp(int i, float v){
     return;
 }
 inline void write_reg_fp(int i, int v){
-    if (i != 0) reg_fp_list[i] = Bit32(v).f;
+    if (i != 0) reg_fp_list[i] = Bit32(v);
     return;
 }
 // 浮動小数点数レジスタに書き込む(Bit32のまま)
