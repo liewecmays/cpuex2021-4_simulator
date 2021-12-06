@@ -141,12 +141,14 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 0.0f <= x1.f && x1.f < e127_32.f
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= std::max(d_std * e_20.d, e_126.d));
-        // case Ftype::o_itof:
-        //     return ???
-        // case Ftype::o_ftoi:
-        //     return ???
-        //         -e31_32.f + 1 <= x1.f && x1.f <= e31_32.f - 1
-        //         &&
+        case Ftype::o_itof:
+            return
+                (is_invalid(y)
+                || static_cast<float>(x1.i) != y.f);
+        case Ftype::o_ftoi:
+            return
+                -e31_32.f + 1 <= x1.f && x1.f <= e31_32.f - 1
+                && static_cast<int>(std::nearbyint(x1.f)) != y.i;
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
