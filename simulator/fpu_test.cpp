@@ -1,10 +1,15 @@
 #include <fpu_test.hpp>
 #include <common.hpp>
+#include <util.hpp>
 #include <fpu.hpp>
 #include <string>
+#include <vector>
 #include <random>
 #include <iostream>
 #include <iomanip>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 using ui = unsigned int;
 using ull = unsigned long long;
@@ -18,7 +23,40 @@ Bit64 e_20 = {0x3eb0000000000000};
 Bit64 e_126 = {0x3810000000000000};
 Bit64 e127 = {0x47e0000000000000};
 
-int main(){
+int main(int argc, char *argv[]){
+    unsigned int iteration = 0;
+    std::vector<std::string> types;
+
+    // コマンドライン引数をパース
+    po::options_description opt("./fpu_test option");
+	opt.add_options()
+        ("help,h", "show help")
+        ("type,t", po::value<std::vector<std::string>>()->multitoken(), "fpu type(s)")
+        ("iter,i", po::value<unsigned int>()->default_value(100), "iteration number");
+	po::variables_map vm;
+    try{
+        po::store(po::parse_command_line(argc, argv, opt), vm);
+        po::notify(vm);
+    }catch(po::error& e){
+        std::cout << head_error << e.what() << std::endl;
+        std::cout << opt << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+	if(vm.count("help")){
+        std::cout << opt << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if(vm.count("type")){
+        types = vm["type"].as<std::vector<std::string>>();
+    }else{
+        std::cout << head_error << "fpu types are required (use -t option)" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if(vm.count("iter")){
+        iteration = vm["iter"].as<unsigned int>();
+    }
+
     // RAMの初期化
     init_ram();
 
@@ -26,27 +64,38 @@ int main(){
     std::random_device rnd;
     std::mt19937 mt(rnd());
 
+    // 検証に使う変数
     Bit32 x1, x2, y;
-    Ftype t = Ftype::o_fadd;
-    for(int i=0; i<1000000; i++){     
-        x1.ui = mt();
-        if(is_invalid(x1)) break;
-        if(has_two_args(t)){
-            x2.ui = mt();
-            if(is_invalid(x2)) break;
-        }else{
-            x2 = Bit32(0);
-        }
+    unsigned int i;
+    bool has_error;
 
-        y = calc_fpu(x1, x2, t);
-
-        if(verify(x1, x2, y, t)){
-            std::cout << "\x1b[1m" << string_of_ftype(t) << ": \x1b[31mdoes not meet specification\x1b[0m" << std::endl;
-            std::cout << std::setprecision(10) << "  x1 = " << x1.f << "\t(" << x1.to_string(Stype::t_bin) << ")" << std::endl;
+    for(auto type_string : types){
+        Ftype t = ftype_of_string(type_string);
+        has_error = false;
+        for(i=0; i<iteration; i++){     
+            x1.ui = mt();
+            if(is_invalid(x1)) break;
             if(has_two_args(t)){
-                std::cout << std::setprecision(10) << "  x2 = " << x2.f << "\t(" << x2.to_string(Stype::t_bin) << ")" << std::endl;
+                x2.ui = mt();
+                if(is_invalid(x2)) break;
+            }else{
+                x2 = Bit32(0);
             }
-            std::cout << std::setprecision(10) << "  y  = " << y.f << "\t(" << y.to_string(Stype::t_bin) << ")" << std::endl;
+
+            y = calc_fpu(x1, x2, t);
+
+            if(verify(x1, x2, y, t)){
+                has_error = true;
+                std::cout << "\x1b[1m" << type_string << ": \x1b[31mdoes not meet specification\x1b[0m" << std::endl;
+                std::cout << std::setprecision(10) << "  x1 = " << x1.f << "\t(" << x1.to_string(Stype::t_bin) << ")" << std::endl;
+                if(has_two_args(t)){
+                    std::cout << std::setprecision(10) << "  x2 = " << x2.f << "\t(" << x2.to_string(Stype::t_bin) << ")" << std::endl;
+                }
+                std::cout << std::setprecision(10) << "  y  = " << y.f << "\t(" << y.to_string(Stype::t_bin) << ")" << std::endl;
+            }
+        }
+        if(!has_error){
+            std::cout << "\x1b[1m" << type_string << ": \x1b[0mno error detected (during " << iteration << " iterations)" << std::endl;
         }
     }
 }
@@ -182,6 +231,30 @@ std::string string_of_ftype(Ftype t){
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
+    }
+}
+
+// 文字列をFtypeに変換
+Ftype ftype_of_string(std::string s){
+    if(s == "fadd"){
+        return Ftype::o_fadd;
+    }else if(s == "fsub"){
+        return Ftype::o_fsub;
+    }else if(s == "fmul"){
+        return Ftype::o_fmul;
+    }else if(s == "finv"){
+        return Ftype::o_finv;
+    }else if(s == "fdiv"){
+        return Ftype::o_fdiv;
+    }else if(s == "fsqrt"){
+        return Ftype::o_fsqrt;
+    }else if(s == "itof"){
+        return Ftype::o_itof;
+    }else if(s == "ftoi"){
+        return Ftype::o_ftoi;
+    }else{
+        std::cerr << "no such fpu type: " << s << std::endl;
+        std::exit(EXIT_FAILURE);
     }
 }
 

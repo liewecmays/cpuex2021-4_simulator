@@ -12,7 +12,7 @@ server: util.o common.o server.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
 
 fpu_test: util.o common.o fpu.o fpu_test.o
-	$(CC) $(OUTPUT_OPTION) -o $@ $^
+	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
 %.o: %.cpp %.hpp
 	$(CC) $(OUTPUT_OPTION) -o $@ -c $<

@@ -18,4 +18,5 @@ Bit32 calc_fpu(Bit32, Bit32, Ftype); // FPUによる計算(1引数の場合第2�
 bool is_invalid(Bit32); // 有効でない浮動小数点数を判定
 bool has_two_args(Ftype); // 引数が2つかどうかを判定
 std::string string_of_ftype(Ftype); // Ftypeを文字列に変換
+Ftype ftype_of_string(std::string); // 文字列をFtypeに変換
 double max_of_4(double, double, double, double);
