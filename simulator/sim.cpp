@@ -846,7 +846,7 @@ void exec_op(){
                     pc += 4;
                     return;
                 case 6: // fcvt.f.i
-                    write_reg_fp(op.rd, std::nearbyint(read_reg_fp(op.rs1)));
+                    write_reg_fp(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
                     ++op_type_count[Otype::o_fcvtfi];
                     pc += 4;
                     return;
@@ -1280,6 +1280,10 @@ inline float read_reg_fp(int i){
 // 浮動小数点数レジスタに書き込む
 inline void write_reg_fp(int i, float v){
     if (i != 0) reg_fp_list[i] = Bit32(v);
+    return;
+}
+inline void write_reg_fp(int i, int v){
+    if (i != 0) reg_fp_list[i] = Bit32(v).f;
     return;
 }
 
