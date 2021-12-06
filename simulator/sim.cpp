@@ -1,6 +1,7 @@
 #include <sim.hpp>
 #include <common.hpp>
 #include <util.hpp>
+#include <fpu.hpp>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -45,6 +46,7 @@ bool is_bin = false; // バイナリファイルモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
+bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 std::string filename; // 処理対象のファイル名
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string preload_filename; // プリロード対象のファイル名
@@ -103,7 +105,8 @@ int main(int argc, char *argv[]){
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
         ("boot", "bootloading mode")
-        ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
+        ("preload", po::value<std::string>()->implicit_value("contest"), "data preload")
+        ("ieee", "IEEE754 mode");
 	po::variables_map vm;
     try{
         po::store(po::parse_command_line(argc, argv, opt), vm);
@@ -140,6 +143,7 @@ int main(int argc, char *argv[]){
         is_preloading = true;
         preload_filename = vm["preload"].as<std::string>();
     };
+    if(vm.count("ieee")) is_ieee = true;
 
     // タイムスタンプの取得
     time_t t = time(nullptr);
@@ -816,37 +820,65 @@ void exec_op(){
         case 1: // op_fp todo: 仕様に沿っていないので注意
             switch(op.funct){
                 case 0: // fadd
-                    write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
+                    }else{
+                        write_reg_fp_32(op.rd, fadd(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+                    }
                     ++op_type_count[Otype::o_fadd];
                     pc += 4;
                     return;
                 case 1: // fsub
-                    write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
+                    }else{
+                        write_reg_fp_32(op.rd, fsub(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+                    }
                     ++op_type_count[Otype::o_fsub];
                     pc += 4;
                     return;
                 case 2: // fmul
-                    write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
+                    }else{
+                        write_reg_fp_32(op.rd, fmul(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+                    }
                     ++op_type_count[Otype::o_fmul];
                     pc += 4;
                     return;
                 case 3: // fdiv
-                    write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
+                    }else{
+                        write_reg_fp_32(op.rd, fdiv(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+                    }
                     ++op_type_count[Otype::o_fdiv];
                     pc += 4;
                     return;
                 case 4: // fsqrt
-                    write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
+                    }else{
+                        write_reg_fp_32(op.rd, fsqrt(read_reg_fp_32(op.rs1)));
+                    }
                     ++op_type_count[Otype::o_fsqrt];
                     pc += 4;
                     return;
                 case 5: // fcvt.i.f
-                    write_reg_fp(op.rd, static_cast<float>(Bit32(read_reg_fp(op.rs1)).i));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, static_cast<float>(read_reg_fp_32(op.rs1).i));
+                    }else{
+                        write_reg_fp_32(op.rd, itof(read_reg_fp_32(op.rs1)));
+                    }
                     ++op_type_count[Otype::o_fcvtif];
                     pc += 4;
                     return;
                 case 6: // fcvt.f.i
-                    write_reg_fp(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
+                    if(is_ieee){
+                        write_reg_fp(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
+                    }else{
+                        write_reg_fp_32(op.rd, ftoi(read_reg_fp_32(op.rs1)));
+                    }
                     ++op_type_count[Otype::o_fcvtfi];
                     pc += 4;
                     return;
@@ -1276,6 +1308,10 @@ inline void write_reg(int i, int v){
 inline float read_reg_fp(int i){
     return i == 0 ? 0 : reg_fp_list[i].f;
 }
+// 浮動小数点数レジスタから読む(Bit32で)
+inline Bit32 read_reg_fp_32(int i){
+    return i == 0 ? Bit32(0) : reg_fp_list[i];
+}
 
 // 浮動小数点数レジスタに書き込む
 inline void write_reg_fp(int i, float v){
@@ -1284,6 +1320,11 @@ inline void write_reg_fp(int i, float v){
 }
 inline void write_reg_fp(int i, int v){
     if (i != 0) reg_fp_list[i] = Bit32(v).f;
+    return;
+}
+// 浮動小数点数レジスタに書き込む(Bit32のまま)
+inline void write_reg_fp_32(int i, Bit32 v){
+    if (i != 0) reg_fp_list[i] = v;
     return;
 }
 

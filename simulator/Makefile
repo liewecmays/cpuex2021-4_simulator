@@ -5,7 +5,7 @@ default: sim server
 
 all: clean sim server fpu_test
 
-sim: util.o common.o sim.o
+sim: util.o common.o fpu.o sim.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
 server: util.o common.o server.o
