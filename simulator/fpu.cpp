@@ -156,6 +156,7 @@ Bit32 fmul(Bit32 x1, Bit32 x2){
     ui lh = m1l * m2h;
     ui e3a = x1.F.e + x2.F.e + 129;
     ui s3 = x1.F.s ^ x2.F.s;
+    ui zero1 = (x1.F.e == 0 || x2.F.e == 0) ? 1 : 0;
     
     // stage 2
     ui sum = hh + (hl >> 11) + (lh >> 11) + 2;
@@ -164,7 +165,7 @@ Bit32 fmul(Bit32 x1, Bit32 x2){
     // assign
     ui e3 = !isset_bit(e3a, 8) ? 0 : ((isset_bit(sum, 25)) ? take_bits(e3b, 0, 7) : take_bits(e3a, 0, 7));
     ui m3 = isset_bit(sum, 25) ? take_bits(sum, 2, 24) : take_bits(sum, 1, 23);
-    ui y = (e3 == 0) ? 0 : ((s3 << 31) + (e3 << 23) + m3);
+    ui y = (e3 == 0 || zero1 == 1) ? 0 : ((s3 << 31) + (e3 << 23) + m3);
     
     return Bit32(y);
 }
