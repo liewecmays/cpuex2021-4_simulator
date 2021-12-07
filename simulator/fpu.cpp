@@ -85,8 +85,8 @@ void init_ram(){
     for(int i=0; i<ram_size; ++i){
         x0 = (((1ULL << 46) / ((1024+i)*4096)) + ((1ULL << 46) / ((1025+i)*4096))) / 2;
         x1 = x0 * x0;
-        ram_finv_a[i] = static_cast<ui>(x1 >> 24);
-        ram_finv_b[i] = static_cast<ui>(x0);
+        ram_finv_a[i] = static_cast<ui>(take_bits(x1 >> 24, 0, 23));
+        ram_finv_b[i] = static_cast<ui>(take_bits(x0, 0, 23));
     }
 }
 
@@ -247,7 +247,7 @@ Bit32 itof(Bit32 x){
         e1 = m1 = up = 0;
     }else{
         for(int i=1; i<32; ++i){
-            if(i < 31){
+            if(i <= 31){
                 if(tmp <= abs_x && abs_x < (tmp << 1)){
                     e1 = 158 - i;
                     m1 = take_bits(abs_x, 8-i, 30-i);
