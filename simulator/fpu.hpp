@@ -1,11 +1,19 @@
 #pragma once
 #include "common.hpp"
 
+union Bit64{
+    unsigned long long u;
+    double d;
+};
+
 /* 定数 */
 inline constexpr int ram_size = 1024;
 
 /* extern宣言 */
-extern unsigned int ram_fsqrt[];
+extern unsigned int ram_fsqrt_a[];
+extern unsigned int ram_fsqrt_b[];
+extern unsigned int ram_fsqrt_c[];
+extern unsigned int ram_fsqrt_d[];
 extern unsigned int ram_finv_a[];
 extern unsigned int ram_finv_b[];
 

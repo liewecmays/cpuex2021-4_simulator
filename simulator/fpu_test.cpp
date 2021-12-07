@@ -66,6 +66,7 @@ int main(int argc, char *argv[]){
 
     // 検証に使う変数
     Bit32 x1, x2, y;
+    float ieee;
     unsigned int i;
     bool has_error;
 
@@ -87,11 +88,13 @@ int main(int argc, char *argv[]){
             if(verify(x1, x2, y, t)){
                 has_error = true;
                 std::cout << "\x1b[1m" << type_string << ": \x1b[31mdoes not meet specification\x1b[0m" << std::endl;
-                std::cout << std::setprecision(10) << "  x1 = " << x1.f << "\t(" << x1.to_string(Stype::t_bin) << ")" << std::endl;
+                std::cout << std::setprecision(10) << "  x1\t= " << x1.f << "\t(" << x1.to_string(Stype::t_hex) << ")" << std::endl;
                 if(has_two_args(t)){
-                    std::cout << std::setprecision(10) << "  x2 = " << x2.f << "\t(" << x2.to_string(Stype::t_bin) << ")" << std::endl;
+                    std::cout << std::setprecision(10) << "  x2\t= " << x2.f << "\t(" << x2.to_string(Stype::t_hex) << ")" << std::endl;
                 }
-                std::cout << std::setprecision(10) << "  y  = " << y.f << "\t(" << y.to_string(Stype::t_bin) << ")" << std::endl;
+                std::cout << std::setprecision(10) << "  y\t= " << y.f << "\t(" << y.to_string(Stype::t_hex) << ")" << std::endl;
+                ieee = calc_ieee(x1, x2, t);
+                std::cout << std::setprecision(10) << "  ieee\t= " << ieee << "\t(" << Bit32(ieee).to_string(Stype::t_hex) << ")" << std::endl;
             }
         }
         if(!has_error){
@@ -197,6 +200,28 @@ double calc_std(Bit32 x1, Bit32 x2, Ftype t){
             return static_cast<double>(x1.i);
         case Ftype::o_ftoi:
             return std::nearbyint(d_x1);
+        default:
+            std::cerr << "internal error" << std::endl;
+            std::exit(EXIT_FAILURE);
+    }
+}
+
+float calc_ieee(Bit32 x1, Bit32 x2, Ftype t){
+    switch(t){
+        case Ftype::o_fadd:
+            return x1.f + x2.f;
+        case Ftype::o_fsub:
+            return x1.f - x2.f;
+        case Ftype::o_fmul:
+            return x1.f * x2.f;
+        case Ftype::o_fdiv:
+            return x1.f / x2.f;
+        case Ftype::o_fsqrt:
+            return std::sqrt(x1.f);
+        case Ftype::o_itof:
+            return static_cast<float>(x1.i);
+        case Ftype::o_ftoi:
+            return std::nearbyint(x1.f);
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);

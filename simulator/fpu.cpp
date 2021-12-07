@@ -7,7 +7,10 @@ using ui = unsigned int;
 using ull = unsigned long long;
 
 // RAM
-unsigned int ram_fsqrt[ram_size];
+unsigned int ram_fsqrt_a[ram_size];
+unsigned int ram_fsqrt_b[ram_size];
+unsigned int ram_fsqrt_c[ram_size];
+unsigned int ram_fsqrt_d[ram_size];
 unsigned int ram_finv_a[ram_size];
 unsigned int ram_finv_b[ram_size];
 
@@ -69,13 +72,19 @@ inline ui and_all(ui x, ui len){ // 下lenビットを見る
 
 /* RAMの初期化 */
 void init_ram(){
+    ull x0, x1;
     for(int i=0; i<ram_size; ++i){
-        int x0 = static_cast<int>((std::sqrt((1024+i) << 20) + std::sqrt((1025+i) << 20)) / 2);
-        ram_fsqrt[i] = x0 << 8;
+        x0 = static_cast<ull>(
+            std::nearbyint((std::sqrt(static_cast<double>(static_cast<ull>(1024+i) << 20))
+            + std::sqrt(static_cast<double>(static_cast<ull>(1025+i) << 20))) / 2));
+        ram_fsqrt_a[i] = static_cast<ui>(take_bits(x0 << 8, 0, 23));
+        ram_fsqrt_b[i] = static_cast<ui>(take_bits((1ULL << 46) / (x0 << 8), 0, 23));
+        ram_fsqrt_c[i] = static_cast<ui>(take_bits((x0 * 47453133ULL) >> 17, 0, 23));
+        ram_fsqrt_d[i] = static_cast<ui>(take_bits((47453132ULL << 21) / (x0 << 8), 0, 23));
     }
     for(int i=0; i<ram_size; ++i){
-        ull x0 = (((1LU << 46) / ((1024+i)*4096)) + ((1LU << 46) / ((1025+i)*4096))) / 2;
-        ull x1 = x0 * x0;
+        x0 = (((1ULL << 46) / ((1024+i)*4096)) + ((1ULL << 46) / ((1025+i)*4096))) / 2;
+        x1 = x0 * x0;
         ram_finv_a[i] = static_cast<ui>(x1 >> 24);
         ram_finv_b[i] = static_cast<ui>(x0);
     }
@@ -194,21 +203,35 @@ Bit32 fdiv(Bit32 x1, Bit32 x2){
 
 Bit32 fsqrt(Bit32 x){
     // stage1
-    ull m1 = (1LU << 46) + (static_cast<ull>(x.F.m) << 23);
+    ui m1 = x.F.m;
     
     // ram
+    ui a = 0, b = 0;
     ui addr = take_bits(x.ui, 13, 22);
-    ui a = ram_fsqrt[addr];
-    
-    // stage2
-    ui e2 = x.F.e;
-    ull x0_2 = a >> 1;
-    ull m2 = m1 / (a << 1);
+    if(isset_bit(x.ui, 23)){
+        a = ram_fsqrt_a[addr];
+        b = ram_fsqrt_b[addr];
+    }else{
+        a = ram_fsqrt_c[addr];
+        b = ram_fsqrt_d[addr];
+    }
     
     // assign
-    ull m3 = isset_bit(e2, 0) ? x0_2 + m2 : (((x0_2 + m2) * 0xb504f3) >> 23);
-    ui e3 = ((e2 - 127) >> 1) + 127;
-    ui y = (e2 == 0) ? 0 : (e3 << 23) + static_cast<ui>(take_bits(m3, 0, 22));
+    ui hh = ((1 << 12) + take_bits(m1, 11, 22)) * take_bits(b, 11, 23);
+    ui hl = ((1 << 12) + take_bits(m1, 11, 22)) * take_bits(b, 0, 10);
+    ui lh = take_bits(m1, 0, 10) * take_bits(b, 11, 23);
+
+    // stage2
+    ui e2 = ((x.F.e - 127) >> 1) + 127;
+    ui zero = (x.F.e == 0) ? 1 : 0;
+    ui x_2 = a >> 1;
+    ui hh2 = hh + 2;
+    ui hllh = (hl >> 11) + (lh >> 11);
+    
+    // assign
+    ui a_x = hh2 + hllh;
+    ui m2 = x_2 + take_bits(a_x, 2, 25);
+    ui y = zero == 1 ? 0 : (e2 << 23) + take_bits(m2, 0, 22);
 
     return Bit32(y);
 }
