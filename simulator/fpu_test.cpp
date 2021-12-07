@@ -146,8 +146,9 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 || std::abs(d_y - d_std) >= std::max(d_std * e_20.d, e_126.d));
         case Ftype::o_itof:
             return
-                (is_invalid(y)
-                || static_cast<float>(x1.i) != y.f);
+                is_invalid(y)
+                || (!check_half(x1) && static_cast<float>(x1.i) != y.f)
+                || (check_half(x1) && Bit32(static_cast<float>(x1.i)).ui != y.ui && Bit32(static_cast<float>(x1.i)).ui != y.ui - 1); // 0.5のとき切り上げるか切り上げないか
         case Ftype::o_ftoi:
             return
                 -e31_32.f + 1 <= x1.f && x1.f <= e31_32.f - 1
@@ -283,6 +284,30 @@ Ftype ftype_of_string(std::string s){
         std::cerr << "no such fpu type: " << s << std::endl;
         std::exit(EXIT_FAILURE);
     }
+}
+
+// itofの際に2つの解がありえるケースかどうかを判定
+bool check_half(Bit32 x){
+    ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
+    bool res = false;
+    if(abs_x != 0){
+        ui cnt = 0;
+        while((abs_x & 1) == 0){
+            abs_x >>= 1;
+            ++cnt;
+        }
+        if(cnt <= 6 && ((abs_x >> 24) & 1) == 1){
+            abs_x >>= 25;
+            cnt += 25;
+            while(cnt < 32){
+                if((abs_x & 1) == 1) break;
+                abs_x >>= 1;
+                ++cnt;
+            }
+            if(cnt == 32) res = true;
+        }
+    }
+    return res;
 }
 
 inline double max_of_4(double d1, double d2, double d3, double d4){

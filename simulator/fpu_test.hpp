@@ -15,4 +15,5 @@ bool is_invalid(Bit32); // 有効でない浮動小数点数を判定
 bool has_two_args(Ftype); // 引数が2つかどうかを判定
 std::string string_of_ftype(Ftype); // Ftypeを文字列に変換
 Ftype ftype_of_string(std::string); // 文字列をFtypeに変換
+bool check_half(Bit32 x); // itofの際に2つの解がありえるケースかどうかを判定
 double max_of_4(double, double, double, double);
