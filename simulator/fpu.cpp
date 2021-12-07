@@ -128,9 +128,11 @@ Bit32 fadd(Bit32 x1, Bit32 x2){
 
     // stage3
     ui y = 0;
+    Bit32 e_;
     for(ui i = 0; i <= 24; ++i){
         if(isset_bit(m2, 24 - i)){
-            y = (s1 << 31) + ((e1 + (1 - i)) << 23) + take_bits(m2, 1-i, 23-i);
+            e_ = Bit32(static_cast<int>(e1) + (1 - static_cast<int>(i)));
+            y = (s1 << 31) + (take_bits(e_.ui, 0, 7) << 23) + take_bits(m2, 1-i, 23-i);
             break;
         }
     }

@@ -70,6 +70,15 @@ int main(int argc, char *argv[]){
     unsigned int i;
     bool has_error;
 
+    // x1 = Bit32(0x818bc4f5);
+    // x2 = Bit32(0x01966e5f);
+    // y = fadd(x1, x2);
+    // std::cout << std::endl;
+    // x1 = Bit32(0x01122b3c);
+    // x2 = Bit32(0x80ea5db7);
+    // y = fadd(x1, x2);
+    // std::exit(EXIT_SUCCESS);
+
     for(auto type_string : types){
         Ftype t = ftype_of_string(type_string);
         has_error = false;
