@@ -75,10 +75,10 @@ int main(int argc, char *argv[]){
         has_error = false;
         for(i=0; i<iteration; i++){     
             x1.ui = mt();
-            if(is_invalid(x1)) break;
+            if(is_invalid(x1)) continue;
             if(has_two_args(t)){
                 x2.ui = mt();
-                if(is_invalid(x2)) break;
+                if(is_invalid(x2)) continue;
             }else{
                 x2 = Bit32(0);
             }
