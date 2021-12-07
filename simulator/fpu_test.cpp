@@ -70,24 +70,16 @@ int main(int argc, char *argv[]){
     unsigned int i;
     bool has_error;
 
-    // x1 = Bit32(0x818bc4f5);
-    // x2 = Bit32(0x01966e5f);
-    // y = fadd(x1, x2);
-    // std::cout << std::endl;
-    // x1 = Bit32(0x01122b3c);
-    // x2 = Bit32(0x80ea5db7);
-    // y = fadd(x1, x2);
-    // std::exit(EXIT_SUCCESS);
-
     for(auto type_string : types){
         Ftype t = ftype_of_string(type_string);
         has_error = false;
-        for(i=0; i<iteration; i++){     
+        i = 0;
+        while(i<iteration){     
             x1.ui = mt();
-            if(is_invalid(x1)) continue;
+            if(t != Ftype::o_itof && is_invalid(x1)) continue;
             if(has_two_args(t)){
                 x2.ui = mt();
-                if(is_invalid(x2)) continue;
+                if(t != Ftype::o_itof && is_invalid(x2)) continue;
             }else{
                 x2 = Bit32(0);
             }
@@ -105,6 +97,7 @@ int main(int argc, char *argv[]){
                 ieee = calc_ieee(x1, x2, t);
                 std::cout << std::setprecision(10) << "  ieee\t= " << ieee << "\t(" << Bit32(ieee).to_string(Stype::t_hex) << ")" << std::endl;
             }
+            ++i;
         }
         if(!has_error){
             std::cout << "\x1b[1m" << type_string << ": \x1b[0mno error detected (during " << iteration << " iterations)" << std::endl;
