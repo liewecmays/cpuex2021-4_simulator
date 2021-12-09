@@ -791,8 +791,7 @@ void exec_op(){
     }
 
     if(is_raytracing && op_count >= max_op_count){
-        std::cout << head_error << "too many operations executed for raytracing program" << std::endl;
-        std::exit(EXIT_FAILURE);
+        exit_with_output("too many operations executed for raytracing program");
     }
 
     switch(op.opcode){
@@ -930,8 +929,7 @@ void exec_op(){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_memory((read_reg(op.rs1) + op.imm) / 4, Bit32(read_reg(op.rs2)));
                     }else{
-                        std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
+                        exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
                     ++op_type_count[Otype::o_sw];
                     pc += 4;
@@ -940,8 +938,7 @@ void exec_op(){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         op_list[(read_reg(op.rs1) + op.imm) / 4] = Operation(read_reg(op.rs2));
                     }else{
-                        std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
+                        exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
                     ++op_type_count[Otype::o_si];
                     pc += 4;
@@ -960,8 +957,7 @@ void exec_op(){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_memory((read_reg(op.rs1) + op.imm) / 4, Bit32(read_reg_fp(op.rs2)));
                     }else{
-                        std::cerr << head_error << "address of store operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
+                        exit_with_output("address of store operation should be multiple of 4 [fsw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
                     ++op_type_count[Otype::o_fsw];
                     pc += 4;
@@ -1005,8 +1001,7 @@ void exec_op(){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_reg(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4).i);
                     }else{
-                        std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
+                        exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
                     ++op_type_count[Otype::o_lw];
                     pc += 4;
@@ -1021,8 +1016,7 @@ void exec_op(){
                         write_reg(op.rd, receive_buffer.front().i);
                         receive_buffer.pop();
                     }else{
-                        std::cerr << head_error << "receive buffer is empty (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
+                        exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
                     ++op_type_count[Otype::o_lrd];
                     pc += 4;
@@ -1041,8 +1035,7 @@ void exec_op(){
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
                         write_reg_fp(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4).f);
                     }else{
-                        std::cerr << head_error << "address of load operation should be multiple of 4 (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-                        std::exit(EXIT_FAILURE);
+                        exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
                     ++op_type_count[Otype::o_flw];
                     pc += 4;
@@ -1096,8 +1089,7 @@ void exec_op(){
         default: break;
     }
 
-    std::cerr << head_error << "error in executing the code (at pc " << pc << ", line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
-    std::exit(EXIT_FAILURE);
+    exit_with_output("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
 }
 
 // データの受信
@@ -1306,8 +1298,8 @@ inline unsigned int id_of_pc(unsigned int n){
     if(n % 4 == 0){
         return n / 4;
     }else{
-        std::cerr << head_error << "error with program counter: pc = " << n << std::endl;
-        std::exit(EXIT_FAILURE);
+        exit_with_output("error with program counter: pc = " + std::to_string(n));
+        return 0; // 実行されない
     }
 }
 
@@ -1442,4 +1434,18 @@ void print_queue(std::queue<Bit32> q, int n){
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
 inline bool is_end(Operation op){
     return (op.opcode == 10) && (op.funct == -1) && (op.rs1 = -1) && (op.rs2 == -1) && (op.rd == 0) && (op.imm == 0);
+}
+
+// 実効情報を表示したうえで異常終了
+void exit_with_output(std::string msg){
+    std::cout << head_error << msg << std::endl;
+    if(is_info_output){
+        std::cout << head << "outputting execution info until now" << std::endl;
+        output_info();
+    }else if(is_debug){
+        std::cout << head << "execution info until now:" << std::endl;
+        exec_command("info");
+    }
+    std::cout << head << "abnormal end" << std::endl;
+    std::quick_exit(EXIT_FAILURE);
 }
