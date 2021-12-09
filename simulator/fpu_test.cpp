@@ -154,7 +154,7 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
         case Ftype::o_ftoi:
             return
                 -e31_32.f + 1 <= x1.f && x1.f <= e31_32.f - 1
-                && static_cast<int>(std::nearbyint(x1.f)) != y.i;
+                && static_cast<int>(std::round(x1.f)) != y.i;
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -200,9 +200,9 @@ double calc_std(Bit32 x1, Bit32 x2, Ftype t){
         case Ftype::o_fsqrt:
             return std::sqrt(d_x1);
         case Ftype::o_itof:
-            return static_cast<double>(x1.i);
+            return 0.0; // 使わない
         case Ftype::o_ftoi:
-            return std::nearbyint(d_x1);
+            return 0.0; // 使わない
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -224,7 +224,7 @@ float calc_ieee(Bit32 x1, Bit32 x2, Ftype t){
         case Ftype::o_itof:
             return static_cast<float>(x1.i);
         case Ftype::o_ftoi:
-            return std::nearbyint(x1.f);
+            return std::round(x1.f);
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
