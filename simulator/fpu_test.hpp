@@ -16,4 +16,5 @@ bool has_two_args(Ftype); // 引数が2つかどうかを判定
 std::string string_of_ftype(Ftype); // Ftypeを文字列に変換
 Ftype ftype_of_string(std::string); // 文字列をFtypeに変換
 bool check_half(Bit32 x); // itofの際に2つの解がありえるケースかどうかを判定
+void print_result(Bit32, Bit32, Bit32, Ftype); // 仕様を満たさない場合の出力
 double max_of_4(double, double, double, double);

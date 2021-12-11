@@ -23,16 +23,20 @@ Bit64 e_20 = {0x3eb0000000000000};
 Bit64 e_126 = {0x3810000000000000};
 Bit64 e127 = {0x47e0000000000000};
 
-int main(int argc, char *argv[]){
-    unsigned int iteration = 0;
-    std::vector<std::string> types;
+// 制御用の変数
+std::vector<std::string> types; // 検証対象の命令
+unsigned int iteration = 0; // 反復回数
+bool is_exhaustive = false; // (擬似)全数検査モード
+constexpr ui iter_ratio = 10; // 擬似全数検査で、片方の引数1回の反復でもう一方の引数を検査する回数
 
+int main(int argc, char *argv[]){
     // コマンドライン引数をパース
     po::options_description opt("./fpu_test option");
 	opt.add_options()
         ("help,h", "show help")
         ("type,t", po::value<std::vector<std::string>>()->multitoken(), "fpu type(s)")
-        ("iter,i", po::value<unsigned int>()->default_value(100), "iteration number");
+        ("iter,i", po::value<unsigned int>()->default_value(100), "iteration number")
+        ("exh,e", "(pseudo) exhaustive mode");
 	po::variables_map vm;
     try{
         po::store(po::parse_command_line(argc, argv, opt), vm);
@@ -56,6 +60,9 @@ int main(int argc, char *argv[]){
     if(vm.count("iter")){
         iteration = vm["iter"].as<unsigned int>();
     }
+    if(vm.count("exh")){
+        is_exhaustive = true;
+    }
 
     // RAMの初期化
     init_ram();
@@ -66,41 +73,124 @@ int main(int argc, char *argv[]){
 
     // 検証に使う変数
     Bit32 x1, x2, y;
-    float ieee;
-    unsigned int i;
-    bool has_error;
+    ui error_count;
 
     for(auto type_string : types){
         Ftype t = ftype_of_string(type_string);
-        has_error = false;
-        i = 0;
-        while(i<iteration){     
-            x1.ui = mt();
-            if(t != Ftype::o_itof && is_invalid(x1)) continue;
+        error_count = 0;
+        if(is_exhaustive){
             if(has_two_args(t)){
-                x2.ui = mt();
-                if(t != Ftype::o_itof && is_invalid(x2)) continue;
-            }else{
-                x2 = Bit32(0);
-            }
-
-            y = calc_fpu(x1, x2, t);
-
-            if(verify(x1, x2, y, t)){
-                has_error = true;
-                std::cout << "\x1b[1m" << type_string << ": \x1b[31mdoes not meet specification\x1b[0m" << std::endl;
-                std::cout << std::setprecision(10) << "  x1\t= " << x1.f << "\t(" << x1.to_string(Stype::t_hex) << ")" << std::endl;
-                if(has_two_args(t)){
-                    std::cout << std::setprecision(10) << "  x2\t= " << x2.f << "\t(" << x2.to_string(Stype::t_hex) << ")" << std::endl;
+                // 2変数の場合は擬似的に全数検査
+                // 第1引数を全数にして検査
+                bool is_first = true;
+                ui j = 0;
+                for(ui i=0; i<=0xffffffff; ++i){
+                    if(i == 0){
+                        if(is_first){
+                            is_first = false;
+                        }else{
+                            break; // 1周したら終了
+                        }
+                    }
+                    x1.ui = i;
+                    if(is_invalid(x1)) continue;
+                    while(j < iter_ratio){
+                        x2.ui = mt();
+                        if(is_invalid(x2)) continue;
+                        y = calc_fpu(x1, x2, t);
+                        if(verify(x1, x2, y, t)){
+                            ++error_count;
+                            print_result(x1, x2, y, t);
+                        }
+                        ++j;
+                    }
+                    j = 0;
+                    if(i % 1'000'000'000 == 999'999'999) std::cout << head_info << static_cast<ull>(i+1) * iter_ratio << " cases of \x1b[1m" << type_string << "\x1b[0m have been verified" << std::endl;
                 }
-                std::cout << std::setprecision(10) << "  y\t= " << y.f << "\t(" << y.to_string(Stype::t_hex) << ")" << std::endl;
-                ieee = calc_ieee(x1, x2, t);
-                std::cout << std::setprecision(10) << "  ieee\t= " << ieee << "\t(" << Bit32(ieee).to_string(Stype::t_hex) << ")" << std::endl;
+                if(error_count == 0){
+                    std::cout << head_info << "there was no wrong case detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x2 random)" << std::endl;
+                }else{
+                    std::cout << head_info << error_count << " wrong case(s) was/were detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x2 random)" << std::endl;
+                }
+                // 第2引数を全数にして検査
+                is_first = true;
+                j = 0;
+                for(ui i=0; i<=0xffffffff; ++i){
+                    if(i == 0){
+                        if(is_first){
+                            is_first = false;
+                        }else{
+                            break; // 1周したら終了
+                        }
+                    }
+                    x2.ui = i;
+                    if(is_invalid(x2)) continue;
+                    while(j < iter_ratio){
+                        x1.ui = mt();
+                        if(is_invalid(x1)) continue;
+                        y = calc_fpu(x1, x2, t);
+                        if(verify(x1, x2, y, t)){
+                            ++error_count;
+                            print_result(x1, x2, y, t);
+                        }
+                        ++j;
+                    }
+                    j = 0;
+                    if(i % 1'000'000'000 == 999'999'999) std::cout << head_info << static_cast<ull>(i+1) * iter_ratio << " cases of \x1b[1m" << type_string << "\x1b[0m have been verified" << std::endl;
+                }
+                if(error_count == 0){
+                    std::cout << head_info << "there was no wrong case detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x1 random)" << std::endl;
+                }else{
+                    std::cout << head_info << error_count << " wrong case(s) was/were detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x2 random)" << std::endl;
+                }
+            }else{
+                // 1変数の場合は本当に全数検査
+                bool is_first = true;
+                for(ui i=0; i<=0xffffffff; ++i){
+                    if(i == 0){
+                        if(is_first){
+                            is_first = false;
+                        }else{
+                            break; // 1周したら終了
+                        }
+                    }
+                    x1.ui = i;
+                    if(t != Ftype::o_itof && is_invalid(x1)) continue;
+                    y = calc_fpu(x1, x2, t);
+                    if(verify(x1, x2, y, t)){
+                        ++error_count;
+                        print_result(x1, x2, y, t);
+                    }
+                    if(i % 1'000'000'000 == 999'999'999) std::cout << head_info << (i+1) << " cases of \x1b[1m" << type_string << "\x1b[0m have been verified" << std::endl;
+                }
+                if(error_count == 0){
+                    std::cout << head_info << "there was no wrong case detected in \x1b[1m" << type_string << "\x1b[0m (exhaustive test)" << std::endl;
+                }else{
+                    std::cout << head_info << error_count << " wrong case(s) was/were detected in \x1b[1m" << type_string << "\x1b[0m (exhaustive test)" << std::endl;
+                }
             }
-            ++i;
-        }
-        if(!has_error){
-            std::cout << "\x1b[1m" << type_string << ": \x1b[0mno error detected (during " << iteration << " iterations)" << std::endl;
+        }else{
+            unsigned int i = 0;
+            while(i<iteration){     
+                x1.ui = mt();
+                if(t != Ftype::o_itof && is_invalid(x1)) continue;
+                if(has_two_args(t)){
+                    x2.ui = mt();
+                    if(t != Ftype::o_itof && is_invalid(x2)) continue;
+                }
+
+                y = calc_fpu(x1, x2, t);
+                if(verify(x1, x2, y, t)){
+                    ++error_count;
+                    print_result(x1, x2, y, t);
+                }
+                ++i;
+            }
+            if(error_count == 0){
+                std::cout << head_info << "there was no wrong case detected in \x1b[1m" << type_string << "\x1b[0m (" << iteration << " iterations)" << std::endl;
+            }else{
+                std::cout << head_info << error_count << " wrong case(s) was/were detected in \x1b[1m" << type_string << "\x1b[0m (" << iteration << " iterations)" << std::endl;
+            }
         }
     }
 }
@@ -209,6 +299,7 @@ double calc_std(Bit32 x1, Bit32 x2, Ftype t){
     }
 }
 
+// IEEE754による計算
 float calc_ieee(Bit32 x1, Bit32 x2, Ftype t){
     switch(t){
         case Ftype::o_fadd:
@@ -310,6 +401,18 @@ bool check_half(Bit32 x){
         }
     }
     return res;
+}
+
+// 仕様を満たさない場合の出力
+void print_result(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
+    std::cout << "\x1b[1m" << string_of_ftype(t) << ": \x1b[31mdoes not meet specification\x1b[0m" << std::endl;
+    std::cout << std::setprecision(10) << "  x1\t= " << x1.f << "\t(" << x1.to_string(Stype::t_hex) << ")" << std::endl;
+    if(has_two_args(t)){
+        std::cout << std::setprecision(10) << "  x2\t= " << x2.f << "\t(" << x2.to_string(Stype::t_hex) << ")" << std::endl;
+    }
+    std::cout << std::setprecision(10) << "  y\t= " << y.f << "\t(" << y.to_string(Stype::t_hex) << ")" << std::endl;
+    float ieee = calc_ieee(x1, x2, t);
+    std::cout << std::setprecision(10) << "  ieee\t= " << ieee << "\t(" << Bit32(ieee).to_string(Stype::t_hex) << ")" << std::endl;
 }
 
 inline double max_of_4(double d1, double d2, double d3, double d4){
