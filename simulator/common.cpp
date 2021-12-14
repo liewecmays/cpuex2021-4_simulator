@@ -8,15 +8,6 @@
 #include <algorithm>
 
 /* class Operation */
-// デフォルトコンストラクタではnopを指定
-Operation::Operation(){
-    this->opcode = 0;
-    this->funct = 0;
-    this->rs1 = 0;
-    this->rs2 = 0;
-    this->imm = 0;
-}
-
 // stringをパースするコンストラクタ
 Operation::Operation(std::string code){
     int opcode, funct, rs1, rs2, rd;    
@@ -377,26 +368,6 @@ std::string string_of_otype(Otype t){
 }
 
 /* class Bit32 */
-Bit32::Bit32(){
-    this->i = 0;
-}
-
-// intを引数に取るコンストラクタ
-Bit32::Bit32(int i){
-    this->i = i;
-}
-
-// unsigned intを引数に取るコンストラクタ
-Bit32::Bit32(unsigned int i){
-    this->ui = i;
-}
-
-// floatを引数に取るコンストラクタ
-Bit32::Bit32(float f){
-    this->f = f;
-}
-
-
 // stringに変換して取り出す
 std::string Bit32::to_string(){
     return std::to_string(this->i);

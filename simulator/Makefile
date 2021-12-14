@@ -8,6 +8,9 @@ all: clean sim server fpu_test
 sim: util.o common.o fpu.o sim.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
+prof: util.prof.o common.prof.o fpu.prof.o sim.prof.o
+	$(CC) $(OUTPUT_OPTION) -pg -o $@ $^ -lboost_program_options
+
 server: util.o common.o server.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
 
@@ -17,8 +20,11 @@ fpu_test: util.o common.o fpu.o fpu_test.o
 %.o: %.cpp %.hpp
 	$(CC) $(OUTPUT_OPTION) -o $@ -c $<
 
+%.prof.o: %.cpp %.hpp
+	$(CC) $(OUTPUT_OPTION) -pg -o $@ -c $<
+
 clean:
-	rm -f sim server fpu_test *.o
+	rm -f sim server fpu_test prof *.o
 
 clean-info:
 	rm -f info/*.md info/*.csv

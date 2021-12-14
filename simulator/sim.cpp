@@ -436,9 +436,9 @@ bool exec_command(std::string cmd){
             bool end_flag = false;
             auto start = std::chrono::system_clock::now();
             while(true){
-                if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                if(is_end(op_list[pc/4])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
                 exec_op();
-                if(id_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(pc / 4 >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 ++op_count;
                 
                 if(end_flag){
@@ -752,7 +752,12 @@ bool exec_command(std::string cmd){
 
 // 命令を実行し、PCを変化させる
 void exec_op(){
-    Operation op(op_list[id_of_pc(pc)]);
+    Operation op;
+    if(pc % 4 == 0){
+        op = op_list[pc/4];
+    }else{
+        exit_with_output("error with program counter: pc = " + std::to_string(pc));
+    }
 
     // 詳細デバッグモードの場合、行数ごとの実行回数を更新
     if(is_detailed_debug){
@@ -927,7 +932,7 @@ void exec_op(){
             switch(op.funct){
                 case 0: // sw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_memory((read_reg(op.rs1) + op.imm) / 4, Bit32(read_reg(op.rs2)));
+                        write_memory((read_reg(op.rs1) + op.imm) / 4, read_reg_32(op.rs2));
                     }else{
                         exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
@@ -955,7 +960,17 @@ void exec_op(){
             switch(op.funct){
                 case 0: // fsw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_memory((read_reg(op.rs1) + op.imm) / 4, Bit32(read_reg_fp(op.rs2)));
+                        // write_memory
+                        int w = (read_reg(op.rs1) + op.imm) / 4;
+                        if(!memory_exceeding_flag && w >= max_mem_size){
+                            memory_exceeding_flag = true;
+                            std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
+                        }
+                        if(is_detailed_debug){
+                            ++mem_accessed_write[w];
+                            w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
+                        }
+                        memory[w] = read_reg_fp_32(op.rs2);
                     }else{
                         exit_with_output("address of store operation should be multiple of 4 [fsw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
@@ -999,7 +1014,7 @@ void exec_op(){
             switch(op.funct){
                 case 0: // lw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4).i);
+                        write_reg_32(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4));
                     }else{
                         exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
@@ -1033,7 +1048,7 @@ void exec_op(){
             switch(op.funct){
                 case 0: // flw
                     if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                        write_reg_fp(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4).f);
+                        write_reg_fp_32(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4));
                     }else{
                         exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
                     }
@@ -1307,11 +1322,21 @@ inline unsigned int id_of_pc(unsigned int n){
 inline int read_reg(int i){
     return i == 0 ? 0 : reg_list[i].i;
 }
+// 整数レジスタから読む(Bit32で)
+inline Bit32 read_reg_32(int i){
+    return i == 0 ? 0 : reg_list[i];
+}
 
 // 整数レジスタに書き込む
 inline void write_reg(int i, int v){
     if (i != 0) reg_list[i] = Bit32(v);
     if(is_raytracing && i == 2 && v > max_x2) max_x2 = v;
+    return;
+}
+// 整数レジスタに書き込む(Bit32で)
+inline void write_reg_32(int i, Bit32 v){
+    if (i != 0) reg_list[i] = v;
+    if(is_raytracing && i == 2 && v.i > max_x2) max_x2 = v.i;
     return;
 }
 

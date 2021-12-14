@@ -70,3 +70,35 @@ union Bit32{
     std::string to_string(Stype t);
     // std::string to_string(Stype t, const int len);
 };
+
+
+/* インライン展開したいコンストラクタ */
+/* class Operation */
+// デフォルトコンストラクタではnopを指定
+inline Operation::Operation(){
+    this->opcode = 0;
+    this->funct = 0;
+    this->rs1 = 0;
+    this->rs2 = 0;
+    this->imm = 0;
+}
+
+/* class Bit32 */
+inline Bit32::Bit32(){
+    this->i = 0;
+}
+
+// intを引数に取るコンストラクタ
+inline Bit32::Bit32(int i){
+    this->i = i;
+}
+
+// unsigned intを引数に取るコンストラクタ
+inline Bit32::Bit32(unsigned int i){
+    this->ui = i;
+}
+
+// floatを引数に取るコンストラクタ
+inline Bit32::Bit32(float f){
+    this->f = f;
+}

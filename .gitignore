@@ -29,3 +29,7 @@ simulator/**/*.o
 simulator/sim
 simulator/server
 simulator/fpu_test
+
+#gprof関連
+simulator/prof
+simulator/gmon.*
