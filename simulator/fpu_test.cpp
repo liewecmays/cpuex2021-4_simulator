@@ -115,6 +115,7 @@ int main(int argc, char *argv[]){
                 // 第2引数を全数にして検査
                 is_first = true;
                 j = 0;
+                error_count = 0;
                 for(ui i=0; i<=0xffffffff; ++i){
                     if(i == 0){
                         if(is_first){
@@ -141,7 +142,7 @@ int main(int argc, char *argv[]){
                 if(error_count == 0){
                     std::cout << head_info << "there was no wrong case detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x1 random)" << std::endl;
                 }else{
-                    std::cout << head_info << error_count << " wrong case(s) was/were detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x2 random)" << std::endl;
+                    std::cout << head_info << error_count << " wrong case(s) was/were detected in \x1b[1m" << type_string << "\x1b[0m (pseudo-exhaustive test, with x1 random)" << std::endl;
                 }
             }else{
                 // 1変数の場合は本当に全数検査
