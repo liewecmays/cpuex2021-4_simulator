@@ -29,27 +29,27 @@ struct cache_line{
 
 /* プロトタイプ宣言 */
 void simulate(); // シミュレーションの本体処理
-bool exec_command(std::string cmd); // デバッグモードのコマンドを認識して実行
+bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
 void receive_data(); // データの受信
 void send_data(cancel_flag&); // データの送信
 void output_info(); // 情報の出力
 void exec_op(); // 命令を実行し、PCを変化させる
-unsigned int id_of_pc(unsigned int n); // PCから命令IDへの変換
-int read_reg(int i); // 整数レジスタから読む
-Bit32 read_reg_32(int i); // 整数レジスタから読む(Bit32で)
-void write_reg(int i, int v); // 整数レジスタに書き込む
-void write_reg_32(int i, Bit32 v); // 整数レジスタに書き込む(Bit32で)
-float read_reg_fp(int i); // 浮動小数点数レジスタから読む
-Bit32 read_reg_fp_32(int i); // 浮動小数点数レジスタから読む(Bit32で)
-void write_reg_fp(int i, float v); // 浮動小数点数レジスタに書き込む
-void write_reg_fp(int i, int v);
-void write_reg_fp_32(int i, Bit32 v); // 浮動小数点数レジスタに書き込む(Bit32のまま)
-Bit32 read_memory(int i);
-void write_memory(int w, Bit32 v);
-bool check_cache(int w);
+unsigned int id_of_pc(unsigned int); // PCから命令IDへの変換
+int read_reg(unsigned int); // 整数レジスタから読む
+Bit32 read_reg_32(unsigned int); // 整数レジスタから読む(Bit32で)
+void write_reg(unsigned int, int); // 整数レジスタに書き込む
+void write_reg_32(unsigned int, Bit32); // 整数レジスタに書き込む(Bit32で)
+float read_reg_fp(unsigned int); // 浮動小数点数レジスタから読む
+Bit32 read_reg_fp_32(unsigned int); // 浮動小数点数レジスタから読む(Bit32で)
+void write_reg_fp(unsigned int, float); // 浮動小数点数レジスタに書き込む
+void write_reg_fp(unsigned int, int);
+void write_reg_fp_32(unsigned int, Bit32); // 浮動小数点数レジスタに書き込む(Bit32で)
+Bit32 read_memory(int);
+void write_memory(int, Bit32);
+bool check_cache(int);
 void print_reg(); // 整数レジスタの内容を表示
 void print_reg_fp(); // 浮動小数点数レジスタの内容を表示
-void print_memory(int start, int width); // 4byte単位でメモリの内容を出力
-void print_queue(std::queue<Bit32> q, int n); // キューの表示
-bool is_end(Operation op); // 終了時の命令かどうかを判定
-void exit_with_output(std::string msg); // 実効情報を表示したうえで異常終了
+void print_memory(int, int); // 4byte単位でメモリの内容を出力
+void print_queue(std::queue<Bit32>, int); // キューの表示
+bool is_end(Operation); // 終了時の命令かどうかを判定
+void exit_with_output(std::string); // 実効情報を表示したうえで異常終了

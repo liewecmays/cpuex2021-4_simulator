@@ -1,21 +1,6 @@
 #pragma once
 #include <string>
-
-// 命令
-class Operation{
-    public:
-        Operation();
-        Operation(std::string code);
-        Operation(int i);
-        int opcode;
-        int funct;
-        int rs1;
-        int rs2;
-        int rd;
-        int imm;
-        std::string to_string();
-        // std::string to_code()
-};
+#include <optional>
 
 // 命令の種類
 inline constexpr int op_type_num = 36;
@@ -35,8 +20,22 @@ enum Otype{
     o_fmvif,
     o_fmvfi
 };
-
 std::string string_of_otype(Otype t); // Otypeを文字列に変換
+
+// 命令のクラス
+class Operation{
+    public:
+        Otype type;
+        std::optional<unsigned int> rs1;
+        std::optional<unsigned int> rs2;
+        std::optional<unsigned int> rd;
+        std::optional<int> imm;
+        Operation();
+        Operation(std::string code);
+        Operation(int i);
+        std::string to_string();
+        // std::string to_code()
+};
 
 
 // 内部表現を考慮したfloat
@@ -76,8 +75,7 @@ union Bit32{
 /* class Operation */
 // デフォルトコンストラクタではnopを指定
 inline Operation::Operation(){
-    this->opcode = 0;
-    this->funct = 0;
+    this->type = Otype::o_add;
     this->rs1 = 0;
     this->rs2 = 0;
     this->imm = 0;

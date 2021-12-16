@@ -10,75 +10,231 @@
 /* class Operation */
 // stringをパースするコンストラクタ
 Operation::Operation(std::string code){
-    int opcode, funct, rs1, rs2, rd;    
+    unsigned int opcode, funct, rs1, rs2, rd;    
     opcode = std::stoi(code.substr(0, 4), 0, 2);
     funct = std::stoi(code.substr(4, 3), 0, 2);
     rs1 = std::stoi(code.substr(7, 5), 0, 2);
     rs2 = std::stoi(code.substr(12, 5), 0, 2);
     rd = std::stoi(code.substr(17, 5), 0, 2);
-    
-    this->opcode = opcode;
+
     switch(opcode){
         case 0: // op
-        case 1: // op_fp
-            this->funct = funct;
             this->rs1 = rs1;
             this->rs2 = rs2;
             this->rd = rd;
-            this->imm = -1;
+            switch(funct){
+                case 0: // add
+                    this->type = Otype::o_add;
+                    return;
+                case 1: // sub
+                    this->type = Otype::o_sub;
+                    return;
+                case 2: // sll
+                    this->type = Otype::o_sll;
+                    return;
+                case 3: // srl
+                    this->type = Otype::o_srl;
+                    return;
+                case 4: // sra
+                    this->type = Otype::o_sra;
+                    return;
+                case 5: // and
+                    this->type = Otype::o_and;
+                    return;
+                default: break;
+            }
+            break;
+        case 1: // op_fp
+            this->rs1 = rs1;
+            this->rd = rd;
+            switch(funct){
+                case 0: // fadd
+                    this->type = Otype::o_fadd;
+                    this->rs2 = rs2;
+                    return;
+                case 1: // fsub
+                    this->type = Otype::o_fsub;
+                    this->rs2 = rs2;
+                    return;
+                case 2: // fmul
+                    this->type = Otype::o_fmul;
+                    this->rs2 = rs2;
+                    return;
+                case 3: // fdiv
+                    this->type = Otype::o_fdiv;
+                    this->rs2 = rs2;
+                    return;
+                case 4: // fsqrt
+                    this->type = Otype::o_fsqrt;
+                    return;
+                case 5: // fcvt.i.f
+                    this->type = Otype::o_fcvtif;
+                    return;
+                case 6: // fcvt.f.i
+                    this->type = Otype::o_fcvtfi;
+                    return;
+                default: break;
+            }
             break;
         case 2: // branch
-        case 3: // branch_fp
-        case 4: // store
-        case 5: // store_fp
-            this->funct = funct;
             this->rs1 = rs1;
             this->rs2 = rs2;
-            this->rd = -1;
             this->imm = int_of_binary(code.substr(17, 15));
+            switch(funct){
+                case 0: // beq
+                    this->type = Otype::o_beq;
+                    return;
+                case 1: // blt
+                    this->type = Otype::o_blt;
+                    return;
+                default: break;
+            }
+            break;
+        case 3: // branch_fp
+            this->rs1 = rs1;
+            this->rs2 = rs2;
+            this->imm = int_of_binary(code.substr(17, 15));
+            switch(funct){
+                case 2: // fbeq
+                    this->type = Otype::o_fbeq;
+                    return;
+                case 3: // fblt
+                    this->type = Otype::o_fblt;
+                    return;
+                default: break;
+            }
+            break;
+        case 4: // store
+            this->rs2 = rs2;
+            switch(funct){
+                case 0: // sw
+                    this->type = Otype::o_sw;
+                    this->rs1 = rs1;
+                    this->imm = int_of_binary(code.substr(17, 15));
+                    return;
+                case 1: // si
+                    this->type = Otype::o_si;
+                    this->rs1 = rs1;
+                    this->imm = int_of_binary(code.substr(17, 15));
+                    return;
+                case 2: // std
+                    this->type = Otype::o_std;
+                    return;
+                default: break;
+            }
+            break;
+        case 5: // store_fp
+            this->rs1 = rs1;
+            this->rs2 = rs2;
+            this->imm = int_of_binary(code.substr(17, 15));
+            switch(funct){
+                case 0: // fsw
+                    this->type = Otype::o_fsw;
+                    return;
+                default: break;
+            }
             break;
         case 6: // op_imm
-        case 7: // load
-        case 8: // load_fp
-            this->funct = funct;
             this->rs1 = rs1;
-            this->rs2 = -1;
             this->rd = rd;
             this->imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
+            switch(funct){
+                case 0: // addi
+                    this->type = Otype::o_addi;
+                    return;
+                case 2: // slli
+                    this->type = Otype::o_slli;
+                    return;
+                case 3: // srli
+                    this->type = Otype::o_srli;
+                    return;
+                case 4: // srai
+                    this->type = Otype::o_srai;
+                    return;
+                case 5: // andi
+                    this->type = Otype::o_andi;
+                    return;
+                default: break;
+            }
+            break;
+        case 7: // load
+            this->rd = rd;
+            switch(funct){
+                case 0: // lw
+                    this->type = Otype::o_lw;
+                    this->rs1 = rs1;
+                    this->imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
+                    return;
+                case 1: // lre
+                    this->type = Otype::o_lre;
+                    return;
+                case 2: // lrd
+                    this->type = Otype::o_lrd;
+                    return;
+                case 3: // ltf
+                    this->type = Otype::o_ltf;
+                    return;
+                default: break;
+            }
+        case 8: // load_fp
+            this->rs1 = rs1;
+            this->rd = rd;
+            this->imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
+            switch(funct){
+                case 0: // flw
+                    this->type = Otype::o_flw;
+                    return;
+                default: break;
+            }
             break;
         case 9: // jalr
-            this->funct = -1;
+            this->type = Otype::o_jalr;
             this->rs1 = rs1;
-            this->rs2 = -1;
             this->rd = rd;
             this->imm = int_of_binary(code.substr(4, 3) + code.substr(12, 5) + code.substr(22, 10));
-            break;
+            return;
         case 10: // jal
-            this->funct = -1;
-            this->rs1 = -1;
-            this->rs2 = -1;
+            this->type = Otype::o_jal;
             this->rd = rd;
             this->imm = int_of_binary(code.substr(4, 13) + code.substr(22, 10));
-            break;
+            return;
         case 11: // lui
-            this->funct = funct;
-            this->rs1 = -1;
-            this->rs2 = -1;
             this->rd = rd;
             this->imm = int_of_binary("0" + code.substr(7, 10) + code.substr(22, 10));
+            switch(funct){
+                case 0: // lui
+                    this->type = Otype::o_lui;
+                    return;
+                default: break;
+            }
             break;
         case 12: // itof
-        case 13: // ftoi
-            this->funct = funct;
             this->rs1 = rs1;
-            this->rs2 = -1;
             this->rd = rd;
-            this->imm = -1;
+            switch(funct){
+                case 0: // itof
+                    this->type = Otype::o_fmvif;
+                    return;
+                default: break;
+            }
+            break;
+        case 13: // ftoi
+            this->rs1 = rs1;
+            this->rd = rd;
+            switch(funct){
+                case 0: // ftoi
+                    this->type = Otype::o_fmvfi;
+                    return;
+                default: break;
+            }
             break;
         default:
             std::cerr << head_error << "could not parse the code" << std::endl;
             std::exit(EXIT_FAILURE);
     }
+
+    std::cerr << head_error << "could not parse the code" << std::endl;
+    std::exit(EXIT_FAILURE);
 }
 
 // intをもとにするコンストラクタ
@@ -90,237 +246,60 @@ Operation::Operation(int i){
 
 // 文字列に変換
 std::string Operation::to_string(){
-    std::string res = "";
-    switch(this->opcode){
-        case 0: // op
-            switch(this->funct){
-                case 0: // add
-                    res += "add ";
-                    break;
-                case 1: // sub
-                    res += "sub ";
-                    break;
-                case 2: // sll
-                    res += "sll ";
-                    break;
-                case 3: // srl
-                    res += "srl ";
-                    break;
-                case 4: // sra
-                    res += "sra ";
-                    break;
-                case 5: // and
-                    res += "and ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-            res += ("rs2=x" + std::to_string(this->rs2) + ", ");
-            res += ("rd=x" + std::to_string(this->rd));
-            return res;
-        case 1: // op_fp
-            switch(this->funct){
-                case 0: // fadd
-                    res += "fadd ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(this->rs2) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                case 1: // fsub
-                    res += "fsub ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(this->rs2) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                case 2: // fmul
-                    res += "fmul ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(this->rs2) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                case 3: // fdiv
-                    res += "fdiv ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(this->rs2) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                case 4: // fsqrt
-                    res += "fsqrt ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                case 5: // fcvt.i.f
-                    res += "fcvt.i.f ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                case 6: // fcvt.f.i
-                    res += "fcvt.f.i ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 2: // branch
-            switch(this->funct){
-                case 0: // beq
-                    res += "beq ";
-                    break;
-                case 1: // blt
-                    res += "blt ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-            res += ("rs2=x" + std::to_string(this->rs2) + ", ");
-            res += ("imm=" + std::to_string(this->imm));
-            return res;
-        case 3: // branch_fp
-            switch(this->funct){
-                case 2: // fbeq
-                    res += "fbeq ";
-                    break;
-                case 3: // fblt
-                    res += "fblt ";
-                    break;
-            }
-            res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-            res += ("rs2=f" + std::to_string(this->rs2) + ", ");
-            res += ("imm=" + std::to_string(this->imm));
-            return res;
-        case 4: // store
-            switch(this->funct){
-                case 0: // sw
-                    res += "sw ";
-                    res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=x" + std::to_string(this->rs2) + ", ");
-                    res += ("imm=" + std::to_string(this->imm));
-                    break;
-                case 1: // si
-                    res += "si ";
-                    res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=x" + std::to_string(this->rs2) + ", ");
-                    res += ("imm=" + std::to_string(this->imm));
-                    break;
-                case 2: // std
-                    res += "std ";
-                    res += ("rs2=x" + std::to_string(this->rs2));
-                    break;
-                default: return "";
-            }
-            
-            return res;
-        case 5: // store_fp
-            switch(this->funct){
-                case 0: // fsw
-                    res += "fsw ";
-                    res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-                    res += ("rs2=f" + std::to_string(this->rs2) + ", ");
-                    res += ("imm=" + std::to_string(this->imm));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 6: // op_imm
-            switch(this->funct){
-                case 0: // addi
-                    res += "addi ";
-                    break;
-                case 2: // slli
-                    res += "slli ";
-                    break;
-                case 3: // srli
-                    res += "srli ";
-                    break;
-                case 4: // srai
-                    res += "srai ";
-                    break;
-                case 5: // andi
-                    res += "andi ";
-                    break;
-                default: return "";
-            }
-            res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-            res += ("rd=x" + std::to_string(this->rd) + ", ");
-            res += ("imm=" + std::to_string(this->imm));
-            return res;
-        case 7: // load
-            switch(this->funct){
-                case 0: // lw
-                    res += "lw ";
-                    res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=x" + std::to_string(this->rd) + ", ");
-                    res += ("imm=" + std::to_string(this->imm));
-                    break;
-                case 1: // lre
-                    res += "lre ";
-                    res += ("rd=x" + std::to_string(this->rd));
-                    break;
-                case 2: // lrd
-                    res += "lrd ";
-                    res += ("rd=x" + std::to_string(this->rd));
-                    break;
-                case 3: // ltf
-                    res += "ltf ";
-                    res += ("rd=x" + std::to_string(this->rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 8: // load_fp
-            switch(this->funct){
-                case 0: // flw
-                    res += "flw ";
-                    res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd) + ", ");
-                    res += ("imm=" + std::to_string(this->imm));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 9: // jalr
-            res = "jalr ";
-            res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-            res += ("rd=x" + std::to_string(this->rd) + ", ");
-            res += ("imm=" + std::to_string(this->imm));
-            return res;
-        case 10: // jal
-            res = "jal ";
-            res += ("rd=x" + std::to_string(this->rd) + ", ");
-            res += ("imm=" + std::to_string(this->imm));
-            return res;
-        case 11: // lui
-            switch(this->funct){
-                case 0: // lui
-                    res += "lui ";
-                    break;
-                default: return "";
-            }
-            res += ("rd=x" + std::to_string(this->rd) + ", ");
-            res += ("imm=" + std::to_string(this->imm));
-            return res;
-        case 12: // itof
-            switch(this->funct){
-                case 0: // fmv.i.f
-                    res += "fmv.i.f ";
-                    res += ("rs1=x" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=f" + std::to_string(this->rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        case 13: // ftoi
-            switch(this->funct){
-                case 0: // fmv.f.i
-                    res += "fmv.f.i ";
-                    res += ("rs1=f" + std::to_string(this->rs1) + ", ");
-                    res += ("rd=x" + std::to_string(this->rd));
-                    break;
-                default: return "";
-            }
-            return res;
-        default: return "";
+    switch(this->type){
+        case Otype::o_add:
+        case Otype::o_sub:
+        case Otype::o_sll:
+        case Otype::o_srl:
+        case Otype::o_sra:
+        case Otype::o_and:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", x" + std::to_string(this->rs1.value()) + ", x" + std::to_string(this->rs2.value());
+        case Otype::o_fadd:
+        case Otype::o_fsub:
+        case Otype::o_fmul:
+        case Otype::o_fdiv:
+            return string_of_otype(this->type) + " f" + std::to_string(this->rd.value()) + ", f" + std::to_string(this->rs1.value()) + ", f" + std::to_string(this->rs2.value());
+        case Otype::o_fsqrt:
+        case Otype::o_fcvtif:
+        case Otype::o_fcvtfi:
+            return string_of_otype(this->type) + " f" + std::to_string(this->rd.value()) + ", f" + std::to_string(this->rs1.value());
+        case Otype::o_beq:
+        case Otype::o_blt:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rs1.value()) + ", x" + std::to_string(this->rs2.value()) + ", " + std::to_string(this->imm.value());
+        case Otype::o_fbeq:
+        case Otype::o_fblt:
+            return string_of_otype(this->type) + " f" + std::to_string(this->rs1.value()) + ", f" + std::to_string(this->rs2.value()) + ", " + std::to_string(this->imm.value());
+        case Otype::o_sw:
+        case Otype::o_si:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rs2.value()) + ", " + std::to_string(this->imm.value()) + "(x" + std::to_string(this->rs1.value()) + ")";
+        case Otype::o_std:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rs1.value());
+        case Otype::o_fsw:
+            return string_of_otype(this->type) + " f" + std::to_string(this->rs2.value()) + ", " + std::to_string(this->imm.value()) + "(x" + std::to_string(this->rs1.value()) + ")";
+        case Otype::o_addi:
+        case Otype::o_slli:
+        case Otype::o_srli:
+        case Otype::o_srai:
+        case Otype::o_andi:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", x" + std::to_string(this->rs1.value()) + ", " + std::to_string(this->imm.value());
+        case Otype::o_lw:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", " + std::to_string(this->imm.value()) + "(x" + std::to_string(this->rs1.value()) + ")";
+        case Otype::o_lre:
+        case Otype::o_lrd:
+        case Otype::o_ltf:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value());
+        case Otype::o_flw:
+            return string_of_otype(this->type) + " f" + std::to_string(this->rd.value()) + ", " + std::to_string(this->imm.value()) + "(x" + std::to_string(this->rs1.value()) + ")";
+        case Otype::o_jalr:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", x" + std::to_string(this->rs1.value()) + ", " + std::to_string(this->imm.value());
+        case Otype::o_jal:
+        case Otype::o_lui:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", " + std::to_string(this->imm.value());
+        case Otype::o_fmvif:
+            return string_of_otype(this->type) + " f" + std::to_string(this->rd.value()) + ", x" + std::to_string(this->rs1.value());
+        case Otype::o_fmvfi:
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", f" + std::to_string(this->rs1.value());
+        default: std::exit(EXIT_FAILURE);
     }
 }
 
