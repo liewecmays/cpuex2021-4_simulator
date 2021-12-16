@@ -399,6 +399,18 @@ let rec translate_code code untranslated op_id labels_option =
 					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
+		| Fmvff (rs1, rd) ->
+			if (is_float rs1) && (is_float rd) then
+				let opcode = binary_of_int 1 4 in
+				let funct = binary_of_int 7 3 in
+				let rs1 = binary_of_int (int_of_reg rs1) 5 in
+				let rs2 = "00000" in
+				let rd = binary_of_int (int_of_reg rd) 5 in
+				let margin = "0000000000" in
+				let code = String.concat "" [opcode; funct; rs1; rs2; rd; margin] in
+					Code (op_id, code, line_no, labels_option, bp_option)
+			else
+				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* branch *)
 		| Beq (rs1, rs2, label) ->
 			if (is_int rs1) && (is_int rs2) then

@@ -892,6 +892,11 @@ void exec_op(){
             ++op_type_count[Otype::o_fcvtfi];
             pc += 4;
             return;
+        case Otype::o_fmvff:
+            write_reg_fp_32(op.rd.value(), read_reg_fp_32(op.rs1.value()));
+            ++op_type_count[Otype::o_fmvff];
+            pc += 4;
+            return;
         case Otype::o_beq:
             read_reg(op.rs1.value()) == read_reg(op.rs2.value()) ? pc += op.imm.value() * 4 : pc += 4;
             ++op_type_count[Otype::o_beq];

@@ -31,6 +31,7 @@ rule token = parse
 | "fsqrt" { Parser.FSQRT }
 | "fcvt.i.f" { Parser.FCVTIF }
 | "fcvt.f.i" { Parser.FCVTFI }
+| "fmv.f.f" { Parser.FMVFF }
 (* branch *)
 | "beq" { Parser.BEQ }
 | "blt" { Parser.BLT }

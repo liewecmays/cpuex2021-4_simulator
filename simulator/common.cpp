@@ -73,6 +73,9 @@ Operation::Operation(std::string code){
                 case 6: // fcvt.f.i
                     this->type = Otype::o_fcvtfi;
                     return;
+                case 7: // fmv.f.f
+                    this->type = Otype::o_fmvff;
+                    return;
                 default: break;
             }
             break;
@@ -262,6 +265,7 @@ std::string Operation::to_string(){
         case Otype::o_fsqrt:
         case Otype::o_fcvtif:
         case Otype::o_fcvtfi:
+        case Otype::o_fmvff:
             return string_of_otype(this->type) + " f" + std::to_string(this->rd.value()) + ", f" + std::to_string(this->rs1.value());
         case Otype::o_beq:
         case Otype::o_blt:
@@ -319,6 +323,7 @@ std::string string_of_otype(Otype t){
         case Otype::o_fsqrt: return "fsqrt";
         case Otype::o_fcvtif: return "fcvt.i.f";
         case Otype::o_fcvtfi: return "fcvt.f.i";
+        case Otype::o_fmvff: return "fmv.f.f";
         case Otype::o_beq: return "beq";
         case Otype::o_blt: return "blt";
         case Otype::o_fbeq: return "fbeq";

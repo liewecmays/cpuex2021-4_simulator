@@ -24,6 +24,7 @@ type operation =
 	| Fsqrt of reg * reg (* rs1, rd *)
 	| Fcvtif of reg * reg (* rs1, rd *)
 	| Fcvtfi of reg * reg (* rs1, rd *)
+	| Fmvff of reg * reg (* rs1, rd *)
 	(* branch *)
 	| Beq of reg * reg * string (* rs1, rs2, label *)
 	| Blt of reg * reg * string (* rs1, rs2, label *)

@@ -10,7 +10,7 @@
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
 %token ADD SUB SLL SRL SRA AND
-%token FADD FSUB FMUL FDIV FSQRT FCVTIF FCVTFI
+%token FADD FSUB FMUL FDIV FSQRT FCVTIF FCVTFI FMVFF
 %token BEQ BLT
 %token FBEQ FBLT
 %token SW SI STD
@@ -87,6 +87,7 @@ operation_: // 命令とその行番号の組を返す
 	| FSQRT reg COMMA reg { Fsqrt ($4, $2) } // fsqrt rd,rs1
 	| FCVTIF reg COMMA reg { Fcvtif ($4, $2) } // fcvt.i.f rd,rs1
 	| FCVTFI reg COMMA reg { Fcvtfi ($4, $2) } // fcvt.f.i rd,rs1
+	| FMVFF reg COMMA reg { Fmvff ($4, $2) } // fmv.f.f rd,rs1
 	// branch
 	| BEQ reg COMMA reg COMMA label { Beq ($2, $4, $6) } // beq rs1,rs2,label
 	| BLT reg COMMA reg COMMA label { Blt ($2, $4, $6) } // blt rs1,rs2,label
@@ -113,7 +114,7 @@ operation_: // 命令とその行番号の組を返す
 	// load_fp
 	| FLW reg COMMA immediate LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
 	// jalr
-	| JALR reg COMMA reg COMMA immediate { Jalr ($4, $2, $6) } // jalr rd,rs,offset
+	| JALR reg COMMA reg COMMA immediate { Jalr ($4, $2, $6) } // jalr rd,rs1,offset
 	// jal
 	| JAL reg COMMA label { Jal ($2, $4) } // jal rd,label
 	// lui
