@@ -1011,7 +1011,7 @@ void exec_op(){
         case Otype::o_jalr:
             {
                 unsigned next_pc = pc + 4;
-                pc = read_reg(op.rs1.value()) + op.imm.value() * 4;
+                pc = read_reg(op.rs1.value());
                 write_reg(op.rd.value(), next_pc);
                 ++op_type_count[Otype::o_jalr];
             }

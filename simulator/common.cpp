@@ -194,7 +194,6 @@ Operation::Operation(std::string code){
             this->type = Otype::o_jalr;
             this->rs1 = rs1;
             this->rd = rd;
-            this->imm = int_of_binary(code.substr(4, 3) + code.substr(12, 5) + code.substr(22, 10));
             return;
         case 10: // jal
             this->type = Otype::o_jal;
@@ -295,7 +294,7 @@ std::string Operation::to_string(){
         case Otype::o_flw:
             return string_of_otype(this->type) + " f" + std::to_string(this->rd.value()) + ", " + std::to_string(this->imm.value()) + "(x" + std::to_string(this->rs1.value()) + ")";
         case Otype::o_jalr:
-            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", x" + std::to_string(this->rs1.value()) + ", " + std::to_string(this->imm.value());
+            return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", x" + std::to_string(this->rs1.value());
         case Otype::o_jal:
         case Otype::o_lui:
             return string_of_otype(this->type) + " x" + std::to_string(this->rd.value()) + ", " + std::to_string(this->imm.value());

@@ -688,15 +688,15 @@ let rec translate_code code untranslated op_id labels_option =
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
 		(* jalr *)
-		| Jalr (rs1, rd, imm) ->
+		| Jalr (rs1, rd) ->
 			if (is_int rs1) && (is_int rd) then
 				let opcode = binary_of_int 9 4 in
 				let rs1 = binary_of_int (int_of_reg rs1) 5 in
 				let rd = binary_of_int (int_of_reg rd) 5 in
-				let imm =
-					try binary_of_imm imm 18 with
-					| Argument_error -> raise (Translate_error ("invalid argument at line " ^ (string_of_int line_no))) in
-				let code = String.concat "" [opcode; String.sub imm 0 3; rs1; String.sub imm 3 5; rd; String.sub imm 8 10] in
+				let imm1 = "000" in
+				let imm2 = "00000" in
+				let imm3 = "0000000000" in
+				let code = String.concat "" [opcode; imm1; rs1; imm2; rd; imm3] in
 					Code (op_id, code, line_no, labels_option, bp_option)
 			else
 				raise (Translate_error ("wrong int/float register designation at line " ^ (string_of_int line_no)))
