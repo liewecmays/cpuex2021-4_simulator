@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include <optional>
 
 // 命令の種類
 inline constexpr int op_type_num = 37;
@@ -26,15 +25,38 @@ std::string string_of_otype(Otype t); // Otypeを文字列に変換
 class Operation{
     public:
         Otype type;
-        std::optional<unsigned int> rs1;
-        std::optional<unsigned int> rs2;
-        std::optional<unsigned int> rd;
-        std::optional<int> imm;
+        unsigned int rs1;
+        unsigned int rs2;
+        unsigned int rd;
+        int imm;
         Operation();
         Operation(std::string code);
         Operation(int i);
         std::string to_string();
-        // std::string to_code()
+        bool is_op();
+        bool is_op_fp();
+        bool is_branch();
+        bool is_branch_fp();
+        bool is_store();
+        bool is_store_fp();
+        bool is_op_imm();
+        bool is_load();
+        bool is_load_fp();
+        bool is_jalr();
+        bool is_jal();
+        bool is_lui();
+        bool is_itof();
+        bool is_ftoi();
+        bool use_mem();
+        bool use_fpu();
+        bool use_rd_int();
+        bool use_rd_fp();
+        bool use_rs1_int();
+        bool use_rs1_fp();
+        bool use_rs2_int();
+        bool use_rs2_fp();
+        bool branch_conditionally_or_unconditionally();
+        // bool alu_or_fpu_opcode(); [todo]
 };
 
 

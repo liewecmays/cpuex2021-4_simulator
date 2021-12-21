@@ -3,9 +3,12 @@ OUTPUT_OPTION := -I./ -std=c++17 -Wall -O3 -mtune=native -march=native -pthread
 
 default: sim server
 
-all: clean sim server fpu_test
+all: clean sim sim2 prof server fpu_test
 
 sim: util.o common.o fpu.o sim.o
+	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
+
+sim2: util.o common.o fpu.o sim2.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
 prof: util.prof.o common.prof.o fpu.prof.o sim.prof.o
