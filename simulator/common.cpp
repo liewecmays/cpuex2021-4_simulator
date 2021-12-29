@@ -7,14 +7,18 @@
 #include <bitset>
 #include <algorithm>
 
-using Otype;
+using ::Otype;
 
 /* class Operation */
 // stringをパースするコンストラクタ
 Operation::Operation(std::string code){
-    unsigned int opcode, funct, rs1, rs2, rd;    
-    opcode = std::stoi(code.substr(0, 4), 0, 2);
-    funct = std::stoi(code.substr(4, 3), 0, 2);
+    if(code == "nop"){
+        this->type = o_nop;
+        return;
+    }
+
+    unsigned int opcode = std::stoi(code.substr(0, 4), 0, 2);
+    unsigned int funct = std::stoi(code.substr(4, 3), 0, 2);
     this->rs1 = std::stoi(code.substr(7, 5), 0, 2);
     this->rs2 = std::stoi(code.substr(12, 5), 0, 2);
     this->rd = std::stoi(code.substr(17, 5), 0, 2);
@@ -213,6 +217,9 @@ Operation::Operation(std::string code){
     std::exit(EXIT_FAILURE);
 }
 
+// nopの定義
+Operation nop = Operation("nop");
+
 // intをもとにするコンストラクタ
 Operation::Operation(int i){
     std::stringstream code;
@@ -240,7 +247,7 @@ bool Operation::is_store_fp(){
     return this->type == o_fsw;
 }
 bool Operation::is_op_imm(){
-    return this->type == o_addi || this->type == o_subi || this->type == o_slli || this->type == o_srli || this->type == o_srai || this->type == o_andi;
+    return this->type == o_addi || this->type == o_slli || this->type == o_srli || this->type == o_srai || this->type == o_andi;
 }
 bool Operation::is_load(){
     return this->type == o_lw || this->type == o_lre || this->type == o_lrd || this->type == o_ltf;
@@ -264,31 +271,37 @@ bool Operation::is_ftoi(){
     return this->type == o_fmvfi;
 }
 bool Operation::use_mem(){
-    return this->is_load || this->is_load_fp || this->is_store || this->is_store_fp;
+    return this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp();
 }
-bool Operation::use_fpu(){
-    return this->is_op_fp || this->is_itof;
+bool Operation::use_multicycle_fpu(){
+    return this->type == o_fdiv || this->type == o_fsqrt || this->type == o_fcvtif || this->type == o_fcvtfi || this->type == o_fmvff || this->type == o_fmvif;
+}
+bool Operation::use_pipelined_fpu(){
+    return this->type == o_fadd || this->type == o_fsub || this->type == o_fmul;
 }
 bool Operation::use_rd_int(){
-    return this->is_op || this->is_op_imm || this->is_lui || this->is_load || this->is_jal || this->is_jalr || this->is_ftoi;
+    return this->is_op() || this->is_op_imm() || this->is_lui() || this->is_load() || this->is_jal() || this->is_jalr() || this->is_ftoi();
 }
 bool Operation::use_rd_fp(){
-    return this->is_op_fp || this->is_load_fp || this->is_itof;
+    return this->is_op_fp() || this->is_load_fp() || this->is_itof();
 }
 bool Operation::use_rs1_int(){
-    return this->is_op || this->is_op_imm || this->is_load || this->is_load_fp || this->is_store || this->is_store_fp || this->is_branch || this->is_jalr || this->is_itof;
+    return this->is_op() || this->is_op_imm() || this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp() || this->is_branch() || this->is_jalr() || this->is_itof();
 }
 bool Operation::use_rs1_fp(){
-    return this->is_op_fp || this->is_branch_fp || this->is_ftoi;
+    return this->is_op_fp() || this->is_branch_fp() || this->is_ftoi();
 }
 bool Operation::use_rs2_int(){
-    return this->is_op || this->is_store || this->is_branch;
+    return this->is_op() || this->is_store() || this->is_branch();
 }
 bool Operation::use_rs2_fp(){
-    return this->is_op_fp || this->is_store_fp || this->is_branch_fp;
+    return this->is_op_fp() || this->is_store_fp() || this->is_branch_fp();
 }
 bool Operation::branch_conditionally_or_unconditionally(){
-    return this->is_branch || this->is_branch_fp || this->is_jal || this->is_jalr;
+    return this->is_branch() || this->is_branch_fp() || this->is_jal() || this->is_jalr();
+}
+bool Operation::is_nop(){
+    return this->type == o_nop;
 }
 
 // 文字列に変換
@@ -341,12 +354,14 @@ std::string Operation::to_string(){
         case o_jalr:
             return string_of_otype(this->type) + " x" + std::to_string(this->rd) + ", x" + std::to_string(this->rs1) + ", " + std::to_string(this->imm);
         case o_jal:
-        case o_jal:
+        case o_lui:
             return string_of_otype(this->type) + " x" + std::to_string(this->rd) + ", " + std::to_string(this->imm);
         case o_fmvif:
             return string_of_otype(this->type) + " f" + std::to_string(this->rd) + ", x" + std::to_string(this->rs1);
         case o_fmvfi:
             return string_of_otype(this->type) + " x" + std::to_string(this->rd) + ", f" + std::to_string(this->rs1);
+        case o_nop:
+            return "nop";
         default: std::exit(EXIT_FAILURE);
     }
 }
@@ -388,7 +403,7 @@ std::string string_of_otype(Otype t){
         case o_flw: return "flw";
         case o_jalr: return "jalr";
         case o_jal: return "jal";
-        case o_jal: return "lui";
+        case o_lui: return "lui";
         case o_fmvif: return "fmv.i.f";
         case o_fmvfi: return "fmv.f.i";
         default: std::exit(EXIT_FAILURE);

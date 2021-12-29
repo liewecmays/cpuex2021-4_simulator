@@ -2,7 +2,7 @@
 #include <string>
 
 // 命令の種類
-inline constexpr int op_type_num = 37;
+inline constexpr int op_type_num = 38;
 enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
     o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt, o_fcvtif, o_fcvtfi, o_fmvff,
@@ -17,7 +17,8 @@ enum Otype{
     o_jal,
     o_lui,
     o_fmvif,
-    o_fmvfi
+    o_fmvfi,
+    o_nop // コアの実装では'1などに対応(内部的にしか使わない)
 };
 std::string string_of_otype(Otype t); // Otypeを文字列に変換
 
@@ -48,7 +49,8 @@ class Operation{
         bool is_itof();
         bool is_ftoi();
         bool use_mem();
-        bool use_fpu();
+        bool use_multicycle_fpu();
+        bool use_pipelined_fpu();
         bool use_rd_int();
         bool use_rd_fp();
         bool use_rs1_int();
@@ -56,8 +58,11 @@ class Operation{
         bool use_rs2_int();
         bool use_rs2_fp();
         bool branch_conditionally_or_unconditionally();
+        bool is_nop();
         // bool alu_or_fpu_opcode(); [todo]
 };
+inline constexpr unsigned int pipelined_fpu_stage_num = 4;
+extern Operation nop;
 
 
 // 内部表現を考慮したfloat
@@ -97,7 +102,7 @@ union Bit32{
 /* class Operation */
 // デフォルトコンストラクタではnopを指定
 inline Operation::Operation(){
-    this->type = Otype::o_add;
+    this->type = Otype::o_nop;
     this->rs1 = 0;
     this->rs2 = 0;
     this->imm = 0;

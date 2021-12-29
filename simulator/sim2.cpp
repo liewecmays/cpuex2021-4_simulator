@@ -7,12 +7,14 @@
 #include <fstream>
 #include <vector>
 #include <array>
+#include <optional>
 #include <boost/bimap/bimap.hpp>
 #include <regex>
 #include <iomanip>
 #include <boost/program_options.hpp>
 #include <chrono>
 
+using ::Otype;
 namespace po = boost::program_options;
 
 /* グローバル変数 */
@@ -22,8 +24,7 @@ Bit32 reg_list[32]; // 整数レジスタのリスト
 Bit32 reg_fp_list[32]; // 浮動小数レジスタのリスト
 Bit32 *memory; // メモリ領域
 
-unsigned int pc = 0; // プログラムカウンタ
-unsigned int clk_count = 0; // クロックのカウンタ
+unsigned long long clk_count = 0; // クロックのカウンタ
 unsigned long long op_count = 0; // 命令のカウント
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
@@ -191,6 +192,9 @@ int main(int argc, char *argv[]){
         }
     }
 
+    std::cout << code_id << std::endl;
+    op_list.resize(code_id + 6); // segmentation fault防止のために余裕を持たせる
+
     // シミュレーションの本体処理
     simulate();
 
@@ -216,115 +220,6 @@ void simulate(){
     return;
 }
 
-Configuration cfg_next; // configを現在の状態として、次の状態
-// クロックを1つ分先に進める
-void advance_clock(){
-    /* instruction fetch */
-    cfg_next.ID.pc[0] = config.IF.pc[0];
-    cfg_next.ID.pc[1] = config.IF.pc[1];
-    cfg_next.ID.op[0] = op_list[id_of_pc(config.IF.pc[0])];
-    cfg_next.ID.op[1] = op_list[id_of_pc(config.IF.pc[1])];
-
-    /* instruction decode */
-    // pc manager
-    if(config.ID.is_not_dispatched[0]){ // todo: branch taken
-        cfg_next.IF.pc = config.ID.pc;
-    }else if(config.ID.is_not_dispatched[1]){
-        cfg_next.IF.pc[0] = config.ID.pc[0] + 4;
-        cfg_next.IF.pc[1] = config.ID.pc[1] + 4;
-    }else{
-        cfg_next.IF.pc[0] = config.ID.pc[0] + 8;
-        cfg_next.IF.pc[1] = config.ID.pc[1] + 8;
-    }
-
-    // reg fetch (シミュレータ上ではEXステージで実現可能(理想的なレジスタ))
-
-    // distribution (シミュレータ上ではEXステージの段階で諸々を判定可能なので、単にopを渡せばok)
-    cfg_next.EX.pc = config.ID.pc;
-    cfg_next.EX.op = config.ID.op;
-
-    // dispatch
-    cfg_next.ID.is_not_dispatched[0] = inter_hazard_detector(0) || iwp_hazard_detector(0);
-    cfg_next.ID.is_not_dispatched[1] = cfg_next.ID.is_not_dispatched[0] || intra_hazard_detector() || inter_hazard_detector(1) || iwp_hazard_detector(1);
-    // dispatcher内のrstは、EXステージでopをもとに計算
-
-    /* execution */
-    
-
-    /* write back */
-
-    // update
-    config = cfg_next;
-}
-
-// 同時発行される命令の間のハザード検出
-inline bool intra_hazard_detector(){
-    bool rd_to_rs1 =
-        ((config.ID.op[0].use_rd_int() && config.ID.op[1].use_rs1_int())
-        || (config.ID.op[0].use_rd_fp() && config.ID.op[1].use_rs1_fp()))
-        && config.ID.op[0].rd == config.ID.op[1].rs1;
-    bool rd_to_rs2 =
-        ((config.ID.op[0].use_rd_int() && config.ID.op[1].use_rs2_int())
-        || (config.ID.op[0].use_rd_fp() && config.ID.op[1].use_rs2_fp()))
-        && config.ID.op[0].rd == config.ID.op[1].rs2;
-    bool raw_hazard = rd_to_rs1 || rd_to_rs2;
-
-    bool waw_hazard =
-        ((config.ID.op[0].use_rd_int() && config.ID.op[1].use_rd_int())
-        || (config.ID.op[0].use_rd_fp() && config.ID.op[1].use_rd_fp())
-        && config.ID.op[0].rd == config.ID.op[1].rd;
-
-    bool control_hazard = config.ID.op[0].branch_conditionally_or_unconditionally();
-
-    bool structural_hazard =
-        (config.ID.op[0].use_mem() && config.ID.op[1].use_mem()) // same mem
-        || (config.ID.op[0].use_fpu() && config.ID.op[1].use_fpu()); // same fpu
-
-    return raw_hazard || waw_hazard || control_hazard || structural_hazard;
-}
-
-// 同時発行されない命令間のハザード検出
-inline bool inter_hazard_detector(unsigned int i){ // i = 0,1
-    bool structural_hazard =
-        (config.EX.man_info.cannot_accept && config.ID.op[i].use_mem()) // use busy mem
-        || (config.EX.fpn_info.cannot_accept && config.ID.op[i].use_fpu());
-    
-    bool man_to_rs1 =
-        ((config.EX.man_info.is_willing_but_not_ready_int && config.ID.op[i].use_rs1_int())
-        || (config.EX.man_info.is_willing_but_not_ready_fp && config.ID.op[i].use_rs1_fp()))
-        && config.EX.man_info.wb_addr == config.ID.op[i].rs1;
-    bool man_to_rs2 =
-        ((config.EX.man_info.is_willing_but_not_ready_int && config.ID.op[i].use_rs2_int())
-        || (config.EX.man_info.is_willing_but_not_ready_fp && config.ID.op[i].use_rs2_fp()))
-        && config.EX.man_info.wb_addr == config.ID.op[i].rs2;
-    bool fpn_to_rs1 = config.EX.fpn_info.is_willing_but_not_ready && config.ID.op[i].use_rs1_fp() && (config.EX.fpn_info.dest_addr == config.ID.op[i].rs1);
-    bool fpn_to_rs2 = config.EX.fpn_info.is_willing_but_not_ready && config.ID.op[i].use_rs2_fp() && (config.EX.fpn_info.dest_addr == config.ID.op[i].rs2);
-    bool raw_hazard = man_to_rs1 || man_to_rs2 || fpn_to_rs1 || fpn_to_rs2;
-
-    bool man_to_rd =
-        ((config.EX.man_info.is_willing_but_not_ready_int && config.ID.op[i].use_rd_int())
-        || config.EX.man_info.is_willing_but_not_ready_fp && config.ID.op[i].use_rd_fp()))
-        && config.EX.man_info.wb_addr == config.ID.op[i].rd;
-    bool fpn_to_rd = config.EX.fpn_info.is_willing_but_not_ready && config.ID.op[i].use_rd_fp() && (config.EX.fpn_info.dest_addr == config.ID.op[i].rd);
-    bool waw_hazard = man_to_rd || fpn_to_rd;
-
-    return structural_hazard || raw_hazard || waw_hazard;
-}
-
-// 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
-inline bool iwp_hazard_detector(unsigned int i){
-    if(i == 0){
-        return config.ID.op[0].use_rd_fp() && config.EX.man_info.is_willing_but_not_ready_fp && config.EX.fpn_info.is_willing_but_not_ready;
-    }else if(i == 1){
-        return
-            (config.ID.op[0].use_rd_int() && config.ID.op[1].use_rd_int() && config.EX.man_info.is_willing_but_not_ready_int)
-            || (config.ID.op[0].use_rd_fp() && config.ID.op[1].use_rd_fp() && (config.EX.man_info.is_willing_but_not_ready_fp || config.EX.fpn_info.is_willing_but_not_ready))
-            || (config.ID.op[0].use_rd_fp() && config.EX.man_info.is_willing_but_not_ready_fp && config.EX.fpn_info.is_willing_but_not_ready);
-    }else{
-        std::exit(EXIT_FAILURE);
-    }
-}
-
 // デバッグモードのコマンドを認識して実行
 bool no_info = false; // infoを表示しない(一時的な仕様)
 bool exec_command(std::string cmd){
@@ -338,11 +233,11 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
-        
+        advance_clock();
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
         
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
-        pc = 0; // is_skip ? 100 : 0; // PCを0にする
+        config = Configuration();
         op_count = 0; // 総実行命令数を0にする
         for(int i=0; i<32; ++i){ // レジスタをクリア
             reg_list[i] = Bit32(0);
@@ -506,261 +401,504 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-// 命令を実行し、PCを変化させる
-void exec_op(){
-    Operation op;
-    if(pc % 4 == 0){
-        op = op_list[pc/4];
-    }else{
-        exit_with_output("error with program counter: pc = " + std::to_string(pc));
+bool at_power_on = true;
+// クロックを1つ分先に進める
+void advance_clock(){
+    Configuration cfg_next; // configを現在の状態として、次の状態
+
+    std::cout << "clock=" << clk_count << std::endl;
+
+    /* execution */
+    // AL
+    for(unsigned int i=0; i<2; ++i){
+        config.EX.als[i].exec();
     }
 
-    // 実行部分
-    switch(op.type){
-        case Otype::o_add:
-            write_reg(op.rd, read_reg(op.rs1) + read_reg(op.rs2));
-            ++op_type_count[Otype::o_add];
-            pc += 4;
+    // BR
+    config.EX.br.exec();
+
+
+    /* instruction fetch/decode */
+    // dispatch?
+    std::array<bool, 2> is_not_dispatched;
+    is_not_dispatched[0] = config.inter_hazard_detector(0) || config.iwp_hazard_detector(0);
+    is_not_dispatched[1] = is_not_dispatched[0] || config.intra_hazard_detector() || config.inter_hazard_detector(1) || config.iwp_hazard_detector(1);
+
+    // pc manager
+    if(config.EX.br.branch_addr.has_value()){
+        config.IF.pc[0] = config.EX.br.branch_addr.value();
+        config.IF.pc[1] = config.EX.br.branch_addr.value() + 4;
+    }else if(is_not_dispatched[0]){
+        config.IF.pc = config.ID.pc;
+    }else if(is_not_dispatched[1]){
+        config.IF.pc[0] = config.ID.pc[0] + 4;
+        config.IF.pc[1] = config.ID.pc[1] + 4;
+    }else{
+        config.IF.pc[0] = config.ID.pc[0] + 8;
+        config.IF.pc[1] = config.ID.pc[1] + 8;
+    }
+
+    // instruction fetch
+    cfg_next.ID.pc = config.IF.pc;
+    cfg_next.ID.op[0] = op_list[id_of_pc(config.IF.pc[0])];
+    cfg_next.ID.op[1] = op_list[id_of_pc(config.IF.pc[1])];
+
+    // distribution + reg fetch
+    for(unsigned int i=0; i<2; ++i){
+        if(is_not_dispatched[i]) continue;
+        switch(config.ID.op[i].type){
+            case o_add:
+            case o_sub:
+            case o_sll:
+            case o_srl:
+            case o_sra:
+            case o_and:
+            case o_addi:
+            case o_slli:
+            case o_srli:
+            case o_srai:
+            case o_andi:
+            // case o_lui:
+            // case o_fmvfi:
+                cfg_next.EX.als[i].inst.op = config.ID.op[i];
+                cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
+                break;
+            case o_beq:
+            case o_blt:
+            case o_fbeq:
+            case o_fblt:
+                cfg_next.EX.br.inst.op = config.ID.op[i];
+                cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                cfg_next.EX.br.inst.pc = config.ID.pc[i];
+                break;
+            case o_jal:
+            case o_jalr:
+                // ALとBRの両方にdistribute
+                cfg_next.EX.als[i].inst.op = config.ID.op[i];
+                cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
+                cfg_next.EX.br.inst.op = config.ID.op[i];
+                cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                cfg_next.EX.br.inst.pc = config.ID.pc[i];
+                break;
+            case o_nop: break;
+            // todo: その他の場合
+            default: std::exit(EXIT_FAILURE);
+        }
+    }
+
+
+    std::cout << "IF:" << std::endl;
+    for(unsigned int i=0; i<2; ++i){
+        std::cout << "  " << i << ": pc=" << config.IF.pc[i] << std::endl;
+    }
+
+    std::cout << "ID:" << std::endl;
+    for(unsigned int i=0; i<2; ++i){
+        std::cout << "  " << i << ": pc=" << config.ID.pc[i] << ", " << config.ID.op[i].to_string() << " -> " << (is_not_dispatched[i] ? "not dispatched" : "dispatched") << std::endl;
+    }
+
+    std::cout << "EX:" << std::endl;
+    for(unsigned int i=0; i<2; ++i){
+        std::cout << "  al" << i << ": pc=" << config.EX.als[i].inst.pc << ", " << config.EX.als[i].inst.op.to_string() << std::endl;
+    }
+    std::cout << "  br : pc=" << config.EX.br.inst.pc << ", " << config.EX.br.inst.op.to_string() << " -> " << (config.EX.br.branch_addr.has_value() ? "taken" : "untaken") << std::endl;
+    
+    // MA
+    // マルチサイクルなので、config.EX.ma.cycle_countを参照する必要がある
+    // exec_inst(config.EX.ma.inst);
+
+    // mFP
+    // マルチサイクルなので、config.EX.mfp.cycle_countを参照する必要がある
+    // exec_inst(config.EX.mfp.inst);
+
+    /* write back */
+    
+
+    // update
+    config = cfg_next;
+    ++clk_count;
+}
+
+// 同時発行される命令の間のハザード検出
+bool Configuration::intra_hazard_detector(){
+    // RAW hazards
+    bool rd_to_rs1 =
+        ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs1_int())
+        || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs1_fp()))
+        && this->ID.op[0].rd == this->ID.op[1].rs1;
+    bool rd_to_rs2 =
+        ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs2_int())
+        || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs2_fp()))
+        && this->ID.op[0].rd == this->ID.op[1].rs2;
+    bool raw_hazard = rd_to_rs1 || rd_to_rs2;
+
+    // WAW hazards
+    bool waw_hazard =
+        ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rd_int())
+        || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp()))
+        && this->ID.op[0].rd == this->ID.op[1].rd;
+
+    // control hazards
+    bool control_hazard = this->ID.op[0].branch_conditionally_or_unconditionally();
+
+    // structural hazards
+    bool structural_hazard =
+        (this->ID.op[0].use_mem() && this->ID.op[1].use_mem()) // 同時にメモリ
+        || (this->ID.op[0].use_multicycle_fpu() && this->ID.op[1].use_multicycle_fpu()) // 同時にFPU(マルチサイクル)
+        || (this->ID.op[0].use_pipelined_fpu() && this->ID.op[1].use_pipelined_fpu()); // 同時にFPU(パイプライン)
+
+    return raw_hazard || waw_hazard || control_hazard || structural_hazard;
+}
+
+// 同時発行されない命令間のハザード検出
+bool Configuration::inter_hazard_detector(unsigned int i){ // i = 0,1
+    // RAW hazards
+    bool ma_to_rs1 =
+        ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs1_int())
+        || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rs1_fp()))
+        && this->EX.ma.info.wb_addr == this->ID.op[i].rs1;
+    bool ma_to_rs2 =
+        ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs2_int())
+        || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rs2_fp()))
+        && this->EX.ma.info.wb_addr == this->ID.op[i].rs2;
+    bool mfp_to_rs1 = this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs1_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs1);
+    bool mfp_to_rs2 = this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs2_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs2);
+    bool pfp_to_rs1 = false;
+    for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
+        if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs1_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs1)){
+            pfp_to_rs1 = true;
+            break;
+        }
+    }
+    bool pfp_to_rs2 = false;
+    for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
+        if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs2_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs2)){
+            pfp_to_rs2 = true;
+            break;
+        }
+    }
+    bool raw_hazard = ma_to_rs1 || ma_to_rs2 || mfp_to_rs1 || mfp_to_rs2 || pfp_to_rs1 || pfp_to_rs2;
+
+    // WAW hazards
+    bool ma_to_rd =
+        ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rd_int())
+        || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rd_fp()))
+        && this->EX.ma.info.wb_addr == this->ID.op[i].rd;
+    bool mfp_to_rd = this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rd_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rd);
+    bool pfp_to_rd = false;
+    for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
+        if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rd_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rd)){
+            pfp_to_rd = true;
+            break;
+        }
+    }
+    bool waw_hazard = ma_to_rd || mfp_to_rd || pfp_to_rd;
+
+    // structural hazards
+    bool structural_hazard =
+        (this->EX.ma.info.cannot_accept && this->ID.op[i].use_mem()) // メモリが使用中
+        || (this->EX.mfp.info.cannot_accept && this->ID.op[i].use_multicycle_fpu()); // FPU(マルチサイクル)が使用中
+
+    return raw_hazard || waw_hazard || structural_hazard;
+}
+
+// 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
+bool Configuration::iwp_hazard_detector(unsigned int i){
+    bool ma_wb_fp = this->EX.ma.info.is_willing_but_not_ready_fp;
+    bool mfp_wb_fp = this->EX.mfp.info.is_willing_but_not_ready;
+    bool pfp_wb_fp = false;
+    for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
+        if(this->EX.pfp.info.wb_en[j]){
+            pfp_wb_fp = true;
+            break;
+        }
+    }
+
+    // todo: COMPLEX_HAZARD_DETECTION
+    if(i == 0){
+        return this->ID.op[0].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp));
+    }else if(i == 1){
+        return
+            (this->ID.op[0].use_rd_int() && this->ID.op[1].use_rd_int() && this->EX.ma.info.is_willing_but_not_ready_int)
+            || (this->ID.op[1].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp)))
+            || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp() && (ma_wb_fp || mfp_wb_fp || pfp_wb_fp));
+    }else{
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+void Configuration::EX_stage::EX_al::exec(){
+    if(this->inst.op.is_nop()) return;
+    switch(this->inst.op.type){
+        // op
+        case o_add:
+            write_reg(inst.op.rd, inst.rs1_v.i + inst.rs2_v.i);
+            ++op_type_count[o_add];
             return;
-        case Otype::o_sub:
-            write_reg(op.rd, read_reg(op.rs1) - read_reg(op.rs2));
-            ++op_type_count[Otype::o_sub];
-            pc += 4;
+        case o_sub:
+            write_reg(inst.op.rd, inst.rs1_v.i - inst.rs2_v.i);
+            ++op_type_count[o_sub];
             return;
-        case Otype::o_sll:
-            write_reg(op.rd, read_reg(op.rs1) << read_reg(op.rs2));
-            ++op_type_count[Otype::o_sll];
-            pc += 4;
+        case o_sll:
+            write_reg(inst.op.rd, inst.rs1_v.i << inst.rs2_v.i);
+            ++op_type_count[o_sll];
             return;
-        case Otype::o_srl:
-            write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> read_reg(op.rs2));
-            ++op_type_count[Otype::o_srl];
-            pc += 4;
+        case o_srl:
+            write_reg(inst.op.rd, static_cast<unsigned int>(inst.rs1_v.i) >> inst.rs2_v.i);
+            ++op_type_count[o_srl];
             return;
-        case Otype::o_sra:
-            write_reg(op.rd, read_reg(op.rs1) >> read_reg(op.rs2)); // todo: 処理系依存
-            ++op_type_count[Otype::o_sra];
-            pc += 4;
+        case o_sra:
+            write_reg(inst.op.rd, inst.rs1_v.i >> inst.rs2_v.i); // todo: 処理系依存
+            ++op_type_count[o_sra];
             return;
-        case Otype::o_and:
-            write_reg(op.rd, read_reg(op.rs1) & read_reg(op.rs2));
-            ++op_type_count[Otype::o_and];
-            pc += 4;
+        case o_and:
+            write_reg(inst.op.rd, inst.rs1_v.i & inst.rs2_v.i);
+            ++op_type_count[o_and];
             return;
-        // case Otype::o_fadd:
+        // op_imm
+        case o_addi:
+            write_reg(inst.op.rd, inst.rs1_v.i + inst.op.imm);
+            ++op_type_count[o_addi];
+            return;
+        case o_slli:
+            write_reg(inst.op.rd, inst.rs1_v.i << inst.op.imm);
+            ++op_type_count[o_slli];
+            return;
+        case o_srli:
+            write_reg(inst.op.rd, static_cast<unsigned int>(inst.rs1_v.i) >> inst.op.imm);
+            ++op_type_count[o_srli];
+            return;
+        case o_srai:
+            write_reg(inst.op.rd, inst.rs1_v.i >> inst.op.imm); // todo: 処理系依存
+            ++op_type_count[o_srai];
+            return;
+        case o_andi:
+            write_reg(inst.op.rd, inst.rs1_v.i & inst.op.imm);
+            ++op_type_count[o_andi];
+            return;
+        // pass through
+        case o_jal:
+        case o_jalr:
+            return;
+        default:
+            exit_with_output("invalid operation for AL (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+    }
+}
+
+void Configuration::EX_stage::EX_br::exec(){
+    if(this->inst.op.is_nop()) return;
+    switch(this->inst.op.type){
+        // branch
+        case o_beq:
+            if(this->inst.rs1_v.i == this->inst.rs2_v.i){
+                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+            }
+            ++op_type_count[o_beq];
+            return;
+        case o_blt:
+            if(this->inst.rs1_v.i < this->inst.rs2_v.i){
+                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+            }
+            ++op_type_count[o_blt];
+            return;
+        // branch_fp
+        case o_fbeq:
+            if(this->inst.rs1_v.f == this->inst.rs2_v.f){
+                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+            }
+            ++op_type_count[o_fbeq];
+            return;
+        case o_fblt:
+            if(this->inst.rs1_v.f < this->inst.rs2_v.f){
+                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+            }
+            ++op_type_count[o_fblt];
+            return;
+        // jalr
+        case o_jalr:
+            write_reg(this->inst.op.rd, this->inst.pc + 4);
+            this->branch_addr = this->inst.rs1_v.ui; // todo: uiでよい？
+            ++op_type_count[o_jalr];
+            return;
+        // jal
+        case o_jal:
+            write_reg(this->inst.op.rd, this->inst.pc + 4);
+            this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+            ++op_type_count[o_jal];
+            return;
+        default:
+            exit_with_output("invalid operation for BR (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+    }
+}
+
+// void exec_inst(Instruction inst){
+//     switch(inst.op.type){
+        // case o_fadd:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
         //     }else{
         //         write_reg_fp_32(op.rd, fadd(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
         //     }
-        //     ++op_type_count[Otype::o_fadd];
+        //     ++op_type_count[o_fadd];
         //     pc += 4;
         //     return;
-        // case Otype::o_fsub:
+        // case o_fsub:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
         //     }else{
         //         write_reg_fp_32(op.rd, fsub(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
         //     }
-        //     ++op_type_count[Otype::o_fsub];
+        //     ++op_type_count[o_fsub];
         //     pc += 4;
         //     return;
-        // case Otype::o_fmul:
+        // case o_fmul:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
         //     }else{
         //         write_reg_fp_32(op.rd, fmul(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
         //     }
-        //     ++op_type_count[Otype::o_fmul];
+        //     ++op_type_count[o_fmul];
         //     pc += 4;
         //     return;
-        // case Otype::o_fdiv:
+        // case o_fdiv:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
         //     }else{
         //         write_reg_fp_32(op.rd, fdiv(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
         //     }
-        //     ++op_type_count[Otype::o_fdiv];
+        //     ++op_type_count[o_fdiv];
         //     pc += 4;
         //     return;
-        // case Otype::o_fsqrt:
+        // case o_fsqrt:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
         //     }else{
         //         write_reg_fp_32(op.rd, fsqrt(read_reg_fp_32(op.rs1)));
         //     }
-        //     ++op_type_count[Otype::o_fsqrt];
+        //     ++op_type_count[o_fsqrt];
         //     pc += 4;
         //     return;
-        // case Otype::o_fcvtif:
+        // case o_fcvtif:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, static_cast<float>(read_reg_fp_32(op.rs1).i));
         //     }else{
         //         write_reg_fp_32(op.rd, itof(read_reg_fp_32(op.rs1)));
         //     }
-        //     ++op_type_count[Otype::o_fcvtif];
+        //     ++op_type_count[o_fcvtif];
         //     pc += 4;
         //     return;
-        // case Otype::o_fcvtfi:
+        // case o_fcvtfi:
         //     if(is_ieee){
         //         write_reg_fp(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
         //     }else{
         //         write_reg_fp_32(op.rd, ftoi(read_reg_fp_32(op.rs1)));
         //     }
-        //     ++op_type_count[Otype::o_fcvtfi];
+        //     ++op_type_count[o_fcvtfi];
         //     pc += 4;
         //     return;
-        case Otype::o_fmvff:
-            write_reg_fp_32(op.rd, read_reg_fp_32(op.rs1));
-            ++op_type_count[Otype::o_fmvff];
-            pc += 4;
-            return;
-        case Otype::o_beq:
-            read_reg(op.rs1) == read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
-            ++op_type_count[Otype::o_beq];
-            return;
-        case Otype::o_blt:
-            read_reg(op.rs1) < read_reg(op.rs2) ? pc += op.imm * 4 : pc += 4;
-            ++op_type_count[Otype::o_blt];
-            return;
-        case Otype::o_fbeq:
-            read_reg_fp(op.rs1) == read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
-            ++op_type_count[Otype::o_fbeq];
-            return;
-        case Otype::o_fblt:
-            read_reg_fp(op.rs1) < read_reg_fp(op.rs2) ? pc += op.imm * 4 : pc += 4;
-            ++op_type_count[Otype::o_fblt];
-            return;
-        case Otype::o_sw:
-            if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                write_memory((read_reg(op.rs1) + op.imm) / 4, read_reg_32(op.rs2));
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-            }
-            ++op_type_count[Otype::o_sw];
-            pc += 4;
-            return;
-        case Otype::o_si:
-            if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                op_list[(read_reg(op.rs1) + op.imm) / 4] = Operation(read_reg(op.rs2));
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-            }
-            ++op_type_count[Otype::o_si];
-            pc += 4;
-            return;
-        // case Otype::o_std:
-        //     send_buffer.push(read_reg(op.rs2));
-        //     ++op_type_count[Otype::o_std];
+        // case o_fmvff:
+        //     write_reg_fp_32(op.rd, read_reg_fp_32(op.rs1));
+        //     ++op_type_count[o_fmvff];
         //     pc += 4;
         //     return;
-        case Otype::o_fsw:
-            if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                write_memory((read_reg(op.rs1) + op.imm) / 4, read_reg_fp_32(op.rs2));
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-            }
-            ++op_type_count[Otype::o_fsw];
-            pc += 4;
-            return;
-        case Otype::o_addi:
-            write_reg(op.rd, read_reg(op.rs1) + op.imm);
-            ++op_type_count[Otype::o_addi];
-            pc += 4;
-            return;
-        case Otype::o_slli:
-            write_reg(op.rd, read_reg(op.rs1) << op.imm);
-            ++op_type_count[Otype::o_slli];
-            pc += 4;
-            return;
-        case Otype::o_srli:
-            write_reg(op.rd, static_cast<unsigned int>(read_reg(op.rs1)) >> op.imm);
-            ++op_type_count[Otype::o_srli];
-            pc += 4;
-            return;
-        case Otype::o_srai:
-            write_reg(op.rd, read_reg(op.rs1) >> op.imm); // todo: 処理系依存
-            ++op_type_count[Otype::o_srai];
-            pc += 4;
-            return;
-        case Otype::o_andi:
-            write_reg(op.rd, read_reg(op.rs1) & op.imm);
-            ++op_type_count[Otype::o_andi];
-            pc += 4;
-            return;
-        case Otype::o_lw:
-            if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                write_reg_32(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4));
-            }else{
-                exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-            }
-            ++op_type_count[Otype::o_lw];
-            pc += 4;
-            return;
-        // case Otype::o_lre:
+        // case o_sw:
+        //     if((inst.rs1_v.i + op.imm) % 4 == 0){
+        //         write_memory((inst.rs1_v.i + op.imm) / 4, read_reg_32(op.rs2));
+        //     }else{
+        //         exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+        //     }
+        //     ++op_type_count[o_sw];
+        //     return;
+        // case o_si:
+        //     if((inst.rs1_v + op.imm) % 4 == 0){
+        //         op_list[(inst.rs1_v + op.imm) / 4] = Operation(inst.rs2_v);
+        //     }else{
+        //         exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+        //     }
+        //     ++op_type_count[o_si];
+        //     pc += 4;
+        //     return;
+        // case o_std:
+        //     send_buffer.push(inst.rs2_v);
+        //     ++op_type_count[o_std];
+        //     pc += 4;
+        //     return;
+        // case o_fsw:
+        //     if((inst.rs1_v + op.imm) % 4 == 0){
+        //         write_memory((inst.rs1_v + op.imm) / 4, read_reg_fp_32(op.rs2));
+        //     }else{
+        //         exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+        //     }
+        //     ++op_type_count[o_fsw];
+        //     pc += 4;
+        //     return;
+        // case o_lw:
+        //     if((inst.rs1_v + op.imm) % 4 == 0){
+        //         write_reg_32(op.rd, read_memory((inst.rs1_v + op.imm) / 4));
+        //     }else{
+        //         exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+        //     }
+        //     ++op_type_count[o_lw];
+        //     pc += 4;
+        //     return;
+        // case o_lre:
         //     write_reg(op.rd, receive_buffer.empty() ? 1 : 0);
         //     pc += 4;
-        //     ++op_type_count[Otype::o_lre];
+        //     ++op_type_count[o_lre];
         //     return;
-        // case Otype::o_lrd:
+        // case o_lrd:
         //     if(!receive_buffer.empty()){
         //         write_reg(op.rd, receive_buffer.front().i);
         //         receive_buffer.pop();
         //     }else{
         //         exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
         //     }
-        //     ++op_type_count[Otype::o_lrd];
+        //     ++op_type_count[o_lrd];
         //     pc += 4;
         //     return;
-        case Otype::o_ltf:
-            write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
-            ++op_type_count[Otype::o_ltf];
-            pc += 4;
-            return;
-        case Otype::o_flw:
-            if((read_reg(op.rs1) + op.imm) % 4 == 0){
-                write_reg_fp_32(op.rd, read_memory((read_reg(op.rs1) + op.imm) / 4));
-            }else{
-                exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-            }
-            ++op_type_count[Otype::o_flw];
-            pc += 4;
-            return;
-        case Otype::o_jalr:
-            {
-                unsigned next_pc = pc + 4;
-                pc = read_reg(op.rs1) + op.imm * 4;
-                write_reg(op.rd, next_pc);
-                ++op_type_count[Otype::o_jalr];
-            }
-            return;
-        case Otype::o_jal:
-            write_reg(op.rd, pc + 4);
-            ++op_type_count[Otype::o_jal];
-            pc += op.imm * 4;
-            return;
-        case Otype::o_lui:
-            write_reg(op.rd, op.imm << 12);
-            ++op_type_count[Otype::o_lui];
-            pc += 4;
-            return;
-        case Otype::o_fmvif:
-            write_reg_fp_32(op.rd, read_reg_32(op.rs1));
-            ++op_type_count[Otype::o_fmvif];
-            pc += 4;
-            return;
-        case Otype::o_fmvfi:
-            write_reg_32(op.rd, read_reg_fp_32(op.rs1));
-            ++op_type_count[Otype::o_fmvfi];
-            pc += 4;
-            return;
-        default:
-            exit_with_output("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-    }
-}
+        // case o_ltf:
+        //     write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+        //     ++op_type_count[o_ltf];
+        //     pc += 4;
+        //     return;
+        // case o_flw:
+        //     if((inst.rs1_v + op.imm) % 4 == 0){
+        //         write_reg_fp_32(op.rd, read_memory((inst.rs1_v + op.imm) / 4));
+        //     }else{
+        //         exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+        //     }
+        //     ++op_type_count[o_flw];
+        //     pc += 4;
+        //     return;
+
+        // case o_lui:
+        //     write_reg(op.rd, op.imm << 12);
+        //     ++op_type_count[o_lui];
+        //     pc += 4;
+        //     return;
+        // case o_fmvif:
+        //     write_reg_fp_32(op.rd, read_reg_32(op.rs1));
+        //     ++op_type_count[o_fmvif];
+        //     pc += 4;
+        //     return;
+        // case o_fmvfi:
+        //     write_reg_32(op.rd, read_reg_fp_32(op.rs1));
+        //     ++op_type_count[o_fmvfi];
+        //     pc += 4;
+        //     return;
+        // default:
+        //     exit_with_output("error in executing the code (at pc " + std::to_string(this->in) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+//     }
+// }
 
 // PCから命令IDへの変換(4の倍数になっていない場合エラー)
-inline unsigned int id_of_pc(unsigned int n){
+inline unsigned int id_of_pc(int n){
     if(n % 4 == 0){
         return n / 4;
     }else{
@@ -864,7 +1002,7 @@ void print_memory(int start, int width){
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
 inline bool is_end(Operation op){
-    return (op.type == Otype::o_jal) && (op.rd == 0) && (op.imm == 0);
+    return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
 }
 
 // 実効情報を表示したうえで異常終了
