@@ -100,7 +100,7 @@ class Configuration{
     // write back
     class WB_stage{
         public:
-            std::array<Instruction, 2> inst;
+            std::array<std::optional<Instruction>, 2> inst;
     };
 
     public:
@@ -111,6 +111,7 @@ class Configuration{
         bool intra_hazard_detector(); // 同時発行される命令の間のハザード検出
         bool inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
         bool iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
+        void wb_req(Instruction); // WBステージに命令を渡す
 };
 
 

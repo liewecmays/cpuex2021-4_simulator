@@ -411,10 +411,21 @@ void advance_clock(){
     // AL
     for(unsigned int i=0; i<2; ++i){
         config.EX.als[i].exec();
+        if(!config.EX.als[i].inst.op.is_nop()){
+            cfg_next.wb_req(config.EX.als[i].inst);
+        }
     }
 
     // BR
     config.EX.br.exec();
+
+    // MA
+    // マルチサイクルなので、config.EX.ma.cycle_countを参照する必要がある
+    // exec_inst(config.EX.ma.inst);
+
+    // mFP
+    // マルチサイクルなので、config.EX.mfp.cycle_countを参照する必要がある
+    // exec_inst(config.EX.mfp.inst);
 
 
     /* instruction fetch/decode */
@@ -506,17 +517,15 @@ void advance_clock(){
         std::cout << "  al" << i << ": pc=" << config.EX.als[i].inst.pc << ", " << config.EX.als[i].inst.op.to_string() << std::endl;
     }
     std::cout << "  br : pc=" << config.EX.br.inst.pc << ", " << config.EX.br.inst.op.to_string() << " -> " << (config.EX.br.branch_addr.has_value() ? "taken" : "untaken") << std::endl;
-    
-    // MA
-    // マルチサイクルなので、config.EX.ma.cycle_countを参照する必要がある
-    // exec_inst(config.EX.ma.inst);
 
-    // mFP
-    // マルチサイクルなので、config.EX.mfp.cycle_countを参照する必要がある
-    // exec_inst(config.EX.mfp.inst);
-
-    /* write back */
-    
+    std::cout << "WB:" << std::endl;
+    for(unsigned int i=0; i<2; ++i){
+        if(config.WB.inst[i].has_value()){
+            std::cout << "  wb" << i << ": pc=" << config.WB.inst[i].value().pc << ", " << config.WB.inst[i].value().op.to_string() << std::endl;
+        }else{
+            std::cout << "  wb" << i << ": (empty)" << std::endl;
+        }
+    }
 
     // update
     config = cfg_next;
@@ -631,6 +640,16 @@ bool Configuration::iwp_hazard_detector(unsigned int i){
     }
 }
 
+void Configuration::wb_req(Instruction inst){
+    if(!this->WB.inst[0].has_value()){
+        this->WB.inst[0] = inst;
+    }else if(!this->WB.inst[1].has_value()){
+        this->WB.inst[1] = inst;
+    }else{
+        exit_with_output("too many requests for WB (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
+    }
+}
+
 void Configuration::EX_stage::EX_al::exec(){
     if(this->inst.op.is_nop()) return;
     switch(this->inst.op.type){
@@ -690,9 +709,15 @@ void Configuration::EX_stage::EX_al::exec(){
             write_reg_32(this->inst.op.rd, this->inst.rs1_v);
             ++op_type_count[o_fmvfi];
             return;
-        // pass through
-        case o_jal:
+        // jalr (pass through)
         case o_jalr:
+            write_reg(this->inst.op.rd, this->inst.pc + 4);
+            return;
+        // jal (pass through)
+        case o_jal:
+            write_reg(this->inst.op.rd, this->inst.pc + 4);
+            return;
+        case o_nop:
             return;
         default:
             exit_with_output("invalid operation for AL (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
@@ -730,15 +755,15 @@ void Configuration::EX_stage::EX_br::exec(){
             return;
         // jalr
         case o_jalr:
-            write_reg(this->inst.op.rd, this->inst.pc + 4);
             this->branch_addr = this->inst.rs1_v.ui; // todo: uiでよい？
             ++op_type_count[o_jalr];
             return;
         // jal
         case o_jal:
-            write_reg(this->inst.op.rd, this->inst.pc + 4);
             this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
             ++op_type_count[o_jal];
+            return;
+        case o_nop:
             return;
         default:
             exit_with_output("invalid operation for BR (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
