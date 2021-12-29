@@ -192,7 +192,6 @@ int main(int argc, char *argv[]){
         }
     }
 
-    std::cout << code_id << std::endl;
     op_list.resize(code_id + 6); // segmentation fault防止のために余裕を持たせる
 
     // シミュレーションの本体処理
@@ -404,7 +403,7 @@ bool exec_command(std::string cmd){
 bool at_power_on = true;
 // クロックを1つ分先に進める
 void advance_clock(){
-    Configuration cfg_next; // configを現在の状態として、次の状態
+    Configuration cfg_next = Configuration(); // configを現在の状態として、次の状態
 
     std::cout << "clock=" << clk_count << std::endl;
 
@@ -420,17 +419,16 @@ void advance_clock(){
 
     /* instruction fetch/decode */
     // dispatch?
-    std::array<bool, 2> is_not_dispatched;
-    is_not_dispatched[0] = config.inter_hazard_detector(0) || config.iwp_hazard_detector(0);
-    is_not_dispatched[1] = is_not_dispatched[0] || config.intra_hazard_detector() || config.inter_hazard_detector(1) || config.iwp_hazard_detector(1);
+    config.ID.is_not_dispatched[0] = config.inter_hazard_detector(0) || config.iwp_hazard_detector(0);
+    config.ID.is_not_dispatched[1] = config.ID.is_not_dispatched[0] || config.intra_hazard_detector() || config.inter_hazard_detector(1) || config.iwp_hazard_detector(1);
 
     // pc manager
     if(config.EX.br.branch_addr.has_value()){
         config.IF.pc[0] = config.EX.br.branch_addr.value();
         config.IF.pc[1] = config.EX.br.branch_addr.value() + 4;
-    }else if(is_not_dispatched[0]){
+    }else if(config.ID.is_not_dispatched[0]){
         config.IF.pc = config.ID.pc;
-    }else if(is_not_dispatched[1]){
+    }else if(config.ID.is_not_dispatched[1]){
         config.IF.pc[0] = config.ID.pc[0] + 4;
         config.IF.pc[1] = config.ID.pc[1] + 4;
     }else{
@@ -445,7 +443,7 @@ void advance_clock(){
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
-        if(is_not_dispatched[i]) continue;
+        if(config.EX.br.branch_addr.has_value() || config.ID.is_not_dispatched[i]) continue;
         switch(config.ID.op[i].type){
             case o_add:
             case o_sub:
@@ -458,8 +456,8 @@ void advance_clock(){
             case o_srli:
             case o_srai:
             case o_andi:
-            // case o_lui:
-            // case o_fmvfi:
+            case o_lui:
+            case o_fmvfi:
                 cfg_next.EX.als[i].inst.op = config.ID.op[i];
                 cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
                 cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
@@ -495,12 +493,12 @@ void advance_clock(){
 
     std::cout << "IF:" << std::endl;
     for(unsigned int i=0; i<2; ++i){
-        std::cout << "  " << i << ": pc=" << config.IF.pc[i] << std::endl;
+        std::cout << "  if" << i << ": pc=" << config.IF.pc[i] << std::endl;
     }
 
     std::cout << "ID:" << std::endl;
     for(unsigned int i=0; i<2; ++i){
-        std::cout << "  " << i << ": pc=" << config.ID.pc[i] << ", " << config.ID.op[i].to_string() << " -> " << (is_not_dispatched[i] ? "not dispatched" : "dispatched") << std::endl;
+        std::cout << "  id" << i << ": pc=" << config.ID.pc[i] << ", " << config.ID.op[i].to_string() << " -> " << (config.ID.is_not_dispatched[i] ? "not dispatched" : "dispatched") << std::endl;
     }
 
     std::cout << "EX:" << std::endl;
@@ -638,49 +636,59 @@ void Configuration::EX_stage::EX_al::exec(){
     switch(this->inst.op.type){
         // op
         case o_add:
-            write_reg(inst.op.rd, inst.rs1_v.i + inst.rs2_v.i);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i + this->inst.rs2_v.i);
             ++op_type_count[o_add];
             return;
         case o_sub:
-            write_reg(inst.op.rd, inst.rs1_v.i - inst.rs2_v.i);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i - this->inst.rs2_v.i);
             ++op_type_count[o_sub];
             return;
         case o_sll:
-            write_reg(inst.op.rd, inst.rs1_v.i << inst.rs2_v.i);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i << this->inst.rs2_v.i);
             ++op_type_count[o_sll];
             return;
         case o_srl:
-            write_reg(inst.op.rd, static_cast<unsigned int>(inst.rs1_v.i) >> inst.rs2_v.i);
+            write_reg(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.rs2_v.i);
             ++op_type_count[o_srl];
             return;
         case o_sra:
-            write_reg(inst.op.rd, inst.rs1_v.i >> inst.rs2_v.i); // todo: 処理系依存
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.rs2_v.i); // todo: 処理系依存
             ++op_type_count[o_sra];
             return;
         case o_and:
-            write_reg(inst.op.rd, inst.rs1_v.i & inst.rs2_v.i);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i & this->inst.rs2_v.i);
             ++op_type_count[o_and];
             return;
         // op_imm
         case o_addi:
-            write_reg(inst.op.rd, inst.rs1_v.i + inst.op.imm);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i + this->inst.op.imm);
             ++op_type_count[o_addi];
             return;
         case o_slli:
-            write_reg(inst.op.rd, inst.rs1_v.i << inst.op.imm);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i << this->inst.op.imm);
             ++op_type_count[o_slli];
             return;
         case o_srli:
-            write_reg(inst.op.rd, static_cast<unsigned int>(inst.rs1_v.i) >> inst.op.imm);
+            write_reg(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.op.imm);
             ++op_type_count[o_srli];
             return;
         case o_srai:
-            write_reg(inst.op.rd, inst.rs1_v.i >> inst.op.imm); // todo: 処理系依存
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.op.imm); // todo: 処理系依存
             ++op_type_count[o_srai];
             return;
         case o_andi:
-            write_reg(inst.op.rd, inst.rs1_v.i & inst.op.imm);
+            write_reg(this->inst.op.rd, this->inst.rs1_v.i & this->inst.op.imm);
             ++op_type_count[o_andi];
+            return;
+        // lui
+        case o_lui:
+            write_reg(this->inst.op.rd, this->inst.op.imm << 12);
+            ++op_type_count[o_lui];
+            return;
+        // ftoi
+        case o_fmvfi:
+            write_reg_32(this->inst.op.rd, this->inst.rs1_v);
+            ++op_type_count[o_fmvfi];
             return;
         // pass through
         case o_jal:
@@ -876,20 +884,9 @@ void Configuration::EX_stage::EX_br::exec(){
         //     ++op_type_count[o_flw];
         //     pc += 4;
         //     return;
-
-        // case o_lui:
-        //     write_reg(op.rd, op.imm << 12);
-        //     ++op_type_count[o_lui];
-        //     pc += 4;
-        //     return;
         // case o_fmvif:
         //     write_reg_fp_32(op.rd, read_reg_32(op.rs1));
         //     ++op_type_count[o_fmvif];
-        //     pc += 4;
-        //     return;
-        // case o_fmvfi:
-        //     write_reg_32(op.rd, read_reg_fp_32(op.rs1));
-        //     ++op_type_count[o_fmvfi];
         //     pc += 4;
         //     return;
         // default:

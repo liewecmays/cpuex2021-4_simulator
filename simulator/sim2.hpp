@@ -30,7 +30,6 @@ class Configuration{
     class IF_stage{
         public:
             std::array<int, 2> pc;
-            IF_stage();
     };
 
     // instruction decode
@@ -38,6 +37,7 @@ class Configuration{
         public:
             std::array<int, 2> pc;
             std::array<Operation, 2> op;
+            std::array<bool, 2> is_not_dispatched;
             ID_stage();
     };
 
@@ -150,11 +150,7 @@ inline Instruction::Instruction(){
     this->rs2_v = 0;
     this->pc = 0;
 }
-inline Configuration::IF_stage::IF_stage(){
-    this->pc[0] = 0;
-    this->pc[1] = 4;
-}
-inline Configuration::ID_stage::ID_stage(){
+inline Configuration::ID_stage::ID_stage(){ // pcの初期値に注意
     this->pc[0] = -8;
     this->pc[1] = -4;
 }
