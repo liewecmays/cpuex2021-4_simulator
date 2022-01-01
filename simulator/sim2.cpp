@@ -34,6 +34,7 @@ Configuration config; // 各時点の状態
 // シミュレーションの制御
 bool is_debug = true; // デバッグモード (一時的にデフォルトをtrueに設定)
 bool is_bin = false; // バイナリファイルモード
+bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string filename; // 処理対象のファイル名
 std::string preload_filename; // プリロード対象のファイル名
@@ -61,6 +62,7 @@ int main(int argc, char *argv[]){
         ("file,f", po::value<std::string>(), "filename")
         ("debug,d", "debug mode")
         ("bin,b", "binary-input mode")
+        ("ieee", "IEEE754 mode")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
 	po::variables_map vm;
     try{
@@ -84,6 +86,7 @@ int main(int argc, char *argv[]){
     }
     if(vm.count("debug")) is_debug = true;
     if(vm.count("bin")) is_bin = true;
+    if(vm.count("ieee")) is_ieee = true;
     if(vm.count("preload")){
         is_preloading = true;
         preload_filename = vm["preload"].as<std::string>();
@@ -404,18 +407,17 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-bool at_power_on = true;
 // クロックを1つ分先に進める
 void advance_clock(bool verbose){
-    Configuration cfg_next = Configuration(); // configを現在の状態として、次の状態
-    cfg_next.clk = config.clk + 1;
+    Configuration config_next = Configuration(); // configを現在の状態として、次の状態
+    config_next.clk = config.clk + 1;
 
     /* execution */
     // AL
     for(unsigned int i=0; i<2; ++i){
         config.EX.als[i].exec();
         if(!config.EX.als[i].inst.op.is_nop()){
-            cfg_next.wb_req(config.EX.als[i].inst);
+            config_next.wb_req(config.EX.als[i].inst);
         }
     }
 
@@ -427,40 +429,41 @@ void advance_clock(bool verbose){
         if(config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
             if(config.EX.ma.inst.op.type == o_sw || config.EX.ma.inst.op.type == o_fsw){
                 if(config.EX.ma.available()){
-                    cfg_next.EX.ma.state = config.EX.ma.state;
+                    config.EX.ma.exec();
+                    config_next.EX.ma.state = config.EX.ma.state;
                 }else{
-                    cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
-                    cfg_next.EX.ma.inst = config.EX.ma.inst;
-                    cfg_next.EX.ma.cycle_count = 1;
+                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
+                    config_next.EX.ma.inst = config.EX.ma.inst;
+                    config_next.EX.ma.cycle_count = 1;
                 }
             }else if(config.EX.ma.inst.op.type == o_lw){
-                cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
-                cfg_next.EX.ma.inst = config.EX.ma.inst;
-                cfg_next.EX.ma.cycle_count = 1;
+                config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
+                config_next.EX.ma.inst = config.EX.ma.inst;
+                config_next.EX.ma.cycle_count = 1;
             }else if(config.EX.ma.inst.op.type == o_flw){
-                cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
-                cfg_next.EX.ma.inst = config.EX.ma.inst;
-                cfg_next.EX.ma.cycle_count = 1;
+                config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
+                config_next.EX.ma.inst = config.EX.ma.inst;
+                config_next.EX.ma.cycle_count = 1;
             }else{
-                cfg_next.EX.ma.state = config.EX.ma.state;
-                cfg_next.EX.ma.inst = config.EX.ma.inst;
+                config_next.EX.ma.state = config.EX.ma.state;
+                config_next.EX.ma.inst = config.EX.ma.inst;
             }
         }else{
             if(config.EX.ma.available()){
                 config.EX.ma.exec();
                 if(config.EX.ma.inst.op.type == o_lw || config.EX.ma.inst.op.type == o_flw){
-                    cfg_next.wb_req(config.EX.ma.inst);
+                    config_next.wb_req(config.EX.ma.inst);
                 }
-                cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+                config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
             }else{
-                cfg_next.EX.ma.state = config.EX.ma.state;
-                cfg_next.EX.ma.inst = config.EX.ma.inst;
-                cfg_next.EX.ma.cycle_count = config.EX.ma.cycle_count + 1;
+                config_next.EX.ma.state = config.EX.ma.state;
+                config_next.EX.ma.inst = config.EX.ma.inst;
+                config_next.EX.ma.cycle_count = config.EX.ma.cycle_count + 1;
             }
         }
     }
 
-    // MA (hazard)
+    // MA (hazard info)
     config.EX.ma.info.wb_addr = config.EX.ma.inst.op.rd; // todo: いらない？
     config.EX.ma.info.is_willing_but_not_ready_int =
         (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (config.EX.ma.inst.op.type == o_lrd || config.EX.ma.inst.op.type == o_lw))
@@ -472,12 +475,31 @@ void advance_clock(bool verbose){
         (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (((config.EX.ma.inst.op.type == o_sw || config.EX.ma.inst.op.type == o_fsw) && !config.EX.ma.available()) || config.EX.ma.inst.op.type == o_lw || config.EX.ma.inst.op.type == o_flw))
         || ((config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Store_data_mem || config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int || config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp) && !config.EX.ma.available());
 
-
     // mFP
-    // config.EX.mfp.exec();
+    if(!config.EX.ma.inst.op.is_nop()){
+        if(config.EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Waiting){
+            if(config.EX.mfp.available()){
+                config.EX.mfp.exec();
+                config_next.wb_req(config.EX.mfp.inst);
+                config_next.EX.mfp.state = config.EX.mfp.state;
+            }else{
+                config_next.EX.mfp.state = Configuration::EX_stage::EX_mfp::State_mfp::Processing;
+            }
+        }else{
+            if(config.EX.mfp.available()){
+                config.EX.mfp.exec();
+                config_next.wb_req(config.EX.mfp.inst);
+                config_next.EX.mfp.state = Configuration::EX_stage::EX_mfp::State_mfp::Waiting;
+            }else{
+                config_next.EX.mfp.state = config.EX.mfp.state;
+            }
+        }
+    }
 
-    // pFP
-    // config.EX.pfp.exec();
+    // mFP (hazard info)
+    config.EX.mfp.info.wb_addr = config.EX.mfp.inst.op.rd;
+    config.EX.mfp.info.is_willing_but_not_ready = (config_next.EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Processing);
+    config.EX.mfp.info.cannot_accept = (config_next.EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Processing);
 
 
     /* instruction fetch/decode */
@@ -500,13 +522,13 @@ void advance_clock(bool verbose){
     }
 
     // instruction fetch
-    cfg_next.ID.pc = config.IF.pc;
-    cfg_next.ID.op[0] = op_list[id_of_pc(config.IF.pc[0])];
-    cfg_next.ID.op[1] = op_list[id_of_pc(config.IF.pc[1])];
+    config_next.ID.pc = config.IF.pc;
+    config_next.ID.op[0] = op_list[id_of_pc(config.IF.pc[0])];
+    config_next.ID.op[1] = op_list[id_of_pc(config.IF.pc[1])];
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
-        if(config.EX.br.branch_addr.has_value()) continue; // rst from br
+        if(config.EX.br.branch_addr.has_value() || config.ID.is_not_dispatched[i]) continue; // rst from br/id
         switch(config.ID.op[i].type){
             // AL
             case o_add:
@@ -521,83 +543,94 @@ void advance_clock(bool verbose){
             case o_srai:
             case o_andi:
             case o_lui:
-            case o_fmvfi:
-                if(!config.ID.is_not_dispatched[i]){
-                    cfg_next.EX.als[i].inst.op = config.ID.op[i];
-                    cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                    cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                    cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
-                }
+                config_next.EX.als[i].inst.op = config.ID.op[i];
+                config_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                config_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                config_next.EX.als[i].inst.pc = config.ID.pc[i];
                 break;
-            // BR
+            case o_fmvfi:
+                config_next.EX.als[i].inst.op = config.ID.op[i];
+                config_next.EX.als[i].inst.rs1_v = read_reg_fp_32(config.ID.op[i].rs1);
+                config_next.EX.als[i].inst.pc = config.ID.pc[i];
+                break;
+            // BR (conditional)
             case o_beq:
             case o_blt:
             case o_fbeq:
             case o_fblt:
-                if(config.ID.op[0].branch_conditionally_or_unconditionally() ? !config.ID.is_not_dispatched[0] : !config.ID.is_not_dispatched[1]){
-                    cfg_next.EX.br.inst.op = config.ID.op[i];
-                    cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                    cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                    cfg_next.EX.br.inst.pc = config.ID.pc[i];
-                }
+                config_next.EX.br.inst.op = config.ID.op[i];
+                config_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                config_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                config_next.EX.br.inst.pc = config.ID.pc[i];
                 break;
-            // BR
+            // BR (unconditional)
             case o_jal:
             case o_jalr:
                 // ALとBRの両方にdistribute
-                if(!config.ID.is_not_dispatched[i]){
-                    cfg_next.EX.als[i].inst.op = config.ID.op[i];
-                    cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                    cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                    cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
-                }
-                if(!config.ID.is_not_dispatched[i]){ // todo: これでよい？
-                    cfg_next.EX.br.inst.op = config.ID.op[i];
-                    cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                    cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                    cfg_next.EX.br.inst.pc = config.ID.pc[i];
-                }
+                config_next.EX.als[i].inst.op = config.ID.op[i];
+                config_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                config_next.EX.als[i].inst.pc = config.ID.pc[i];
+                config_next.EX.br.inst.op = config.ID.op[i];
+                config_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                config_next.EX.br.inst.pc = config.ID.pc[i];
                 break;
             // MA (int)
             case o_sw:
             case o_lw:
-                if(!config.ID.is_not_dispatched[i]){
-                    cfg_next.EX.ma.inst.op = config.ID.op[i];
-                    cfg_next.EX.ma.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                    cfg_next.EX.ma.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                    cfg_next.EX.ma.inst.pc = config.ID.pc[i];
-                }
+                config_next.EX.ma.inst.op = config.ID.op[i];
+                config_next.EX.ma.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                config_next.EX.ma.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                config_next.EX.ma.inst.pc = config.ID.pc[i];
                 break;
             // MA (float)
             case o_fsw:
             case o_flw:
-                if(!config.ID.is_not_dispatched[i]){
-                    cfg_next.EX.ma.inst.op = config.ID.op[i];
-                    cfg_next.EX.ma.inst.rs1_v = read_reg_fp_32(config.ID.op[i].rs1);
-                    cfg_next.EX.ma.inst.rs2_v = read_reg_fp_32(config.ID.op[i].rs2);
-                    cfg_next.EX.ma.inst.pc = config.ID.pc[i];
-                }
+                config_next.EX.ma.inst.op = config.ID.op[i];
+                config_next.EX.ma.inst.rs1_v = read_reg_fp_32(config.ID.op[i].rs1);
+                config_next.EX.ma.inst.rs2_v = read_reg_fp_32(config.ID.op[i].rs2);
+                config_next.EX.ma.inst.pc = config.ID.pc[i];
+                break;
+            // mFP
+            case o_fdiv:
+            case o_fsqrt:
+            case o_fcvtif:
+            case o_fcvtfi:
+            case o_fmvff:
+                config_next.EX.ma.inst.op = config.ID.op[i];
+                config_next.EX.ma.inst.rs1_v = read_reg_fp_32(config.ID.op[i].rs1);
+                config_next.EX.ma.inst.rs2_v = read_reg_fp_32(config.ID.op[i].rs2);
+                config_next.EX.ma.inst.pc = config.ID.pc[i];
+                break;
+            case o_fmvif:
+                config_next.EX.ma.inst.op = config.ID.op[i];
+                config_next.EX.ma.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                config_next.EX.ma.inst.pc = config.ID.pc[i];
                 break;
             case o_nop: break;
-            // todo: その他の場合
             default: std::exit(EXIT_FAILURE);
         }
     }
 
-    // print
+    /* print */
     if(verbose){
         std::cout << "clk: " << config.clk << std::endl;
+
+        // IF
         std::cout << "\x1b[1m[IF]\x1b[0m" << std::endl;
         for(unsigned int i=0; i<2; ++i){
             std::cout << "  if" << i << ": pc=" << config.IF.pc[i] << std::endl;
         }
 
+        // ID
         std::cout << "\x1b[1m[ID]\x1b[0m" << std::endl;
         for(unsigned int i=0; i<2; ++i){
             std::cout << "  id" << i << ": " << config.ID.op[i].to_string() << " (pc=" << config.ID.pc[i] << ")" << (config.ID.is_not_dispatched[i] ? "\x1b[1m\x1b[31m -> not dispatched\x1b[0m" : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
         }
 
+        // EX
         std::cout << "\x1b[1m[EX]\x1b[0m" << std::endl;
+        
+        // EX_al
         for(unsigned int i=0; i<2; ++i){
             if(!config.EX.als[i].inst.op.is_nop()){
                 std::cout << "  al" << i << ": " << config.EX.als[i].inst.op.to_string() << " (pc=" << config.EX.als[i].inst.pc << ")" << std::endl;
@@ -605,17 +638,29 @@ void advance_clock(bool verbose){
                 std::cout << "  al" << i << ": [empty]" << std::endl;
             }
         }
+
+        // EX_br
         if(!config.EX.br.inst.op.is_nop()){
             std::cout << "  br : " << config.EX.br.inst.op.to_string() << " (pc=" << config.EX.br.inst.pc << ")" << (config.EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
         }else{
             std::cout << "  br : [empty]" << std::endl;
         }
+
+        // EX_ma
         if(!config.EX.ma.inst.op.is_nop()){
             std::cout << "  ma : " << config.EX.ma.inst.op.to_string() << " (pc=" << config.EX.ma.inst.pc << ") [state: " << NAMEOF_ENUM(config.EX.ma.state) << (config.EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(config.EX.ma.cycle_count)) : "") << "]" << (config.EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
         }else{
             std::cout << "  ma : [empty]" << std::endl;
         }
 
+        // EX_mfp
+        if(!config.EX.ma.inst.op.is_nop()){
+            std::cout << "  mfp: " << config.EX.mfp.inst.op.to_string() << " (pc=" << config.EX.mfp.inst.pc << ") [state: " << NAMEOF_ENUM(config.EX.mfp.state) << (config.EX.mfp.state != Configuration::EX_stage::EX_mfp::State_mfp::Waiting ? (", cycle: " + std::to_string(config.EX.mfp.cycle_count)) : "") << "]" << (config.EX.mfp.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+        }else{
+            std::cout << "  mfp: [empty]" << std::endl;
+        }
+
+        // WB
         std::cout << "\x1b[1m[WB]\x1b[0m" << std::endl;
         for(unsigned int i=0; i<2; ++i){
             if(config.WB.inst[i].has_value()){
@@ -626,8 +671,8 @@ void advance_clock(bool verbose){
         }
     }
 
-    // update
-    config = cfg_next;
+    /* update */
+    config = config_next;
 }
 
 // 同時発行される命令の間のハザード検出
@@ -750,7 +795,6 @@ void Configuration::wb_req(Instruction inst){
 }
 
 void Configuration::EX_stage::EX_al::exec(){
-    if(this->inst.op.is_nop()) return;
     switch(this->inst.op.type){
         // op
         case o_add:
@@ -816,15 +860,13 @@ void Configuration::EX_stage::EX_al::exec(){
         case o_jal:
             write_reg(this->inst.op.rd, this->inst.pc + 4);
             return;
-        case o_nop:
-            return;
+        case o_nop: return;
         default:
             exit_with_output("invalid operation for AL (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
     }
 }
 
 void Configuration::EX_stage::EX_br::exec(){
-    if(this->inst.op.is_nop()) return;
     switch(this->inst.op.type){
         // branch
         case o_beq:
@@ -862,15 +904,13 @@ void Configuration::EX_stage::EX_br::exec(){
             this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
             ++op_type_count[o_jal];
             return;
-        case o_nop:
-            return;
+        case o_nop: return;
         default:
             exit_with_output("invalid operation for BR (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
     }
 }
 
 void Configuration::EX_stage::EX_ma::exec(){
-    if(this->inst.op.is_nop()) return;
     switch(this->inst.op.type){
         case o_sw:
             if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
@@ -904,83 +944,97 @@ void Configuration::EX_stage::EX_ma::exec(){
             }
             ++op_type_count[o_flw];
             return;
+        case o_nop: return;
         default:
             exit_with_output("invalid operation for MA (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
     }
 }
 
 bool Configuration::EX_stage::EX_ma::available(){
-    return this->cycle_count == 2; // 仮の値で0
+    return this->cycle_count == 2; // 仮の値
+}
+
+void Configuration::EX_stage::EX_mfp::exec(){
+    switch(this->inst.op.type){
+        // op_fp
+        case o_fdiv:
+            if(is_ieee){
+                write_reg_fp(this->inst.op.rd, this->inst.rs1_v.f / this->inst.rs2_v.f);
+            }else{
+                write_reg_fp_32(this->inst.op.rd, fdiv(this->inst.rs1_v, this->inst.rs2_v));
+            }
+            ++op_type_count[o_fdiv];
+            return;
+        case o_fsqrt:
+            if(is_ieee){
+                write_reg_fp(this->inst.op.rd, std::sqrt(this->inst.rs1_v.f));
+            }else{
+                write_reg_fp_32(this->inst.op.rd, fsqrt(this->inst.rs1_v));
+            }
+            ++op_type_count[o_fsqrt];
+            return;
+        case o_fcvtif:
+            if(is_ieee){
+                write_reg_fp(this->inst.op.rd, static_cast<float>(this->inst.rs1_v.i));
+            }else{
+                write_reg_fp_32(this->inst.op.rd, itof(this->inst.rs1_v));
+            }
+            ++op_type_count[o_fcvtif];
+            return;
+        case o_fcvtfi:
+            if(is_ieee){
+                write_reg_fp(this->inst.op.rd, static_cast<int>(std::nearbyint(this->inst.rs1_v.f)));
+            }else{
+                write_reg_fp_32(this->inst.op.rd, ftoi(this->inst.rs1_v));
+            }
+            ++op_type_count[o_fcvtfi];
+            return;
+        case o_fmvff:
+            write_reg_fp_32(this->inst.op.rd, this->inst.rs1_v);
+            ++op_type_count[o_fmvff];
+            return;
+        // itof
+        case o_fmvif:
+            write_reg_fp_32(this->inst.op.rd, this->inst.rs1_v);
+            ++op_type_count[o_fmvif];
+            return;
+        case o_nop: return;
+        default:
+            exit_with_output("invalid operation for mFP (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+    }
+}
+
+bool Configuration::EX_stage::EX_mfp::available(){
+    return this->cycle_count == 2; // 仮の値
 }
 
 // void exec_inst(Instruction inst){
 //     switch(inst.op.type){
         // case o_fadd:
         //     if(is_ieee){
-        //         write_reg_fp(op.rd, read_reg_fp(op.rs1) + read_reg_fp(op.rs2));
+        //         write_reg_fp(op.rd, this->inst.rs1_v.f + this->inst.rs2_v.f);
         //     }else{
-        //         write_reg_fp_32(op.rd, fadd(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+        //         write_reg_fp_32(op.rd, fadd(this->inst.rs1_v, this->inst.rs2_v));
         //     }
         //     ++op_type_count[o_fadd];
         //     pc += 4;
         //     return;
         // case o_fsub:
         //     if(is_ieee){
-        //         write_reg_fp(op.rd, read_reg_fp(op.rs1) - read_reg_fp(op.rs2));
+        //         write_reg_fp(op.rd, this->inst.rs1_v.f - this->inst.rs2_v.f);
         //     }else{
-        //         write_reg_fp_32(op.rd, fsub(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+        //         write_reg_fp_32(op.rd, fsub(this->inst.rs1_v, this->inst.rs2_v));
         //     }
         //     ++op_type_count[o_fsub];
         //     pc += 4;
         //     return;
         // case o_fmul:
         //     if(is_ieee){
-        //         write_reg_fp(op.rd, read_reg_fp(op.rs1) * read_reg_fp(op.rs2));
+        //         write_reg_fp(op.rd, this->inst.rs1_v.f * this->inst.rs2_v.f);
         //     }else{
-        //         write_reg_fp_32(op.rd, fmul(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
+        //         write_reg_fp_32(op.rd, fmul(this->inst.rs1_v, this->inst.rs2_v));
         //     }
         //     ++op_type_count[o_fmul];
-        //     pc += 4;
-        //     return;
-        // case o_fdiv:
-        //     if(is_ieee){
-        //         write_reg_fp(op.rd, read_reg_fp(op.rs1) / read_reg_fp(op.rs2));
-        //     }else{
-        //         write_reg_fp_32(op.rd, fdiv(read_reg_fp_32(op.rs1), read_reg_fp_32(op.rs2)));
-        //     }
-        //     ++op_type_count[o_fdiv];
-        //     pc += 4;
-        //     return;
-        // case o_fsqrt:
-        //     if(is_ieee){
-        //         write_reg_fp(op.rd, std::sqrt(read_reg_fp(op.rs1)));
-        //     }else{
-        //         write_reg_fp_32(op.rd, fsqrt(read_reg_fp_32(op.rs1)));
-        //     }
-        //     ++op_type_count[o_fsqrt];
-        //     pc += 4;
-        //     return;
-        // case o_fcvtif:
-        //     if(is_ieee){
-        //         write_reg_fp(op.rd, static_cast<float>(read_reg_fp_32(op.rs1).i));
-        //     }else{
-        //         write_reg_fp_32(op.rd, itof(read_reg_fp_32(op.rs1)));
-        //     }
-        //     ++op_type_count[o_fcvtif];
-        //     pc += 4;
-        //     return;
-        // case o_fcvtfi:
-        //     if(is_ieee){
-        //         write_reg_fp(op.rd, static_cast<int>(std::nearbyint(read_reg_fp(op.rs1))));
-        //     }else{
-        //         write_reg_fp_32(op.rd, ftoi(read_reg_fp_32(op.rs1)));
-        //     }
-        //     ++op_type_count[o_fcvtfi];
-        //     pc += 4;
-        //     return;
-        // case o_fmvff:
-        //     write_reg_fp_32(op.rd, read_reg_fp_32(op.rs1));
-        //     ++op_type_count[o_fmvff];
         //     pc += 4;
         //     return;
         // case o_si:
@@ -1015,11 +1069,6 @@ bool Configuration::EX_stage::EX_ma::available(){
         // case o_ltf:
         //     write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
         //     ++op_type_count[o_ltf];
-        //     pc += 4;
-        //     return;
-        // case o_fmvif:
-        //     write_reg_fp_32(op.rd, read_reg_32(op.rs1));
-        //     ++op_type_count[o_fmvif];
         //     pc += 4;
         //     return;
         // default:

@@ -78,6 +78,9 @@ class Configuration{
                 };
                 class EX_mfp{
                     public:
+                        enum class State_mfp{
+                            Waiting, Processing
+                        };
                         class Hazard_info_mfp{
                             public:
                                 unsigned int wb_addr;
@@ -87,7 +90,10 @@ class Configuration{
                     public:
                         Instruction inst;
                         unsigned int cycle_count;
+                        State_mfp state;
                         Hazard_info_mfp info;
+                        void exec();
+                        bool available();
                 };
                 class EX_pfp{
                     public:
