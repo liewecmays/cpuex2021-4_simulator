@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <boost/program_options.hpp>
 #include <chrono>
+#include "nameof.hpp"
 
 using ::Otype;
 namespace po = boost::program_options;
@@ -420,12 +421,63 @@ void advance_clock(){
     config.EX.br.exec();
 
     // MA
-    // マルチサイクルなので、config.EX.ma.cycle_countを参照する必要がある
-    // exec_inst(config.EX.ma.inst);
+    if(!config.EX.ma.inst.op.is_nop()){
+        if(config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
+            if(config.EX.ma.inst.op.type == o_sw || config.EX.ma.inst.op.type == o_fsw){
+                if(config.EX.ma.available()){
+                    std::cout << "available!" << std::endl;
+                    cfg_next.EX.ma.state = config.EX.ma.state;
+                }else{
+                    cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
+                    cfg_next.EX.ma.inst = config.EX.ma.inst;
+                    cfg_next.EX.ma.cycle_count = 1;
+                }
+            }else if(config.EX.ma.inst.op.type == o_lw){
+                cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
+                cfg_next.EX.ma.inst = config.EX.ma.inst;
+                cfg_next.EX.ma.cycle_count = 1;
+            }else if(config.EX.ma.inst.op.type == o_flw){
+                cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
+                cfg_next.EX.ma.inst = config.EX.ma.inst;
+                cfg_next.EX.ma.cycle_count = 1;
+            }else{
+                cfg_next.EX.ma.state = config.EX.ma.state;
+                cfg_next.EX.ma.inst = config.EX.ma.inst;
+            }
+        }else{
+            if(config.EX.ma.available()){
+                config.EX.ma.exec();
+                std::cout << "MA exec" << std::endl;
+                if(config.EX.ma.inst.op.type == o_lw || config.EX.ma.inst.op.type == o_flw){
+                    cfg_next.wb_req(config.EX.ma.inst);
+                }
+                cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+            }else{
+                cfg_next.EX.ma.state = config.EX.ma.state;
+                cfg_next.EX.ma.inst = config.EX.ma.inst;
+                cfg_next.EX.ma.cycle_count = config.EX.ma.cycle_count + 1;
+            }
+        }
+    }
+
+    // MA (hazard)
+    config.EX.ma.info.wb_addr = config.EX.ma.inst.op.rd; // todo: いらない？
+    config.EX.ma.info.is_willing_but_not_ready_int =
+        (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (config.EX.ma.inst.op.type == o_lrd || config.EX.ma.inst.op.type == o_lw))
+        || (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int && !config.EX.ma.available());
+    config.EX.ma.info.is_willing_but_not_ready_fp =
+        (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && config.EX.ma.inst.op.type == o_flw)
+        || (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !config.EX.ma.available());
+    config.EX.ma.info.cannot_accept =
+        (config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (((config.EX.ma.inst.op.type == o_sw || config.EX.ma.inst.op.type == o_fsw) && !config.EX.ma.available()) || config.EX.ma.inst.op.type == o_lw || config.EX.ma.inst.op.type == o_flw))
+        || ((config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Store_data_mem || config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int || config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp) && !config.EX.ma.available());
+
 
     // mFP
-    // マルチサイクルなので、config.EX.mfp.cycle_countを参照する必要がある
-    // exec_inst(config.EX.mfp.inst);
+    // config.EX.mfp.exec();
+
+    // pFP
+    // config.EX.pfp.exec();
 
 
     /* instruction fetch/decode */
@@ -454,8 +506,9 @@ void advance_clock(){
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
-        if(config.EX.br.branch_addr.has_value() || config.ID.is_not_dispatched[i]) continue;
+        if(config.EX.br.branch_addr.has_value()) continue; // rst from br
         switch(config.ID.op[i].type){
+            // AL
             case o_add:
             case o_sub:
             case o_sll:
@@ -469,31 +522,61 @@ void advance_clock(){
             case o_andi:
             case o_lui:
             case o_fmvfi:
-                cfg_next.EX.als[i].inst.op = config.ID.op[i];
-                cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
+                if(!config.ID.is_not_dispatched[i]){
+                    cfg_next.EX.als[i].inst.op = config.ID.op[i];
+                    cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                    cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                    cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
+                }
                 break;
+            // BR
             case o_beq:
             case o_blt:
             case o_fbeq:
             case o_fblt:
-                cfg_next.EX.br.inst.op = config.ID.op[i];
-                cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                cfg_next.EX.br.inst.pc = config.ID.pc[i];
+                if(config.ID.op[0].branch_conditionally_or_unconditionally() ? !config.ID.is_not_dispatched[0] : !config.ID.is_not_dispatched[1]){
+                    cfg_next.EX.br.inst.op = config.ID.op[i];
+                    cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                    cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                    cfg_next.EX.br.inst.pc = config.ID.pc[i];
+                }
                 break;
+            // BR
             case o_jal:
             case o_jalr:
                 // ALとBRの両方にdistribute
-                cfg_next.EX.als[i].inst.op = config.ID.op[i];
-                cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
-                cfg_next.EX.br.inst.op = config.ID.op[i];
-                cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
-                cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
-                cfg_next.EX.br.inst.pc = config.ID.pc[i];
+                if(!config.ID.is_not_dispatched[i]){
+                    cfg_next.EX.als[i].inst.op = config.ID.op[i];
+                    cfg_next.EX.als[i].inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                    cfg_next.EX.als[i].inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                    cfg_next.EX.als[i].inst.pc = config.ID.pc[i];
+                }
+                if(!config.ID.is_not_dispatched[i]){ // todo: これでよい？
+                    cfg_next.EX.br.inst.op = config.ID.op[i];
+                    cfg_next.EX.br.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                    cfg_next.EX.br.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                    cfg_next.EX.br.inst.pc = config.ID.pc[i];
+                }
+                break;
+            // MA (int)
+            case o_sw:
+            case o_lw:
+                if(!config.ID.is_not_dispatched[i]){
+                    cfg_next.EX.ma.inst.op = config.ID.op[i];
+                    cfg_next.EX.ma.inst.rs1_v = read_reg_32(config.ID.op[i].rs1);
+                    cfg_next.EX.ma.inst.rs2_v = read_reg_32(config.ID.op[i].rs2);
+                    cfg_next.EX.ma.inst.pc = config.ID.pc[i];
+                }
+                break;
+            // MA (float)
+            case o_fsw:
+            case o_flw:
+                if(!config.ID.is_not_dispatched[i]){
+                    cfg_next.EX.ma.inst.op = config.ID.op[i];
+                    cfg_next.EX.ma.inst.rs1_v = read_reg_fp_32(config.ID.op[i].rs1);
+                    cfg_next.EX.ma.inst.rs2_v = read_reg_fp_32(config.ID.op[i].rs2);
+                    cfg_next.EX.ma.inst.pc = config.ID.pc[i];
+                }
                 break;
             case o_nop: break;
             // todo: その他の場合
@@ -514,9 +597,22 @@ void advance_clock(){
 
     std::cout << "EX:" << std::endl;
     for(unsigned int i=0; i<2; ++i){
-        std::cout << "  al" << i << ": pc=" << config.EX.als[i].inst.pc << ", " << config.EX.als[i].inst.op.to_string() << std::endl;
+        if(!config.EX.als[i].inst.op.is_nop()){
+            std::cout << "  al" << i << ": pc=" << config.EX.als[i].inst.pc << ", " << config.EX.als[i].inst.op.to_string() << std::endl;
+        }else{
+            std::cout << "  al" << i << ": (empty)" << std::endl;
+        }
     }
-    std::cout << "  br : pc=" << config.EX.br.inst.pc << ", " << config.EX.br.inst.op.to_string() << " -> " << (config.EX.br.branch_addr.has_value() ? "taken" : "untaken") << std::endl;
+    if(!config.EX.br.inst.op.is_nop()){
+        std::cout << "  br : pc=" << config.EX.br.inst.pc << ", " << config.EX.br.inst.op.to_string() << " -> " << (config.EX.br.branch_addr.has_value() ? "taken" : "untaken") << std::endl;
+    }else{
+        std::cout << "  br : (empty)" << std::endl;
+    }
+    if(!config.EX.ma.inst.op.is_nop()){
+        std::cout << "  ma : pc=" << config.EX.ma.inst.pc << ", " << config.EX.ma.inst.op.to_string() << " (state = " << NAMEOF_ENUM(config.EX.ma.state) << (config.EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle = " + std::to_string(config.EX.ma.cycle_count)) : "") << ")" << std::endl;
+    }else{
+        std::cout << "  ma : (empty)" << std::endl;
+    }
 
     std::cout << "WB:" << std::endl;
     for(unsigned int i=0; i<2; ++i){
@@ -640,6 +736,7 @@ bool Configuration::iwp_hazard_detector(unsigned int i){
     }
 }
 
+// WBステージに命令を渡す
 void Configuration::wb_req(Instruction inst){
     if(!this->WB.inst[0].has_value()){
         this->WB.inst[0] = inst;
@@ -770,6 +867,50 @@ void Configuration::EX_stage::EX_br::exec(){
     }
 }
 
+void Configuration::EX_stage::EX_ma::exec(){
+    if(this->inst.op.is_nop()) return;
+    switch(this->inst.op.type){
+        case o_sw:
+            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
+                write_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4, this->inst.rs2_v);
+            }else{
+                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            }
+            ++op_type_count[o_sw];
+            return;
+        case o_fsw:
+            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
+                write_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4, this->inst.rs2_v);
+            }else{
+                exit_with_output("address of store operation should be multiple of 4 [fsw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            }
+            ++op_type_count[o_fsw];
+            return;
+        case o_lw:
+            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
+                write_reg_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
+            }else{
+                exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            }
+            ++op_type_count[o_lw];
+            return;
+        case o_flw:
+            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
+                write_reg_fp_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
+            }else{
+                exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            }
+            ++op_type_count[o_flw];
+            return;
+        default:
+            exit_with_output("invalid operation for MA (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+    }
+}
+
+bool Configuration::EX_stage::EX_ma::available(){
+    return this->cycle_count == 1; // 仮の値で0
+}
+
 // void exec_inst(Instruction inst){
 //     switch(inst.op.type){
         // case o_fadd:
@@ -840,14 +981,6 @@ void Configuration::EX_stage::EX_br::exec(){
         //     ++op_type_count[o_fmvff];
         //     pc += 4;
         //     return;
-        // case o_sw:
-        //     if((inst.rs1_v.i + op.imm) % 4 == 0){
-        //         write_memory((inst.rs1_v.i + op.imm) / 4, read_reg_32(op.rs2));
-        //     }else{
-        //         exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-        //     }
-        //     ++op_type_count[o_sw];
-        //     return;
         // case o_si:
         //     if((inst.rs1_v + op.imm) % 4 == 0){
         //         op_list[(inst.rs1_v + op.imm) / 4] = Operation(inst.rs2_v);
@@ -860,24 +993,6 @@ void Configuration::EX_stage::EX_br::exec(){
         // case o_std:
         //     send_buffer.push(inst.rs2_v);
         //     ++op_type_count[o_std];
-        //     pc += 4;
-        //     return;
-        // case o_fsw:
-        //     if((inst.rs1_v + op.imm) % 4 == 0){
-        //         write_memory((inst.rs1_v + op.imm) / 4, read_reg_fp_32(op.rs2));
-        //     }else{
-        //         exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-        //     }
-        //     ++op_type_count[o_fsw];
-        //     pc += 4;
-        //     return;
-        // case o_lw:
-        //     if((inst.rs1_v + op.imm) % 4 == 0){
-        //         write_reg_32(op.rd, read_memory((inst.rs1_v + op.imm) / 4));
-        //     }else{
-        //         exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-        //     }
-        //     ++op_type_count[o_lw];
         //     pc += 4;
         //     return;
         // case o_lre:
@@ -898,15 +1013,6 @@ void Configuration::EX_stage::EX_br::exec(){
         // case o_ltf:
         //     write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
         //     ++op_type_count[o_ltf];
-        //     pc += 4;
-        //     return;
-        // case o_flw:
-        //     if((inst.rs1_v + op.imm) % 4 == 0){
-        //         write_reg_fp_32(op.rd, read_memory((inst.rs1_v + op.imm) / 4));
-        //     }else{
-        //         exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-        //     }
-        //     ++op_type_count[o_flw];
         //     pc += 4;
         //     return;
         // case o_fmvif:

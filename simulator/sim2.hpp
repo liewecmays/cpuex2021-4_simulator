@@ -26,82 +26,93 @@ class Instruction{
 
 // 各時点の状態
 class Configuration{
-    // instruction fetch
-    class IF_stage{
-        public:
-            std::array<int, 2> pc;
-    };
+    public:
+        // instruction fetch
+        class IF_stage{
+            public:
+                std::array<int, 2> pc;
+        };
 
-    // instruction decode
-    class ID_stage{
-        public:
-            std::array<int, 2> pc;
-            std::array<Operation, 2> op;
-            std::array<bool, 2> is_not_dispatched;
-            ID_stage();
-    };
+        // instruction decode
+        class ID_stage{
+            public:
+                std::array<int, 2> pc;
+                std::array<Operation, 2> op;
+                std::array<bool, 2> is_not_dispatched;
+                ID_stage();
+        };
 
-    // execution
-    class EX_stage{
-        class EX_al{
+        // execution
+        class EX_stage{
             public:
-                Instruction inst;
-                void exec();
-        };
-        class EX_br{
+                class EX_al{
+                    public:
+                        Instruction inst;
+                        void exec();
+                };
+                class EX_br{
+                    public:
+                        Instruction inst;
+                        std::optional<unsigned int> branch_addr;
+                        void exec();
+                };
+                class EX_ma{
+                    public:
+                        enum class State_ma{
+                            Idle, Recv_uart, Store_data_mem, Load_data_mem_int, Load_data_mem_fp
+                        };
+                        class Hazard_info_ma{
+                            public:
+                                unsigned int wb_addr;
+                                bool is_willing_but_not_ready_int;
+                                bool is_willing_but_not_ready_fp;
+                                bool cannot_accept;
+                        };
+                    public:
+                        Instruction inst;
+                        unsigned int cycle_count;
+                        State_ma state;
+                        Hazard_info_ma info;
+                        void exec();
+                        bool available();
+                };
+                class EX_mfp{
+                    public:
+                        class Hazard_info_mfp{
+                            public:
+                                unsigned int wb_addr;
+                                bool is_willing_but_not_ready;
+                                bool cannot_accept;
+                        };
+                    public:
+                        Instruction inst;
+                        unsigned int cycle_count;
+                        Hazard_info_mfp info;
+                };
+                class EX_pfp{
+                    public:
+                        class Hazard_info_pfp{
+                            public:
+                                std::array<unsigned int, pipelined_fpu_stage_num-1> wb_addr;
+                                std::array<bool, pipelined_fpu_stage_num-1> wb_en;
+                        };
+                    public:
+                        Instruction inst;
+                        Hazard_info_pfp info;
+                };
             public:
-                Instruction inst;
-                std::optional<unsigned int> branch_addr;
-                void exec();
+                std::array<EX_al, 2> als;
+                EX_br br;
+                EX_ma ma;
+                EX_mfp mfp;
+                EX_pfp pfp;
         };
-        class EX_ma{
-            class Hazard_info_ma{
-                public:
-                    unsigned int wb_addr;
-                    bool is_willing_but_not_ready_int;
-                    bool is_willing_but_not_ready_fp;
-                    bool cannot_accept;
-            };
-            public:
-                Instruction inst;
-                unsigned int cycle_count;
-                Hazard_info_ma info;
-        };
-        class EX_mfp{
-            class Hazard_info_mfp{
-                public:
-                    unsigned int wb_addr;
-                    bool is_willing_but_not_ready;
-                    bool cannot_accept;
-            };
-            public:
-                Instruction inst;
-                unsigned int cycle_count;
-                Hazard_info_mfp info;
-        };
-        class EX_pfp{
-            class Hazard_info_pfp{
-                public:
-                    std::array<unsigned int, pipelined_fpu_stage_num-1> wb_addr;
-                    std::array<bool, pipelined_fpu_stage_num-1> wb_en;
-            };
-            public:
-                Instruction inst;
-                Hazard_info_pfp info;
-        };
-        public:
-            std::array<EX_al, 2> als;
-            EX_br br;
-            EX_ma ma;
-            EX_mfp mfp;
-            EX_pfp pfp;
-    };
 
-    // write back
-    class WB_stage{
-        public:
-            std::array<std::optional<Instruction>, 2> inst;
-    };
+        // write back
+        class WB_stage{
+            public:
+                std::array<std::optional<Instruction>, 2> inst;
+        };
 
     public:
         IF_stage IF;

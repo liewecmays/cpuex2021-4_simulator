@@ -178,10 +178,10 @@ Operation::Operation(std::string code){
             break;
         case 9: // jalr
             this->type = o_jalr;
-            this->imm = int_of_binary(code.substr(4, 3) + code.substr(12, 5) + code.substr(22, 10));
             return;
         case 10: // jal
             this->type = o_jal;
+            this->imm = int_of_binary(code.substr(4, 13) + code.substr(22, 10));
             return;
         case 11: // lui
             this->imm = int_of_binary("0" + code.substr(7, 10) + code.substr(22, 10));
