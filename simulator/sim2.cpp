@@ -25,7 +25,6 @@ Bit32 reg_list[32]; // 整数レジスタのリスト
 Bit32 reg_fp_list[32]; // 浮動小数レジスタのリスト
 Bit32 *memory; // メモリ領域
 
-unsigned long long clk_count = 0; // クロックのカウンタ
 unsigned long long op_count = 0; // 命令のカウント
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
@@ -233,7 +232,11 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
-        advance_clock();
+        advance_clock(true);
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
+        for(int i=0; i<std::stoi(match[3].str()); ++i){
+            advance_clock(false);
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
         
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
@@ -270,7 +273,7 @@ bool exec_command(std::string cmd){
         print_reg_fp();
     // }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+buf(\\s+(\\d+))?\\s*$"))){ // print buf
     //     if(receive_buffer.empty()){
-    //         std::cout << "receive buffer: (empty)" << std::endl;
+    //         std::cout << "receive buffer: [empty]" << std::endl;
     //     }else{
     //         int size;
     //         if(match[4].str() == ""){
@@ -403,10 +406,9 @@ bool exec_command(std::string cmd){
 
 bool at_power_on = true;
 // クロックを1つ分先に進める
-void advance_clock(){
+void advance_clock(bool verbose){
     Configuration cfg_next = Configuration(); // configを現在の状態として、次の状態
-
-    std::cout << "clock=" << clk_count << std::endl;
+    cfg_next.clk = config.clk + 1;
 
     /* execution */
     // AL
@@ -425,7 +427,6 @@ void advance_clock(){
         if(config.EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
             if(config.EX.ma.inst.op.type == o_sw || config.EX.ma.inst.op.type == o_fsw){
                 if(config.EX.ma.available()){
-                    std::cout << "available!" << std::endl;
                     cfg_next.EX.ma.state = config.EX.ma.state;
                 }else{
                     cfg_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
@@ -447,7 +448,6 @@ void advance_clock(){
         }else{
             if(config.EX.ma.available()){
                 config.EX.ma.exec();
-                std::cout << "MA exec" << std::endl;
                 if(config.EX.ma.inst.op.type == o_lw || config.EX.ma.inst.op.type == o_flw){
                     cfg_next.wb_req(config.EX.ma.inst);
                 }
@@ -584,48 +584,50 @@ void advance_clock(){
         }
     }
 
-
-    std::cout << "IF:" << std::endl;
-    for(unsigned int i=0; i<2; ++i){
-        std::cout << "  if" << i << ": pc=" << config.IF.pc[i] << std::endl;
-    }
-
-    std::cout << "ID:" << std::endl;
-    for(unsigned int i=0; i<2; ++i){
-        std::cout << "  id" << i << ": pc=" << config.ID.pc[i] << ", " << config.ID.op[i].to_string() << " -> " << (config.ID.is_not_dispatched[i] ? "not dispatched" : "dispatched") << std::endl;
-    }
-
-    std::cout << "EX:" << std::endl;
-    for(unsigned int i=0; i<2; ++i){
-        if(!config.EX.als[i].inst.op.is_nop()){
-            std::cout << "  al" << i << ": pc=" << config.EX.als[i].inst.pc << ", " << config.EX.als[i].inst.op.to_string() << std::endl;
-        }else{
-            std::cout << "  al" << i << ": (empty)" << std::endl;
+    // print
+    if(verbose){
+        std::cout << "clk: " << config.clk << std::endl;
+        std::cout << "\x1b[1m[IF]\x1b[0m" << std::endl;
+        for(unsigned int i=0; i<2; ++i){
+            std::cout << "  if" << i << ": pc=" << config.IF.pc[i] << std::endl;
         }
-    }
-    if(!config.EX.br.inst.op.is_nop()){
-        std::cout << "  br : pc=" << config.EX.br.inst.pc << ", " << config.EX.br.inst.op.to_string() << " -> " << (config.EX.br.branch_addr.has_value() ? "taken" : "untaken") << std::endl;
-    }else{
-        std::cout << "  br : (empty)" << std::endl;
-    }
-    if(!config.EX.ma.inst.op.is_nop()){
-        std::cout << "  ma : pc=" << config.EX.ma.inst.pc << ", " << config.EX.ma.inst.op.to_string() << " (state = " << NAMEOF_ENUM(config.EX.ma.state) << (config.EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle = " + std::to_string(config.EX.ma.cycle_count)) : "") << ")" << std::endl;
-    }else{
-        std::cout << "  ma : (empty)" << std::endl;
-    }
 
-    std::cout << "WB:" << std::endl;
-    for(unsigned int i=0; i<2; ++i){
-        if(config.WB.inst[i].has_value()){
-            std::cout << "  wb" << i << ": pc=" << config.WB.inst[i].value().pc << ", " << config.WB.inst[i].value().op.to_string() << std::endl;
+        std::cout << "\x1b[1m[ID]\x1b[0m" << std::endl;
+        for(unsigned int i=0; i<2; ++i){
+            std::cout << "  id" << i << ": " << config.ID.op[i].to_string() << " (pc=" << config.ID.pc[i] << ")" << (config.ID.is_not_dispatched[i] ? "\x1b[1m\x1b[31m -> not dispatched\x1b[0m" : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
+        }
+
+        std::cout << "\x1b[1m[EX]\x1b[0m" << std::endl;
+        for(unsigned int i=0; i<2; ++i){
+            if(!config.EX.als[i].inst.op.is_nop()){
+                std::cout << "  al" << i << ": " << config.EX.als[i].inst.op.to_string() << " (pc=" << config.EX.als[i].inst.pc << ")" << std::endl;
+            }else{
+                std::cout << "  al" << i << ": [empty]" << std::endl;
+            }
+        }
+        if(!config.EX.br.inst.op.is_nop()){
+            std::cout << "  br : " << config.EX.br.inst.op.to_string() << " (pc=" << config.EX.br.inst.pc << ")" << (config.EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
         }else{
-            std::cout << "  wb" << i << ": (empty)" << std::endl;
+            std::cout << "  br : [empty]" << std::endl;
+        }
+        if(!config.EX.ma.inst.op.is_nop()){
+            std::cout << "  ma : " << config.EX.ma.inst.op.to_string() << " (pc=" << config.EX.ma.inst.pc << ") [state: " << NAMEOF_ENUM(config.EX.ma.state) << (config.EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(config.EX.ma.cycle_count)) : "") << "]" << (config.EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+        }else{
+            std::cout << "  ma : [empty]" << std::endl;
+        }
+
+        std::cout << "\x1b[1m[WB]\x1b[0m" << std::endl;
+        for(unsigned int i=0; i<2; ++i){
+            if(config.WB.inst[i].has_value()){
+                std::cout << "  wb" << i << ": " << config.WB.inst[i].value().op.to_string() << " (pc=" << config.WB.inst[i].value().pc << ")" << std::endl;
+            }else{
+                std::cout << "  wb" << i << ": [empty]" << std::endl;
+            }
         }
     }
 
     // update
     config = cfg_next;
-    ++clk_count;
 }
 
 // 同時発行される命令の間のハザード検出
@@ -908,7 +910,7 @@ void Configuration::EX_stage::EX_ma::exec(){
 }
 
 bool Configuration::EX_stage::EX_ma::available(){
-    return this->cycle_count == 1; // 仮の値で0
+    return this->cycle_count == 2; // 仮の値で0
 }
 
 // void exec_inst(Instruction inst){

@@ -115,6 +115,7 @@ class Configuration{
         };
 
     public:
+        unsigned long long clk = 0;
         IF_stage IF;
         ID_stage ID;
         EX_stage EX;
@@ -133,7 +134,7 @@ bool exec_command(std::string); // デバッグモードのコマンドを認識
 // void send_data(cancel_flag&); // データの送信
 // void output_info(); // 情報の出力
 
-void advance_clock(); // クロックを1つ分先に進める
+void advance_clock(bool); // クロックを1つ分先に進める
 
 unsigned int id_of_pc(int); // PCから命令IDへの変換
 int read_reg(unsigned int); // 整数レジスタから読む
