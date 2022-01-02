@@ -187,7 +187,7 @@ Operation::Operation(std::string code){
             this->imm = int_of_binary("0" + code.substr(7, 10) + code.substr(22, 10));
             switch(funct){
                 case 0: // lui
-                    this->type = o_jal;
+                    this->type = o_lui;
                     return;
                 default: break;
             }

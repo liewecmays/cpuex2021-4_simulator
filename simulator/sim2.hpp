@@ -103,8 +103,9 @@ class Configuration{
                                 std::array<bool, pipelined_fpu_stage_num-1> wb_en;
                         };
                     public:
-                        Instruction inst;
+                        std::array<Instruction, pipelined_fpu_stage_num> inst;
                         Hazard_info_pfp info;
+                        void exec();
                 };
             public:
                 std::array<EX_al, 2> als;
@@ -117,7 +118,8 @@ class Configuration{
         // write back
         class WB_stage{
             public:
-                std::array<std::optional<Instruction>, 2> inst;
+                std::array<std::optional<Instruction>, 2> inst_int;
+                std::array<std::optional<Instruction>, 2> inst_fp;
         };
 
     public:
