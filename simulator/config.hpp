@@ -143,3 +143,15 @@ class Configuration{
 };
 
 Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
+
+/* インライン展開したいコンストラクタ */
+inline Instruction::Instruction(){
+    this->op = nop;
+    this->rs1_v = 0;
+    this->rs2_v = 0;
+    this->pc = 0;
+}
+inline Configuration::ID_stage::ID_stage(){ // pcの初期値に注意
+    this->pc[0] = -8;
+    this->pc[1] = -4;
+}

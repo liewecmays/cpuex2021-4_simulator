@@ -414,13 +414,6 @@ std::string string_of_otype(Otype t){
 // stringに変換して取り出す
 std::string Bit32::to_string(){
     return std::to_string(this->i);
-    // switch(this->t){
-    //     case Type::t_int:
-    //         return std::to_string((*this).to_int());
-    //     case Type::t_float:
-    //         return std::to_string((*this).to_float());
-    //     default: std::exit(EXIT_FAILURE);
-    // }
 }
 
 std::string Bit32::to_string(Stype t){
@@ -460,45 +453,26 @@ std::string Bit32::to_string(Stype t){
     return res;
 }
 
-// std::string Bit32::to_string(Stype t, const int len){
-//     std::string res;
-//     switch(t){
-//         case Stype::t_dec: // 10進数
-//             {
-//                 std::ostringstream sout;
-//                 sout << std::setfill('0') << std::setw(len) << this->v;
-//                 res = sout.str();
-//             }
-//             break;
-//         case Stype::t_bin: // 2進数
-//             {
-//                 int n = this->v;
-//                 while (n > 0) {
-//                     res.push_back('0' + (n & 1));
-//                     n >>= 1;
-//                 }
-//                 std::reverse(res.begin(), res.end());
-//                 res = "0b" + res;
-//             }
-//             break;
-//         case Stype::t_hex: // 16進数
-//             {
-//                 std::ostringstream sout;
-//                 sout << std::hex << std::setfill('0') << std::setw(len) << this->v;
-//                 res = "0x" + sout.str();
-//             }
-//             break;
-//         case Stype::t_float: // 浮動小数
-//             {
-//                 std::ostringstream sout;
-//                 sout << std::setprecision(len) << this->to_float();
-//                 res = sout.str();
-//             }
-//             break;
-//         default:
-//             std::cerr << head_error << "do not designate length with t_default/t_op" << std::endl;
-//             std::exit(EXIT_FAILURE);
-//     }
 
-//     return res;
-// }
+/* class Reg */
+// read
+Bit32 Reg::read_32(unsigned int i){
+    return i == 0 ? Bit32(0) : this->val[i];
+}
+int Reg::read_int(unsigned int i){
+    return i == 0 ? 0 : this->val[i].i;
+}
+float Reg::read_float(unsigned int i){
+    return i == 0 ? 0.0f : this->val[i].f;
+}
+
+// write
+void Reg::write_32(unsigned int i, Bit32 v){
+    if(i != 0) this->val[i] = v;
+}
+void Reg::write_int(unsigned int i, int v){
+    if(i != 0) this->val[i] = Bit32(v);
+}
+void Reg::write_float(unsigned int i, float v){
+    if(i != 0) this->val[i] = Bit32(v);
+}

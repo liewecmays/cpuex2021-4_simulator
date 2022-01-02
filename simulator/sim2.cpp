@@ -18,10 +18,11 @@ namespace po = boost::program_options;
 /* グローバル変数 */
 // 内部処理関係
 std::vector<Operation> op_list; // 命令のリスト(PC順)
-Bit32 reg_list[32]; // 整数レジスタのリスト
-Bit32 reg_fp_list[32]; // 浮動小数レジスタのリスト
+Reg reg_int; // 整数レジスタ
+Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
 
+unsigned long long* op_type_count;
 unsigned long long op_count = 0; // 命令のカウント
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
@@ -94,12 +95,6 @@ int main(int argc, char *argv[]){
 
     // ここからシミュレータの処理開始
     std::cout << head << "simulation start" << std::endl;
-    
-    // レジスタの初期化
-    for(int i=0; i<32; ++i){
-        reg_list[i] = Bit32(0);
-        reg_fp_list[i] = Bit32(0);
-    }
 
     // メモリ領域の確保
     memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
@@ -246,8 +241,8 @@ bool exec_command(std::string cmd){
         config = Configuration();
         op_count = 0; // 総実行命令数を0にする
         for(int i=0; i<32; ++i){ // レジスタをクリア
-            reg_list[i] = Bit32(0);
-            reg_fp_list[i] = Bit32(0);
+            reg_int = Reg();
+            reg_fp = Reg();
         }
         for(int i=0; i<mem_size; ++i){ // メモリをクリア
             memory[i] = Bit32(0);
@@ -272,8 +267,8 @@ bool exec_command(std::string cmd){
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
-        print_reg();
-        print_reg_fp();
+        // print_reg();
+        // print_reg_fp();
     // }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+buf(\\s+(\\d+))?\\s*$"))){ // print buf
     //     if(receive_buffer.empty()){
     //         std::cout << "receive buffer:" << std::endl;
@@ -288,7 +283,7 @@ bool exec_command(std::string cmd){
     //         print_queue(receive_buffer, size);
     //     }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
-        int reg_no;
+        unsigned int reg_no;
         Stype st = Stype::t_default;
         char option = match[4].str().front();
         switch(option){
@@ -303,10 +298,10 @@ bool exec_command(std::string cmd){
         while(std::regex_search(cmd, match, std::regex("(x|f)(\\d+)"))){
             reg_no = std::stoi(match[2].str());
             if(match[1].str() == "x"){ // int
-                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_list[reg_no].to_string(st) << std::endl;
+                std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_int.read_32(reg_no).to_string(st) << std::endl;
             }else{ // float
                 if(st == Stype::t_default) st = Stype::t_float; // デフォルトはfloat
-                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp_list[reg_no].to_string(st) << std::endl;
+                std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp.read_32(reg_no).to_string(st) << std::endl;
             }
             cmd = match.suffix();
         }
@@ -314,19 +309,23 @@ bool exec_command(std::string cmd){
         int start = std::stoi(match[6].str());
         int width = std::stoi(match[7].str());
         if(match[4].str() == "-w"){
-            print_memory(start, width);
+            for(int i=start; i<start+width; ++i){
+                std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
+            }
         }else{
             if(start % 4 == 0 && width % 4 == 0){
-                print_memory(start/4, width/4);
+                for(int i=start/4; i<start/4+width/4; ++i){
+                    std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
+                }
             }else{
                 std::cout << head_error << "memory address should be multiple of 4 (hint: use `print -w m[N:M]` for word addressing)" << std::endl;   
             }
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
-        int reg_no = std::stoi(match[4].str());
+        unsigned int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
         if(0 < reg_no && reg_no < 31){
-            write_reg(reg_no, val);
+            reg_int.write_int(reg_no, val);
         }else{
             std::cout << head_error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
         }
@@ -408,7 +407,7 @@ bool exec_command(std::string cmd){
 }
 
 // PCから命令IDへの変換(4の倍数になっていない場合エラー)
-inline unsigned int id_of_pc(int n){
+unsigned int id_of_pc(int n){
     if(n % 4 == 0){
         return n / 4;
     }else{
@@ -417,114 +416,30 @@ inline unsigned int id_of_pc(int n){
     }
 }
 
-// 整数レジスタから読む
-inline int read_reg(unsigned int i){
-    return i == 0 ? 0 : reg_list[i].i;
-}
-// 整数レジスタから読む(Bit32で)
-inline Bit32 read_reg_32(unsigned int i){
-    return i == 0 ? 0 : reg_list[i];
-}
-
-// 整数レジスタに書き込む
-inline void write_reg(unsigned int i, int v){
-    if (i != 0) reg_list[i] = Bit32(v);
-    // if(is_raytracing && i == 2 && v > max_x2) max_x2 = v;
-    return;
-}
-// 整数レジスタに書き込む(Bit32で)
-inline void write_reg_32(unsigned int i, Bit32 v){
-    if (i != 0) reg_list[i] = v;
-    // if(is_raytracing && i == 2 && v.i > max_x2) max_x2 = v.i;
-    return;
-}
-
-// 浮動小数点数レジスタから読む
-inline float read_reg_fp(unsigned int i){
-    return i == 0 ? 0 : reg_fp_list[i].f;
-}
-// 浮動小数点数レジスタから読む(Bit32で)
-inline Bit32 read_reg_fp_32(unsigned int i){
-    return i == 0 ? Bit32(0) : reg_fp_list[i];
-}
-
-// 浮動小数点数レジスタに書き込む
-inline void write_reg_fp(unsigned int i, float v){
-    if (i != 0) reg_fp_list[i] = Bit32(v);
-    return;
-}
-inline void write_reg_fp(unsigned int i, int v){
-    if (i != 0) reg_fp_list[i] = Bit32(v);
-    return;
-}
-// 浮動小数点数レジスタに書き込む(Bit32のまま)
-inline void write_reg_fp_32(unsigned int i, Bit32 v){
-    if (i != 0) reg_fp_list[i] = v;
-    return;
-}
-
-inline Bit32 read_memory(int w){
+Bit32 read_memory(int w){
     return memory[w];
 }
 
-inline void write_memory(int w, Bit32 v){
+void write_memory(int w, Bit32 v){
     memory[w] = v;
-}
-
-// 整数レジスタの内容を表示
-void print_reg(){
-    for(int i=0; i<32; ++i){
-        std::cout << "\x1b[1mx" << i << "\x1b[0m:" << std::ends;
-        if(i < 10) std::cout << " " << std::ends;
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
-        std::cout << reg_list[i].to_string() << " " << std::ends;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
-        if(i % 4 == 3) std::cout << std::endl;
-    }
-    return;
-}
-
-// 浮動小数点数レジスタの内容を表示
-void print_reg_fp(){
-    for(int i=0; i<32; ++i){
-        std::cout << "\x1b[1mf" << i << "\x1b[0m:" << std::ends;
-        if(i < 10) std::cout << " " << std::ends;
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
-        std::cout << std::setw(8) << *((int*)&(reg_fp_list[i])) << " " << std::ends;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
-        if(i % 4 == 3) std::cout << std::endl;
-    }
-    return;
 }
 
 // startからwidthぶん、4byte単位でメモリの内容を出力
 void print_memory(int start, int width){
     for(int i=start; i<start+width; ++i){
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
         std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
     }
     return;
 }
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-inline bool is_end(Operation op){
+bool is_end(Operation op){
     return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
 }
 
 // 実効情報を表示したうえで異常終了
 void exit_with_output(std::string msg){
     std::cout << head_error << msg << std::endl;
-    // if(is_info_output){
-    //     std::cout << head << "outputting execution info until now" << std::endl;
-    //     output_info();
-    // }else if(is_debug){
-    //     std::cout << head << "execution info until now:" << std::endl;
-    //     exec_command("info");
-    // }
     std::cout << head << "abnormal end" << std::endl;
     std::quick_exit(EXIT_FAILURE);
 }

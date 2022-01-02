@@ -97,6 +97,18 @@ union Bit32{
     // std::string to_string(Stype t, const int len);
 };
 
+// レジスタ
+class Reg{
+    private:
+        Bit32 val[32];
+    public:
+        Bit32 read_32(unsigned int);
+        int read_int(unsigned int);
+        float read_float(unsigned int);
+        void write_32(unsigned int, Bit32);
+        void write_int(unsigned int, int);
+        void write_float(unsigned int, float);
+};
 
 /* インライン展開したいコンストラクタ */
 /* class Operation */

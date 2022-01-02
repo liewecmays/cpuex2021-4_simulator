@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <iostream>
+#include <boost/bimap/bimap.hpp>
 #include "nameof.hpp"
 
 using ::Otype;
@@ -169,13 +170,13 @@ void Configuration::advance_clock(bool verbose){
             case o_andi:
             case o_lui:
                 config_next.EX.als[i].inst.op = this->ID.op[i];
-                config_next.EX.als[i].inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
-                config_next.EX.als[i].inst.rs2_v = read_reg_32(this->ID.op[i].rs2);
+                config_next.EX.als[i].inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
+                config_next.EX.als[i].inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
                 config_next.EX.als[i].inst.pc = this->ID.pc[i];
                 break;
             case o_fmvfi:
                 config_next.EX.als[i].inst.op = this->ID.op[i];
-                config_next.EX.als[i].inst.rs1_v = read_reg_fp_32(this->ID.op[i].rs1);
+                config_next.EX.als[i].inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
                 config_next.EX.als[i].inst.pc = this->ID.pc[i];
                 break;
             // BR (conditional)
@@ -184,8 +185,8 @@ void Configuration::advance_clock(bool verbose){
             case o_fbeq:
             case o_fblt:
                 config_next.EX.br.inst.op = this->ID.op[i];
-                config_next.EX.br.inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
-                config_next.EX.br.inst.rs2_v = read_reg_32(this->ID.op[i].rs2);
+                config_next.EX.br.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
+                config_next.EX.br.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
                 config_next.EX.br.inst.pc = this->ID.pc[i];
                 break;
             // BR (unconditional)
@@ -193,10 +194,10 @@ void Configuration::advance_clock(bool verbose){
             case o_jalr:
                 // ALとBRの両方にdistribute
                 config_next.EX.als[i].inst.op = this->ID.op[i];
-                config_next.EX.als[i].inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
+                config_next.EX.als[i].inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.als[i].inst.pc = this->ID.pc[i];
                 config_next.EX.br.inst.op = this->ID.op[i];
-                config_next.EX.br.inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
+                config_next.EX.br.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.br.inst.pc = this->ID.pc[i];
                 break;
             // MA
@@ -204,14 +205,14 @@ void Configuration::advance_clock(bool verbose){
             case o_lw:
             case o_flw:
                 config_next.EX.ma.inst.op = this->ID.op[i];
-                config_next.EX.ma.inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
-                config_next.EX.ma.inst.rs2_v = read_reg_32(this->ID.op[i].rs2);
+                config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
+                config_next.EX.ma.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
                 config_next.EX.ma.inst.pc = this->ID.pc[i];
                 break;
             case o_fsw:
                 config_next.EX.ma.inst.op = this->ID.op[i];
-                config_next.EX.ma.inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
-                config_next.EX.ma.inst.rs2_v = read_reg_fp_32(this->ID.op[i].rs2);
+                config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
+                config_next.EX.ma.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.ma.inst.pc = this->ID.pc[i];
                 break;
             // mFP
@@ -221,13 +222,13 @@ void Configuration::advance_clock(bool verbose){
             case o_fcvtfi:
             case o_fmvff:
                 config_next.EX.mfp.inst.op = this->ID.op[i];
-                config_next.EX.mfp.inst.rs1_v = read_reg_fp_32(this->ID.op[i].rs1);
-                config_next.EX.mfp.inst.rs2_v = read_reg_fp_32(this->ID.op[i].rs2);
+                config_next.EX.mfp.inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
+                config_next.EX.mfp.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.mfp.inst.pc = this->ID.pc[i];
                 break;
             case o_fmvif:
                 config_next.EX.mfp.inst.op = this->ID.op[i];
-                config_next.EX.mfp.inst.rs1_v = read_reg_32(this->ID.op[i].rs1);
+                config_next.EX.mfp.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.mfp.inst.pc = this->ID.pc[i];
                 break;
             // pFP
@@ -235,8 +236,8 @@ void Configuration::advance_clock(bool verbose){
             case o_fsub:
             case o_fmul:
                 config_next.EX.pfp.inst[0].op = this->ID.op[i];
-                config_next.EX.pfp.inst[0].rs1_v = read_reg_fp_32(this->ID.op[i].rs1);
-                config_next.EX.pfp.inst[0].rs2_v = read_reg_fp_32(this->ID.op[i].rs2);
+                config_next.EX.pfp.inst[0].rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
+                config_next.EX.pfp.inst[0].rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.pfp.inst[0].pc = this->ID.pc[i];
                 break;
             case o_nop: break;
@@ -525,67 +526,67 @@ void Configuration::EX_stage::EX_al::exec(){
     switch(this->inst.op.type){
         // op
         case o_add:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i + this->inst.rs2_v.i);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i + this->inst.rs2_v.i);
             ++op_type_count[o_add];
             return;
         case o_sub:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i - this->inst.rs2_v.i);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i - this->inst.rs2_v.i);
             ++op_type_count[o_sub];
             return;
         case o_sll:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i << this->inst.rs2_v.i);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i << this->inst.rs2_v.i);
             ++op_type_count[o_sll];
             return;
         case o_srl:
-            write_reg(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.rs2_v.i);
+            reg_int.write_int(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.rs2_v.i);
             ++op_type_count[o_srl];
             return;
         case o_sra:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.rs2_v.i); // todo: 処理系依存
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.rs2_v.i); // todo: 処理系依存
             ++op_type_count[o_sra];
             return;
         case o_and:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i & this->inst.rs2_v.i);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i & this->inst.rs2_v.i);
             ++op_type_count[o_and];
             return;
         // op_imm
         case o_addi:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i + this->inst.op.imm);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i + this->inst.op.imm);
             ++op_type_count[o_addi];
             return;
         case o_slli:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i << this->inst.op.imm);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i << this->inst.op.imm);
             ++op_type_count[o_slli];
             return;
         case o_srli:
-            write_reg(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.op.imm);
+            reg_int.write_int(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.op.imm);
             ++op_type_count[o_srli];
             return;
         case o_srai:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.op.imm); // todo: 処理系依存
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.op.imm); // todo: 処理系依存
             ++op_type_count[o_srai];
             return;
         case o_andi:
-            write_reg(this->inst.op.rd, this->inst.rs1_v.i & this->inst.op.imm);
+            reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i & this->inst.op.imm);
             ++op_type_count[o_andi];
             return;
         // lui
         case o_lui:
-            write_reg(this->inst.op.rd, this->inst.op.imm << 12);
+            reg_int.write_int(this->inst.op.rd, this->inst.op.imm << 12);
             ++op_type_count[o_lui];
             return;
         // ftoi
         case o_fmvfi:
-            write_reg_32(this->inst.op.rd, this->inst.rs1_v);
+            reg_int.write_32(this->inst.op.rd, this->inst.rs1_v);
             ++op_type_count[o_fmvfi];
             return;
         // jalr (pass through)
         case o_jalr:
-            write_reg(this->inst.op.rd, this->inst.pc + 4);
+            reg_int.write_int(this->inst.op.rd, this->inst.pc + 4);
             return;
         // jal (pass through)
         case o_jal:
-            write_reg(this->inst.op.rd, this->inst.pc + 4);
+            reg_int.write_int(this->inst.op.rd, this->inst.pc + 4);
             return;
         case o_nop: return;
         default:
@@ -657,7 +658,7 @@ void Configuration::EX_stage::EX_ma::exec(){
             return;
         case o_lw:
             if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                write_reg_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
+                reg_int.write_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
             }else{
                 exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
             }
@@ -665,7 +666,7 @@ void Configuration::EX_stage::EX_ma::exec(){
             return;
         case o_flw:
             if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                write_reg_fp_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
+                reg_fp.write_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
             }else{
                 exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
             }
@@ -686,43 +687,43 @@ void Configuration::EX_stage::EX_mfp::exec(){
         // op_fp
         case o_fdiv:
             if(is_ieee){
-                write_reg_fp(this->inst.op.rd, this->inst.rs1_v.f / this->inst.rs2_v.f);
+                reg_fp.write_float(this->inst.op.rd, this->inst.rs1_v.f / this->inst.rs2_v.f);
             }else{
-                write_reg_fp_32(this->inst.op.rd, fdiv(this->inst.rs1_v, this->inst.rs2_v));
+                reg_fp.write_32(this->inst.op.rd, fdiv(this->inst.rs1_v, this->inst.rs2_v));
             }
             ++op_type_count[o_fdiv];
             return;
         case o_fsqrt:
             if(is_ieee){
-                write_reg_fp(this->inst.op.rd, std::sqrt(this->inst.rs1_v.f));
+                reg_fp.write_float(this->inst.op.rd, std::sqrt(this->inst.rs1_v.f));
             }else{
-                write_reg_fp_32(this->inst.op.rd, fsqrt(this->inst.rs1_v));
+                reg_fp.write_32(this->inst.op.rd, fsqrt(this->inst.rs1_v));
             }
             ++op_type_count[o_fsqrt];
             return;
         case o_fcvtif:
             if(is_ieee){
-                write_reg_fp(this->inst.op.rd, static_cast<float>(this->inst.rs1_v.i));
+                reg_fp.write_float(this->inst.op.rd, static_cast<float>(this->inst.rs1_v.i));
             }else{
-                write_reg_fp_32(this->inst.op.rd, itof(this->inst.rs1_v));
+                reg_fp.write_32(this->inst.op.rd, itof(this->inst.rs1_v));
             }
             ++op_type_count[o_fcvtif];
             return;
         case o_fcvtfi:
             if(is_ieee){
-                write_reg_fp(this->inst.op.rd, static_cast<int>(std::nearbyint(this->inst.rs1_v.f)));
+                reg_fp.write_float(this->inst.op.rd, static_cast<int>(std::nearbyint(this->inst.rs1_v.f)));
             }else{
-                write_reg_fp_32(this->inst.op.rd, ftoi(this->inst.rs1_v));
+                reg_fp.write_32(this->inst.op.rd, ftoi(this->inst.rs1_v));
             }
             ++op_type_count[o_fcvtfi];
             return;
         case o_fmvff:
-            write_reg_fp_32(this->inst.op.rd, this->inst.rs1_v);
+            reg_fp.write_32(this->inst.op.rd, this->inst.rs1_v);
             ++op_type_count[o_fmvff];
             return;
         // itof
         case o_fmvif:
-            write_reg_fp_32(this->inst.op.rd, this->inst.rs1_v);
+            reg_fp.write_32(this->inst.op.rd, this->inst.rs1_v);
             ++op_type_count[o_fmvif];
             return;
         case o_nop: return;
@@ -740,25 +741,25 @@ void Configuration::EX_stage::EX_pfp::exec(){
     switch(inst.op.type){
         case o_fadd:
             if(is_ieee){
-                write_reg_fp(inst.op.rd, inst.rs1_v.f + inst.rs2_v.f);
+                reg_fp.write_float(inst.op.rd, inst.rs1_v.f + inst.rs2_v.f);
             }else{
-                write_reg_fp_32(inst.op.rd, fadd(inst.rs1_v, inst.rs2_v));
+                reg_fp.write_32(inst.op.rd, fadd(inst.rs1_v, inst.rs2_v));
             }
             ++op_type_count[o_fadd];
             return;
         case o_fsub:
             if(is_ieee){
-                write_reg_fp(inst.op.rd, inst.rs1_v.f - inst.rs2_v.f);
+                reg_fp.write_float(inst.op.rd, inst.rs1_v.f - inst.rs2_v.f);
             }else{
-                write_reg_fp_32(inst.op.rd, fsub(inst.rs1_v, inst.rs2_v));
+                reg_fp.write_32(inst.op.rd, fsub(inst.rs1_v, inst.rs2_v));
             }
             ++op_type_count[o_fsub];
             return;
         case o_fmul:
             if(is_ieee){
-                write_reg_fp(inst.op.rd, inst.rs1_v.f * inst.rs2_v.f);
+                reg_fp.write_float(inst.op.rd, inst.rs1_v.f * inst.rs2_v.f);
             }else{
-                write_reg_fp_32(inst.op.rd, fmul(inst.rs1_v, inst.rs2_v));
+                reg_fp.write_32(inst.op.rd, fmul(inst.rs1_v, inst.rs2_v));
             }
             ++op_type_count[o_fmul];
             return;
@@ -785,13 +786,13 @@ void Configuration::EX_stage::EX_pfp::exec(){
         //     pc += 4;
         //     return;
         // case o_lre:
-        //     write_reg(op.rd, receive_buffer.empty() ? 1 : 0);
+        //     reg_int.write_int(op.rd, receive_buffer.empty() ? 1 : 0);
         //     pc += 4;
         //     ++op_type_count[o_lre];
         //     return;
         // case o_lrd:
         //     if(!receive_buffer.empty()){
-        //         write_reg(op.rd, receive_buffer.front().i);
+        //         reg_int.write_int(op.rd, receive_buffer.front().i);
         //         receive_buffer.pop();
         //     }else{
         //         exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
@@ -800,7 +801,7 @@ void Configuration::EX_stage::EX_pfp::exec(){
         //     pc += 4;
         //     return;
         // case o_ltf:
-        //     write_reg(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+        //     reg_int.write_int(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
         //     ++op_type_count[o_ltf];
         //     pc += 4;
         //     return;
