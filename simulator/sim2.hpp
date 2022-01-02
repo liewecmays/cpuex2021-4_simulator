@@ -18,6 +18,7 @@ extern std::vector<Operation> op_list;
 extern Reg reg_int;
 extern Reg reg_fp;
 extern Bit32 *memory;
+extern unsigned int code_size;
 extern bool is_debug;
 extern bool is_ieee;
 extern bimap_t2 id_to_line;

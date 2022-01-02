@@ -21,6 +21,7 @@ std::vector<Operation> op_list; // 命令のリスト(PC順)
 Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
+unsigned int code_size = 0; // コードサイズ
 
 unsigned long long* op_type_count;
 unsigned long long op_count = 0; // 命令のカウント
@@ -130,7 +131,7 @@ int main(int argc, char *argv[]){
     // ファイルの各行をパースしてop_listに追加
     std::string code;
     std::string code_keep; // 空白でない最後の行を保存
-    int code_id = 0; // is_skip ? 100 : 0;
+    unsigned int code_id = 0; // is_skip ? 100 : 0;
     if(!is_bin){
         std::regex regex_empty = std::regex("^\\s*\\r?\\n?$");
         std::regex regex_dbg = std::regex("^\\d{32}@(-?\\d+)$");
@@ -190,6 +191,7 @@ int main(int argc, char *argv[]){
         }
     }
 
+    code_size = code_id;
     op_list.resize(code_id + 6); // segmentation fault防止のために余裕を持たせる
 
     // シミュレーションの本体処理
@@ -230,7 +232,9 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
-        config.advance_clock(true);
+        if(config.advance_clock(true)){
+            std::cout << "end" << std::endl;
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
         for(int i=0; i<std::stoi(match[3].str()); ++i){
             config.advance_clock(false);
@@ -430,11 +434,6 @@ void print_memory(int start, int width){
         std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
     }
     return;
-}
-
-// 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-bool is_end(Operation op){
-    return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
 }
 
 // 実効情報を表示したうえで異常終了

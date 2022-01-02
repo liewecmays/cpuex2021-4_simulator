@@ -59,7 +59,7 @@ class Operation{
         bool use_rs2_fp();
         bool branch_conditionally_or_unconditionally();
         bool is_nop();
-        // bool alu_or_fpu_opcode(); [todo]
+        bool is_exit();
 };
 inline constexpr unsigned int pipelined_fpu_stage_num = 4;
 extern Operation nop;

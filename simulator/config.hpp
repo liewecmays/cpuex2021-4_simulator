@@ -19,7 +19,7 @@ class Configuration{
     public:
         // hazard type
         enum class Hazard_type{
-            No_hazard, Trivial,
+            No_hazard, Trivial, End,
             // intra
             Intra_RAW_rd_to_rs1, Intra_RAW_rd_to_rs2,
             Intra_WAW_rd_to_rd,
@@ -120,6 +120,7 @@ class Configuration{
                 EX_ma ma;
                 EX_mfp mfp;
                 EX_pfp pfp;
+                bool is_clear();
         };
 
         // write back
@@ -135,11 +136,12 @@ class Configuration{
         ID_stage ID;
         EX_stage EX;
         WB_stage WB;
-        void advance_clock(bool); // クロックを1つ分先に進める
+        bool advance_clock(bool); // クロックを1つ分先に進める
         Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
         Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
         Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
         void wb_req(Instruction); // WBステージに命令を渡す
+        // bool is_end(); // 実行終了かどうかの判定
 };
 
 Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);

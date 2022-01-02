@@ -303,6 +303,9 @@ bool Operation::branch_conditionally_or_unconditionally(){
 bool Operation::is_nop(){
     return this->type == o_nop;
 }
+bool Operation::is_exit(){ // jal x0, 0
+    return this->type == o_jal && this->rd == 0 && this->imm == 0;
+}
 
 // 文字列に変換
 std::string Operation::to_string(){

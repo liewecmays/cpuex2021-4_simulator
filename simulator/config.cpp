@@ -13,7 +13,7 @@
 using ::Otype;
 
 // クロックを1つ分先に進める
-void Configuration::advance_clock(bool verbose){
+bool Configuration::advance_clock(bool verbose){
     Configuration config_next = Configuration(); // *thisを現在の状態として、次の状態
     config_next.clk = this->clk + 1;
 
@@ -126,11 +126,16 @@ void Configuration::advance_clock(bool verbose){
 
     /* instruction fetch/decode */
     // dispatch?
-    this->ID.hazard_type[0] = this->inter_hazard_detector(0) || this->iwp_hazard_detector(0);
-    if(this->ID.is_not_dispatched(0)){
-        this->ID.hazard_type[1] = Configuration::Hazard_type::Trivial;
+    if(this->ID.op[0].is_nop() && this->ID.op[1].is_nop() && this->clk != 0){
+        this->ID.hazard_type[0] = Configuration::Hazard_type::End;
+        this->ID.hazard_type[1] = Configuration::Hazard_type::End;
     }else{
-        this->ID.hazard_type[1] = this->intra_hazard_detector() || this->inter_hazard_detector(1) || this->iwp_hazard_detector(1);
+        this->ID.hazard_type[0] = this->inter_hazard_detector(0) || this->iwp_hazard_detector(0);
+        if(this->ID.is_not_dispatched(0)){
+            this->ID.hazard_type[1] = Configuration::Hazard_type::Trivial;
+        }else{
+            this->ID.hazard_type[1] = this->intra_hazard_detector() || this->inter_hazard_detector(1) || this->iwp_hazard_detector(1);
+        }
     }
 
     // pc manager
@@ -321,8 +326,12 @@ void Configuration::advance_clock(bool verbose){
         }
     }
 
+    bool is_end = this->IF.pc[0] == static_cast<int>(code_size*4) && this->EX.is_clear();
+
     /* update */
     *this = config_next;
+
+    return is_end;
 }
 
 // Hazard_type間のOR
@@ -809,3 +818,15 @@ void Configuration::EX_stage::EX_pfp::exec(){
         //     exit_with_output("error in executing the code (at pc " + std::to_string(this->in) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
 //     }
 // }
+
+// EXステージに命令がないかどうかの判定
+bool Configuration::EX_stage::is_clear(){
+    bool pfp_clear = true;
+    for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
+        if(!this->pfp.inst[i].op.is_nop()){
+            pfp_clear = false;
+            break;
+        }
+    }
+    return (this->als[0].inst.op.is_nop() && this->als[1].inst.op.is_nop() && this->br.inst.op.is_nop() && this->ma.inst.op.is_nop() && this->mfp.inst.op.is_nop() && pfp_clear);
+}
