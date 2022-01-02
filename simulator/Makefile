@@ -8,7 +8,7 @@ all: clean sim sim2 prof server fpu_test
 sim: util.o common.o fpu.o sim.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
-sim2: util.o common.o fpu.o sim2.o
+sim2: util.o common.o fpu.o config.o sim2.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
 prof: util.prof.o common.prof.o fpu.prof.o sim.prof.o
