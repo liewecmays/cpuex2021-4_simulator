@@ -522,16 +522,20 @@ void advance_clock(bool verbose){
 
     /* instruction fetch/decode */
     // dispatch?
-    config.ID.is_not_dispatched[0] = config.inter_hazard_detector(0) || config.iwp_hazard_detector(0);
-    config.ID.is_not_dispatched[1] = config.ID.is_not_dispatched[0] || config.intra_hazard_detector() || config.inter_hazard_detector(1) || config.iwp_hazard_detector(1);
+    config.ID.hazard_type[0] = config.inter_hazard_detector(0) || config.iwp_hazard_detector(0);
+    if(config.ID.is_not_dispatched(0)){
+        config.ID.hazard_type[1] = Configuration::Hazard_type::Trivial;
+    }else{
+        config.ID.hazard_type[1] = config.intra_hazard_detector() || config.inter_hazard_detector(1) || config.iwp_hazard_detector(1);
+    }
 
     // pc manager
     if(config.EX.br.branch_addr.has_value()){
         config.IF.pc[0] = config.EX.br.branch_addr.value();
         config.IF.pc[1] = config.EX.br.branch_addr.value() + 4;
-    }else if(config.ID.is_not_dispatched[0]){
+    }else if(config.ID.is_not_dispatched(0)){
         config.IF.pc = config.ID.pc;
-    }else if(config.ID.is_not_dispatched[1]){
+    }else if(config.ID.is_not_dispatched(1)){
         config.IF.pc[0] = config.ID.pc[0] + 4;
         config.IF.pc[1] = config.ID.pc[1] + 4;
     }else{
@@ -546,7 +550,7 @@ void advance_clock(bool verbose){
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
-        if(config.EX.br.branch_addr.has_value() || config.ID.is_not_dispatched[i]) continue; // rst from br/id
+        if(config.EX.br.branch_addr.has_value() || config.ID.is_not_dispatched(i)) continue; // rst from br/id
         switch(config.ID.op[i].type){
             // AL
             case o_add:
@@ -650,7 +654,7 @@ void advance_clock(bool verbose){
         // ID
         std::cout << "\x1b[1m[ID]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << config.ID.op[i].to_string() << " (pc=" << config.ID.pc[i] << ")" << (config.ID.is_not_dispatched[i] ? "\x1b[1m\x1b[31m -> not dispatched\x1b[0m" : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << config.ID.op[i].to_string() << " (pc=" << config.ID.pc[i] << ")" << (config.ID.is_not_dispatched(i) ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(config.ID.hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
         }
 
         // EX
@@ -717,91 +721,115 @@ void advance_clock(bool verbose){
     config = config_next;
 }
 
+// Hazard_type間のOR
+Configuration::Hazard_type operator||(Configuration::Hazard_type t1, Configuration::Hazard_type t2){
+    if(t1 == Configuration::Hazard_type::No_hazard){
+        return t2;
+    }else{
+        return t1;
+    }
+}
+
 // 同時発行される命令の間のハザード検出
-bool Configuration::intra_hazard_detector(){
+Configuration::Hazard_type Configuration::intra_hazard_detector(){
     // RAW hazards
-    bool rd_to_rs1 =
+    if(
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs1_int())
         || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs1_fp()))
-        && this->ID.op[0].rd == this->ID.op[1].rs1;
-    bool rd_to_rs2 =
+        && this->ID.op[0].rd == this->ID.op[1].rs1
+    ) return Configuration::Hazard_type::Intra_RAW_rd_to_rs1;
+    if(
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs2_int())
         || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs2_fp()))
-        && this->ID.op[0].rd == this->ID.op[1].rs2;
-    bool raw_hazard = rd_to_rs1 || rd_to_rs2;
+        && this->ID.op[0].rd == this->ID.op[1].rs2
+    ) return Configuration::Hazard_type::Intra_RAW_rd_to_rs2;
 
     // WAW hazards
-    bool waw_hazard =
+    if(
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rd_int())
         || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp()))
-        && this->ID.op[0].rd == this->ID.op[1].rd;
+        && this->ID.op[0].rd == this->ID.op[1].rd
+    ) return Configuration::Hazard_type::Intra_WAW_rd_to_rd;
 
     // control hazards
-    bool control_hazard = this->ID.op[0].branch_conditionally_or_unconditionally();
+    if(
+        this->ID.op[0].branch_conditionally_or_unconditionally()
+    ) return Configuration::Hazard_type::Intra_control;
 
     // structural hazards
-    bool structural_hazard =
-        (this->ID.op[0].use_mem() && this->ID.op[1].use_mem()) // 同時にメモリ
-        || (this->ID.op[0].use_multicycle_fpu() && this->ID.op[1].use_multicycle_fpu()) // 同時にFPU(マルチサイクル)
-        || (this->ID.op[0].use_pipelined_fpu() && this->ID.op[1].use_pipelined_fpu()); // 同時にFPU(パイプライン)
+    if(
+        this->ID.op[0].use_mem() && this->ID.op[1].use_mem()
+    ) return Configuration::Hazard_type::Intra_structural_mem;
+    if(
+        this->ID.op[0].use_multicycle_fpu() && this->ID.op[1].use_multicycle_fpu()
+    ) return Configuration::Hazard_type::Intra_structural_mfp;
+    if(
+        this->ID.op[0].use_pipelined_fpu() && this->ID.op[1].use_pipelined_fpu()
+    ) return Configuration::Hazard_type::Intra_structural_pfp;
 
-    return raw_hazard || waw_hazard || control_hazard || structural_hazard;
+    // no hazard detected
+    return Configuration::Hazard_type::No_hazard;
 }
 
 // 同時発行されない命令間のハザード検出
-bool Configuration::inter_hazard_detector(unsigned int i){ // i = 0,1
+Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned int i){ // i = 0,1
     // RAW hazards
-    bool ma_to_rs1 =
+    if(
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs1_int())
         || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rs1_fp()))
-        && this->EX.ma.info.wb_addr == this->ID.op[i].rs1;
-    bool ma_to_rs2 =
+        && this->EX.ma.info.wb_addr == this->ID.op[i].rs1
+    ) return Configuration::Hazard_type::Inter_RAW_ma_to_rs1;
+    if(
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs2_int())
         || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rs2_fp()))
-        && this->EX.ma.info.wb_addr == this->ID.op[i].rs2;
-    bool mfp_to_rs1 = this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs1_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs1);
-    bool mfp_to_rs2 = this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs2_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs2);
-    bool pfp_to_rs1 = false;
+        && this->EX.ma.info.wb_addr == this->ID.op[i].rs2
+    ) return Configuration::Hazard_type::Inter_RAW_ma_to_rs2;
+    if(
+        this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs1_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs1)
+    ) return Configuration::Hazard_type::Inter_RAW_mfp_to_rs1;
+    if(
+        this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs2_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs2)
+    ) return Configuration::Hazard_type::Inter_RAW_mfp_to_rs2;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
         if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs1_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs1)){
-            pfp_to_rs1 = true;
-            break;
+            return Configuration::Hazard_type::Inter_RAW_pfp_to_rs1;
         }
     }
-    bool pfp_to_rs2 = false;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
         if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs2_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs2)){
-            pfp_to_rs2 = true;
-            break;
+            return Configuration::Hazard_type::Inter_RAW_pfp_to_rs2;
         }
     }
-    bool raw_hazard = ma_to_rs1 || ma_to_rs2 || mfp_to_rs1 || mfp_to_rs2 || pfp_to_rs1 || pfp_to_rs2;
 
     // WAW hazards
-    bool ma_to_rd =
+    if(
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rd_int())
         || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rd_fp()))
-        && this->EX.ma.info.wb_addr == this->ID.op[i].rd;
-    bool mfp_to_rd = this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rd_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rd);
-    bool pfp_to_rd = false;
+        && this->EX.ma.info.wb_addr == this->ID.op[i].rd
+    ) return Configuration::Hazard_type::Inter_WAW_ma_to_rd;
+    if(
+        this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rd_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rd)
+    ) return Configuration::Hazard_type::Inter_WAW_mfp_to_rd;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
         if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rd_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rd)){
-            pfp_to_rd = true;
-            break;
+            return Configuration::Hazard_type::Inter_WAW_pfp_to_rd;
         }
     }
-    bool waw_hazard = ma_to_rd || mfp_to_rd || pfp_to_rd;
 
     // structural hazards
-    bool structural_hazard =
-        (this->EX.ma.info.cannot_accept && this->ID.op[i].use_mem()) // メモリが使用中
-        || (this->EX.mfp.info.cannot_accept && this->ID.op[i].use_multicycle_fpu()); // FPU(マルチサイクル)が使用中
+    if(
+        this->EX.ma.info.cannot_accept && this->ID.op[i].use_mem()
+    ) return Configuration::Hazard_type::Inter_structural_mem;
+    if(
+        this->EX.mfp.info.cannot_accept && this->ID.op[i].use_multicycle_fpu()
+    ) return Configuration::Hazard_type::Inter_structural_mfp;
 
-    return raw_hazard || waw_hazard || structural_hazard;
+    // no hazard detected
+    return Configuration::Hazard_type::No_hazard;
 }
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
-bool Configuration::iwp_hazard_detector(unsigned int i){
+Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned int i){
     bool ma_wb_fp = this->EX.ma.info.is_willing_but_not_ready_fp;
     bool mfp_wb_fp = this->EX.mfp.info.is_willing_but_not_ready;
     bool pfp_wb_fp = false;
@@ -814,12 +842,21 @@ bool Configuration::iwp_hazard_detector(unsigned int i){
 
     // todo: COMPLEX_HAZARD_DETECTION
     if(i == 0){
-        return this->ID.op[0].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp));
+        if(this->ID.op[0].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp))){
+            return Configuration::Hazard_type::Insufficient_write_port;
+        }else{
+            return Configuration::Hazard_type::No_hazard;
+        }
     }else if(i == 1){
-        return
+        if(
             (this->ID.op[0].use_rd_int() && this->ID.op[1].use_rd_int() && this->EX.ma.info.is_willing_but_not_ready_int)
             || (this->ID.op[1].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp)))
-            || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp() && (ma_wb_fp || mfp_wb_fp || pfp_wb_fp));
+            || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp() && (ma_wb_fp || mfp_wb_fp || pfp_wb_fp))
+        ){
+            return Configuration::Hazard_type::Insufficient_write_port;
+        }else{
+            return Configuration::Hazard_type::No_hazard;
+        }
     }else{
         std::exit(EXIT_FAILURE);
     }
@@ -875,6 +912,10 @@ void Configuration::wb_req(Instruction inst){
         default:
             exit_with_output("invalid request for WB (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
     }
+}
+
+bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
+    return this->hazard_type[i] != Configuration::Hazard_type::No_hazard;
 }
 
 void Configuration::EX_stage::EX_al::exec(){

@@ -27,6 +27,22 @@ class Instruction{
 // 各時点の状態
 class Configuration{
     public:
+        // hazard type
+        enum class Hazard_type{
+            No_hazard, Trivial,
+            // intra
+            Intra_RAW_rd_to_rs1, Intra_RAW_rd_to_rs2,
+            Intra_WAW_rd_to_rd,
+            Intra_control,
+            Intra_structural_mem, Intra_structural_mfp, Intra_structural_pfp,
+            // inter
+            Inter_RAW_ma_to_rs1, Inter_RAW_ma_to_rs2, Inter_RAW_mfp_to_rs1, Inter_RAW_mfp_to_rs2, Inter_RAW_pfp_to_rs1, Inter_RAW_pfp_to_rs2,
+            Inter_WAW_ma_to_rd, Inter_WAW_mfp_to_rd, Inter_WAW_pfp_to_rd,
+            Inter_structural_mem, Inter_structural_mfp,
+            // iwp
+            Insufficient_write_port
+        };
+
         // instruction fetch
         class IF_stage{
             public:
@@ -38,8 +54,9 @@ class Configuration{
             public:
                 std::array<int, 2> pc;
                 std::array<Operation, 2> op;
-                std::array<bool, 2> is_not_dispatched;
+                std::array<Hazard_type, 2> hazard_type;
                 ID_stage();
+                bool is_not_dispatched(unsigned int);
         };
 
         // execution
@@ -128,9 +145,9 @@ class Configuration{
         ID_stage ID;
         EX_stage EX;
         WB_stage WB;
-        bool intra_hazard_detector(); // 同時発行される命令の間のハザード検出
-        bool inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
-        bool iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
+        Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
+        Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
+        Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
         void wb_req(Instruction); // WBステージに命令を渡す
 };
 
@@ -143,6 +160,7 @@ bool exec_command(std::string); // デバッグモードのコマンドを認識
 // void output_info(); // 情報の出力
 
 void advance_clock(bool); // クロックを1つ分先に進める
+Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
 
 unsigned int id_of_pc(int); // PCから命令IDへの変換
 int read_reg(unsigned int); // 整数レジスタから読む
