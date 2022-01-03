@@ -210,10 +210,9 @@ void simulate(){
             if(!std::getline(std::cin, cmd)) break;
             if(exec_command(cmd)) break;
         }
+    }else{ // デバッグなしモード
+        exec_command("run -t");
     }
-    // else{ // デバッグなしモード
-    //     exec_command("run -t");
-    // }
 
     return;
 }
