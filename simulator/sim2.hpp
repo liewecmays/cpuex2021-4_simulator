@@ -36,5 +36,5 @@ void write_memory(int, Bit32);
 // bool check_cache(int);
 void print_memory(int, int); // 4byte単位でメモリの内容を出力
 // void print_queue(std::queue<Bit32>, int); // キューの表示
-bool is_end(Operation); // 終了時の命令かどうかを判定
+unsigned long long op_count(); // 実効命令の総数を返す
 void exit_with_output(std::string); // 実効情報を表示したうえで異常終了

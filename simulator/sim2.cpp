@@ -24,7 +24,6 @@ Bit32 *memory; // メモリ領域
 unsigned int code_size = 0; // コードサイズ
 
 unsigned long long* op_type_count;
-unsigned long long op_count = 0; // 命令のカウント
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
 
@@ -221,6 +220,7 @@ void simulate(){
 
 // デバッグモードのコマンドを認識して実行
 bool no_info = false; // infoを表示しない(一時的な仕様)
+bool simulation_end = false;
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue
     std::smatch match;
@@ -232,23 +232,56 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
-        if(config.advance_clock(true)){
-            std::cout << "end" << std::endl;
+        if(!simulation_end){
+            if(config.advance_clock(true)){
+                simulation_end = true;
+                std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
-        for(int i=0; i<std::stoi(match[3].str()); ++i){
-            config.advance_clock(false);
+        unsigned int n = std::stoi(match[3].str());
+        if(!simulation_end){
+            for(unsigned int i=0; i<n; ++i){
+                if(config.advance_clock(false)){
+                    simulation_end = true;
+                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
-        
+        bool is_time_measuring = match[4].str() == "-t";
+        if(!simulation_end){
+            auto start = std::chrono::system_clock::now();
+            while(!config.advance_clock(false));
+            simulation_end = true;
+            std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+            if(is_time_measuring){
+                auto end = std::chrono::system_clock::now();
+                double exec_time = std::chrono::duration<double>(end - start).count();
+                std::cout << head << "time elapsed (execution): " << exec_time << std::endl;
+                unsigned long long cnt = op_count();
+                std::cout << head << "operation count: " << cnt << std::endl;
+                double op_per_sec = static_cast<double>(cnt) / exec_time;
+                std::cout << head << "operations per second: " << op_per_sec << std::endl;
+                std::cout << head << "clock count: " << config.clk << std::endl;
+                std::cout << head << "operations per clock: " << static_cast<double>(cnt) / config.clk << std::endl;
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
         config = Configuration();
-        op_count = 0; // 総実行命令数を0にする
-        for(int i=0; i<32; ++i){ // レジスタをクリア
-            reg_int = Reg();
-            reg_fp = Reg();
+        for(unsigned int i=0; i<op_type_num; ++i){
+            op_type_count[i] = 0;
         }
-        for(int i=0; i<mem_size; ++i){ // メモリをクリア
+        reg_int = Reg();
+        reg_fp = Reg();
+        for(int i=0; i<mem_size; ++i){
             memory[i] = Bit32(0);
         }
         std::cout << head_info << "simulation environment is now initialized" << std::endl;
@@ -256,7 +289,7 @@ bool exec_command(std::string cmd){
         exec_command("init");
         exec_command("run");
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
-        std::cout << "operations executed: " << op_count << std::endl;
+        // std::cout << "operations executed: " << op_count << std::endl;
         // if(simulation_end){
         //     std::cout << "next: (no operation left to be simulated)" << std::endl;
         // }else{
@@ -434,6 +467,15 @@ void print_memory(int start, int width){
         std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
     }
     return;
+}
+
+// 実効命令の総数を返す
+unsigned long long op_count(){
+    unsigned long long acc = 0;
+    for(unsigned int i=0; i<op_type_num; ++i){
+        acc += op_type_count[i];
+    }
+    return acc;
 }
 
 // 実効情報を表示したうえで異常終了
