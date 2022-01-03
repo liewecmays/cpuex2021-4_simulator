@@ -30,7 +30,7 @@ constexpr unsigned long long max_op_count = 10000000000;
 Configuration config; // 各時点の状態
 
 // シミュレーションの制御
-bool is_debug = true; // デバッグモード (一時的にデフォルトをtrueに設定)
+bool is_debug = false; // デバッグモード
 bool is_bin = false; // バイナリファイルモード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
