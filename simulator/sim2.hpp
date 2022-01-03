@@ -27,11 +27,20 @@ extern bool is_ieee;
 extern bimap_t2 id_to_line;
 extern unsigned long long* op_type_count;
 
+/* クラスの定義 */
+// スレッドの管理用フラグ
+class Cancel_flag{
+    std::atomic<bool> signaled_{ false };
+    public:
+        void signal(){signaled_ = true;}
+        bool operator!() {return !signaled_;}
+};
+
 /* プロトタイプ宣言 */
 void simulate(); // シミュレーションの本体処理
+void receive_data(); // データの受信
+void send_data(Cancel_flag&); // データの送信
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
-// void receive_data(); // データの受信
-// void send_data(cancel_flag&); // データの送信
 // void output_info(); // 情報の出力
 unsigned int id_of_pc(int); // PCから命令IDへの変換
 Bit32 read_memory(int);

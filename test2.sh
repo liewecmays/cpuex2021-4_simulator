@@ -25,7 +25,7 @@ do
         f) FILENAME=$OPTARG;;
         # i) IS_INFO_OUT="-i";;
         d) IS_DEBUG="-d";;
-        # p) PORT="-p ${OPTARG}";;
+        p) PORT="-p ${OPTARG}";;
         b) IS_BIN="-b";;
         m) MEMORY="-m ${OPTARG}";;
         s) IS_SKIP="-s";;

@@ -9,6 +9,9 @@
 #include <queue>
 #include <boost/lockfree/queue.hpp>
 #include <boost/bimap/bimap.hpp>
+#include <thread>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <regex>
 #include <iomanip>
 #include <boost/program_options.hpp>
@@ -29,6 +32,7 @@ unsigned int code_size = 0; // コードサイズ
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
 
+int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バッファ
 
@@ -66,6 +70,7 @@ int main(int argc, char *argv[]){
         ("file,f", po::value<std::string>(), "filename")
         ("debug,d", "debug mode")
         ("bin,b", "binary-input mode")
+        ("port,p", po::value<int>(), "port number")
         ("mem,m", po::value<int>(), "memory size")
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
@@ -231,8 +236,15 @@ int main(int argc, char *argv[]){
     code_size = code_id;
     op_list.resize(code_id + 6); // segmentation fault防止のために余裕を持たせる
 
-    // シミュレーションの本体処理
-    simulate();
+    // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
+    std::thread t1(simulate);
+    std::thread t2(receive_data);
+    Cancel_flag flg;
+    std::thread t3(send_data, std::ref(flg));
+    t1.join();
+    t2.detach();
+    flg.signal();
+    t3.join();
 
     // 実行結果の情報を出力
     // if(is_info_output || is_detailed_debug) output_info();
@@ -252,6 +264,81 @@ void simulate(){
         exec_command("run -t");
     }
 
+    return;
+}
+
+// データの受信
+void receive_data(){
+    // 受信設定
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    
+    // 受信の準備
+    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr));
+    listen(server_socket, 5);
+
+    // クライアントの情報を保持する変数など
+    struct sockaddr_in client_addr;
+    int client_socket;
+    int client_addr_size = sizeof(client_addr);
+    char buf[32];
+
+    while(true){
+        client_socket = accept(server_socket, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_size);
+        recv(client_socket, buf, 32, 0);
+        std::string data(buf);
+        memset(buf, '\0', sizeof(buf)); // バッファをクリア
+        for(int i=0; i<4; ++i){ // big endianで受信したものとしてバッファに追加
+            receive_buffer.push(bit32_of_data(data.substr(i * 8, 8)));
+        }
+    }
+}
+
+// データの送信
+void send_data(Cancel_flag& flg){
+    if(!is_raytracing){
+        // データ送信の準備
+        struct in_addr host_addr;
+        inet_aton("127.0.0.1", &host_addr);
+        struct sockaddr_in opponent_addr; // 通信相手(./server)の情報
+        opponent_addr.sin_family = AF_INET;
+        opponent_addr.sin_port = htons(port+1);
+        opponent_addr.sin_addr = host_addr;
+
+        int client_socket = 0; // 送信用のソケット
+        bool is_connected = false; // 通信が維持されているかどうかのフラグ
+        Bit32 b32;
+        std::string data;
+        int res;
+        char recv_buf[1];
+        int res_len;
+
+        while(!flg){
+            while(send_buffer.pop(b32)){
+                if(!is_connected){ // 接続されていない場合
+                    client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                    res = connect(client_socket, (struct sockaddr *) &opponent_addr, sizeof(opponent_addr));
+                    if(res == 0){
+                        is_connected = true;
+                    }else{
+                        std::cout << head_error << "connection failed (check whether ./server has been started)" << std::endl;
+                    }
+                }
+                
+                data = binary_of_int(b32.i);
+                send(client_socket, data.substr(24, 8).c_str(), 8, 0); // 下8bitだけ送信
+                res_len = recv(client_socket, recv_buf, 1, 0);
+                if(res_len == 0 || recv_buf[0] != '0'){ // 通信が切断された場合
+                    std::cout << head_error << "data transmission failed (restart both ./sim and ./server)" << std::endl;
+                    is_connected = false;
+                }
+            }
+        }
+        close(client_socket);
+    }
     return;
 }
 
