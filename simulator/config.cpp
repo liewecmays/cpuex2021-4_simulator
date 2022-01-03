@@ -32,27 +32,53 @@ bool Configuration::advance_clock(bool verbose){
     // MA
     if(!this->EX.ma.inst.op.is_nop()){
         if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
-            if(this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw){
-                if(this->EX.ma.available()){
-                    this->EX.ma.exec();
-                    config_next.EX.ma.state = this->EX.ma.state;
-                }else{
-                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
+            switch(this->EX.ma.inst.op.type){
+                case o_lrd:
+                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Recv_uart;
                     config_next.EX.ma.inst = this->EX.ma.inst;
                     config_next.EX.ma.cycle_count = 1;
-                }
-            }else if(this->EX.ma.inst.op.type == o_lw){
-                config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
-                config_next.EX.ma.inst = this->EX.ma.inst;
-                config_next.EX.ma.cycle_count = 1;
-            }else if(this->EX.ma.inst.op.type == o_flw){
-                config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
-                config_next.EX.ma.inst = this->EX.ma.inst;
-                config_next.EX.ma.cycle_count = 1;
-            }else{
-                config_next.EX.ma.state = this->EX.ma.state;
-                config_next.EX.ma.inst = this->EX.ma.inst;
+                    break;
+                case o_sw:
+                case o_fsw:
+                    if(this->EX.ma.available()){
+                        this->EX.ma.exec();
+                        config_next.EX.ma.state = this->EX.ma.state;
+                    }else{
+                        config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
+                        config_next.EX.ma.inst = this->EX.ma.inst;
+                        config_next.EX.ma.cycle_count = 1;
+                    }
+                    break;
+                case o_lw:
+                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
+                    config_next.EX.ma.inst = this->EX.ma.inst;
+                    config_next.EX.ma.cycle_count = 1;
+                    break;
+                case o_flw:
+                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
+                    config_next.EX.ma.inst = this->EX.ma.inst;
+                    config_next.EX.ma.cycle_count = 1;
+                    break;
+                // 以下は状態遷移しない命令
+                case o_si:
+                case o_std:
+                    this->EX.ma.exec();
+                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+                    break;
+                case o_lre:
+                case o_ltf:
+                    this->EX.ma.exec();
+                    config_next.wb_req(this->EX.ma.inst);
+                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+                    break;
+                default: std::exit(EXIT_FAILURE);
             }
+        }else if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Recv_uart){
+            this->EX.ma.exec();
+            if(this->EX.ma.inst.op.type == o_lrd){
+                config_next.wb_req(this->EX.ma.inst);
+            }
+            config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
         }else{
             if(this->EX.ma.available()){
                 this->EX.ma.exec();
@@ -77,7 +103,7 @@ bool Configuration::advance_clock(bool verbose){
         (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_flw)
         || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !this->EX.ma.available());
     this->EX.ma.info.cannot_accept =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw))
+        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (this->EX.ma.inst.op.type == o_lrd || ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw))
         || ((this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Store_data_mem || this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int || this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp) && !this->EX.ma.available());
 
     // mFP
@@ -207,7 +233,12 @@ bool Configuration::advance_clock(bool verbose){
                 break;
             // MA
             case o_sw:
+            case o_si:
+            case o_std:
             case o_lw:
+            case o_lre:
+            case o_lrd:
+            case o_ltf:
             case o_flw:
                 config_next.EX.ma.inst.op = this->ID.op[i];
                 config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
@@ -495,6 +526,9 @@ void Configuration::wb_req(Instruction inst){
         case o_jal:
         case o_jalr:
         case o_lw:
+        case o_lrd:
+        case o_lre:
+        case o_ltf:
             if(!this->WB.inst_int[0].has_value()){
                 this->WB.inst_int[0] = inst;
             }else if(!this->WB.inst_int[1].has_value()){
@@ -657,6 +691,18 @@ void Configuration::EX_stage::EX_ma::exec(){
             }
             ++op_type_count[o_sw];
             return;
+        case o_si:
+            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
+                op_list[(this->inst.rs1_v.i + this->inst.op.imm) / 4] = Operation(this->inst.rs2_v.i);
+            }else{
+                exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            }
+            ++op_type_count[o_si];
+            return;
+        case o_std:
+            send_buffer.push(inst.rs2_v);
+            ++op_type_count[o_std];
+            return;
         case o_fsw:
             if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
                 write_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4, this->inst.rs2_v);
@@ -672,6 +718,23 @@ void Configuration::EX_stage::EX_ma::exec(){
                 exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
             }
             ++op_type_count[o_lw];
+            return;
+        case o_lre:
+            reg_int.write_int(this->inst.op.rd, receive_buffer.empty() ? 1 : 0);
+            ++op_type_count[o_lre];
+            return;
+        case o_lrd:
+            if(!receive_buffer.empty()){
+                reg_int.write_32(this->inst.op.rd, receive_buffer.front());
+                receive_buffer.pop();
+            }else{
+                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            }
+            ++op_type_count[o_lrd];
+            return;
+        case o_ltf:
+            reg_int.write_int(this->inst.op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+            ++op_type_count[o_ltf];
             return;
         case o_flw:
             if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
@@ -780,40 +843,8 @@ void Configuration::EX_stage::EX_pfp::exec(){
 
 // void exec_inst(Instruction inst){
 //     switch(inst.op.type){
-        // case o_si:
-        //     if((inst.rs1_v + op.imm) % 4 == 0){
-        //         op_list[(inst.rs1_v + op.imm) / 4] = Operation(inst.rs2_v);
-        //     }else{
-        //         exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-        //     }
-        //     ++op_type_count[o_si];
-        //     pc += 4;
-        //     return;
-        // case o_std:
-        //     send_buffer.push(inst.rs2_v);
-        //     ++op_type_count[o_std];
-        //     pc += 4;
-        //     return;
-        // case o_lre:
-        //     reg_int.write_int(op.rd, receive_buffer.empty() ? 1 : 0);
-        //     pc += 4;
-        //     ++op_type_count[o_lre];
-        //     return;
-        // case o_lrd:
-        //     if(!receive_buffer.empty()){
-        //         reg_int.write_int(op.rd, receive_buffer.front().i);
-        //         receive_buffer.pop();
-        //     }else{
-        //         exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-        //     }
-        //     ++op_type_count[o_lrd];
-        //     pc += 4;
-        //     return;
-        // case o_ltf:
-        //     reg_int.write_int(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
-        //     ++op_type_count[o_ltf];
-        //     pc += 4;
-        //     return;
+        
+        
         // default:
         //     exit_with_output("error in executing the code (at pc " + std::to_string(this->in) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
 //     }

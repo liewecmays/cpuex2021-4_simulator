@@ -19,7 +19,7 @@ do
             case $OPTARG in
                 # boot) IS_BOOTLOADING="--boot";;
                 # detailed) IS_DEBUG="-d"; IS_DETAILED="--detailed";;
-                # preload) IS_PRELOADING="--preload";;
+                preload) IS_PRELOADING="--preload";;
                 ieee) IS_IEEE="--ieee";;
             esac;;
         f) FILENAME=$OPTARG;;
@@ -27,9 +27,9 @@ do
         d) IS_DEBUG="-d";;
         # p) PORT="-p ${OPTARG}";;
         b) IS_BIN="-b";;
-        # m) MEMORY="-m ${OPTARG}";;
-        # s) IS_SKIP="-s";;
-        # r) IS_RAYTRACING="-r";;
+        m) MEMORY="-m ${OPTARG}";;
+        s) IS_SKIP="-s";;
+        r) IS_RAYTRACING="-r";;
     esac
 done
 

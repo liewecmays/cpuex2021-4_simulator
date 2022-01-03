@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <queue>
+#include <boost/lockfree/queue.hpp>
 #include <boost/bimap/bimap.hpp>
 
 /* typedef宣言 */
@@ -19,6 +20,8 @@ extern Reg reg_int;
 extern Reg reg_fp;
 extern Bit32 *memory;
 extern unsigned int code_size;
+extern std::queue<Bit32> receive_buffer;
+extern boost::lockfree::queue<Bit32> send_buffer;
 extern bool is_debug;
 extern bool is_ieee;
 extern bimap_t2 id_to_line;
@@ -35,6 +38,6 @@ Bit32 read_memory(int);
 void write_memory(int, Bit32);
 // bool check_cache(int);
 void print_memory(int, int); // 4byte単位でメモリの内容を出力
-// void print_queue(std::queue<Bit32>, int); // キューの表示
+void print_queue(std::queue<Bit32>, int); // キューの表示
 unsigned long long op_count(); // 実効命令の総数を返す
 void exit_with_output(std::string); // 実効情報を表示したうえで異常終了

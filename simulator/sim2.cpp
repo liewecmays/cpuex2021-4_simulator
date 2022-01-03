@@ -6,6 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <queue>
+#include <boost/lockfree/queue.hpp>
 #include <boost/bimap/bimap.hpp>
 #include <regex>
 #include <iomanip>
@@ -17,28 +19,32 @@ namespace po = boost::program_options;
 
 /* グローバル変数 */
 // 内部処理関係
+Configuration config; // 各時点の状態
 std::vector<Operation> op_list; // 命令のリスト(PC順)
 Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
 unsigned int code_size = 0; // コードサイズ
 
-unsigned long long* op_type_count;
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
 
-Configuration config; // 各時点の状態
+std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
+boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バッファ
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
 bool is_bin = false; // バイナリファイルモード
+bool is_raytracing = false; // レイトレ専用モード
+bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string filename; // 処理対象のファイル名
 std::string preload_filename; // プリロード対象のファイル名
 
 // 統計・出力関連
-// unsigned long long op_type_count[op_type_num]; // 各命令の実行数
+unsigned long long *op_type_count; // 各命令の実行数
+std::string timestamp; // ファイル出力の際に使うタイムスタンプ
 
 // 処理用のデータ構造
 bimap_t bp_to_id; // ブレークポイントと命令idの対応
@@ -60,6 +66,9 @@ int main(int argc, char *argv[]){
         ("file,f", po::value<std::string>(), "filename")
         ("debug,d", "debug mode")
         ("bin,b", "binary-input mode")
+        ("mem,m", po::value<int>(), "memory size")
+        ("raytracing,r", "specialized for ray-tracing program")
+        ("skip,s", "skipping bootloading")
         ("ieee", "IEEE754 mode")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
 	po::variables_map vm;
@@ -84,6 +93,9 @@ int main(int argc, char *argv[]){
     }
     if(vm.count("debug")) is_debug = true;
     if(vm.count("bin")) is_bin = true;
+    if(vm.count("mem")) mem_size = vm["mem"].as<int>();
+    if(vm.count("raytracing")) is_raytracing = true;
+    if(vm.count("skip")) is_skip = true;
     if(vm.count("ieee")) is_ieee = true;
     if(vm.count("preload")){
         is_preloading = true;
@@ -93,8 +105,34 @@ int main(int argc, char *argv[]){
     // 命令数カウントの初期化
     op_type_count = (unsigned long long*) calloc(op_type_num, sizeof(unsigned long long));
 
+    // タイムスタンプの取得
+    time_t t = time(nullptr);
+    tm* time = localtime(&t);
+    std::stringstream ss_timestamp;
+    ss_timestamp << "20" << time -> tm_year - 100;
+    ss_timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_mon + 1;
+    ss_timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_mday;
+    ss_timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_hour;
+    ss_timestamp << std::setw(2) << std::setfill('0') <<  time -> tm_min;
+    ss_timestamp << "_" << std::setw(2) << std::setfill('0') <<  time -> tm_sec;
+    timestamp = ss_timestamp.str();
+
+
     // ここからシミュレータの処理開始
     std::cout << head << "simulation start" << std::endl;
+
+    // ブートローダ処理をスキップする場合の処理
+    if(is_skip){
+        op_list.resize(100);
+        config.IF.pc[0] = 392;
+        config.IF.pc[0] = 396;
+    }
+
+    // レイトレを処理する場合は予めreserve
+    if(is_raytracing){
+        op_list.reserve(12000);
+        mem_size = 2500000; // 10MB
+    }
 
     // メモリ領域の確保
     memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
@@ -103,20 +141,20 @@ int main(int argc, char *argv[]){
     init_ram();
 
     // バッファのデータのプリロード
-    // if(is_preloading){
-    //     preload_filename = "./data/" + preload_filename + ".bin";
-    //     std::ifstream preload_file(preload_filename, std::ios::in | std::ios::binary);
-    //     if(!preload_file){
-    //         std::cerr << head_error << "could not open " << preload_filename << std::endl;
-    //         std::exit(EXIT_FAILURE);
-    //     }
-    //     unsigned char c;
-    //     while(!preload_file.eof()){
-    //         preload_file.read((char*) &c, sizeof(char)); // 8bit取り出す
-    //         receive_buffer.push(Bit32(static_cast<int>(c)));
-    //     }
-    //     std::cout << head << "preloaded data to the receive-buffer from " + preload_filename << std::endl;
-    // }
+    if(is_preloading){
+        preload_filename = "./data/" + preload_filename + ".bin";
+        std::ifstream preload_file(preload_filename, std::ios::in | std::ios::binary);
+        if(!preload_file){
+            std::cerr << head_error << "could not open " << preload_filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        unsigned char c;
+        while(!preload_file.eof()){
+            preload_file.read((char*) &c, sizeof(char)); // 8bit取り出す
+            receive_buffer.push(Bit32(static_cast<int>(c)));
+        }
+        std::cout << head << "preloaded data to the receive-buffer from " + preload_filename << std::endl;
+    }
 
     // ファイルを読む
     std::string input_filename;
@@ -305,19 +343,19 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
         // print_reg();
         // print_reg_fp();
-    // }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+buf(\\s+(\\d+))?\\s*$"))){ // print buf
-    //     if(receive_buffer.empty()){
-    //         std::cout << "receive buffer:" << std::endl;
-    //     }else{
-    //         int size;
-    //         if(match[4].str() == ""){
-    //             size = 10;
-    //         }else{
-    //             size = std::stoi(match[4].str());
-    //         }
-    //         std::cout << "receive buffer:\n  ";
-    //         print_queue(receive_buffer, size);
-    //     }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+buf(\\s+(\\d+))?\\s*$"))){ // print buf
+        if(receive_buffer.empty()){
+            std::cout << "receive buffer:" << std::endl;
+        }else{
+            int size;
+            if(match[4].str() == ""){
+                size = 10;
+            }else{
+                size = std::stoi(match[4].str());
+            }
+            std::cout << "receive buffer:\n  ";
+            print_queue(receive_buffer, size);
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
         unsigned int reg_no;
         Stype st = Stype::t_default;
@@ -435,6 +473,53 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_error << "breakpoint '" << bp_id << "' has not been set" << std::endl;  
         }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(out)(\\s+(-p|-b))?(\\s+(-f)\\s+(\\w+))?\\s*$"))){ // out (option)
+        /* notice: これは臨時のコマンド */
+        if(!send_buffer.empty()){
+            bool is_ppm = match[3].str() == "-p";
+            bool is_bin = match[3].str() == "-b";
+            
+            // ファイル名関連の処理
+            std::string ext = is_ppm ? ".ppm" : (is_bin ? ".bin" : ".txt");
+            std::string filename;
+            if(match[4].str() == ""){
+                filename = "output";
+            }else{
+                filename = match[6].str();
+            }
+
+            std::string output_filename = "./out/" + filename + "_" + timestamp + ext;
+            std::ofstream output_file;
+            if(is_bin){
+                output_file.open(output_filename, std::ios::out | std::ios::binary | std::ios::trunc);
+            }else{
+                output_file.open(output_filename);
+            }
+            if(!output_file){
+                std::cerr << head_error << "could not open " << output_filename << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+
+            std::stringstream output;
+            Bit32 b32;
+            if(is_ppm){
+                while(send_buffer.pop(b32)){ // todo: send_bufferを破壊しないようにしたい
+                    output << (unsigned char) b32.i;
+                }
+            }else if(is_bin){
+                while(send_buffer.pop(b32)){
+                    output.write((char*) &b32, sizeof(char)); // 8bitだけ書き込む
+                }
+            }else{
+                while(send_buffer.pop(b32)){
+                    output << b32.to_string(Stype::t_hex) << std::endl;
+                }
+            }
+            output_file << output.str();
+            std::cout << head_info << "send-buffer data written in " << output_filename << std::endl;
+        }else{
+            std::cout << head_error << "send-buffer is empty" << std::endl;
+        }
     }else{
         std::cout << head_error << "invalid command" << std::endl;
     }
@@ -466,6 +551,16 @@ void print_memory(int start, int width){
         std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
     }
     return;
+}
+
+// キューの表示
+void print_queue(std::queue<Bit32> q, int n){
+    while(!q.empty() && n > 0){
+        std::cout << q.front().to_string() << "; ";
+        q.pop();
+        n--;
+    }
+    std::cout << std::endl;
 }
 
 // 実効命令の総数を返す
