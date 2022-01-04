@@ -776,7 +776,7 @@ void Configuration::EX_stage::EX_ma::exec(){
 
 bool Configuration::EX_stage::EX_ma::available(){
     if(is_quick){
-        return this->cycle_count == 0;
+        return true;
     }else{
         return this->cycle_count == 2; // 仮の値
     }
@@ -834,7 +834,7 @@ void Configuration::EX_stage::EX_mfp::exec(){
 
 bool Configuration::EX_stage::EX_mfp::available(){
     if(is_quick){
-        return this->cycle_count == 0;
+        return true;
     }else{
         return this->cycle_count == 2; // 仮の値
     }
