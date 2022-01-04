@@ -235,7 +235,7 @@ int main(int argc, char *argv[]){
     }
 
     code_size = code_id;
-    op_list.resize(code_id + 6); // segmentation fault防止のために余裕を持たせる
+    op_list.resize(code_id + 2); // segmentation fault防止のために余裕を持たせる
 
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);

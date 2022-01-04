@@ -314,13 +314,13 @@ int Configuration::advance_clock(bool verbose, std::string bp){
         // IF
         std::cout << "\x1b[1m[IF]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << this->IF.pc[i] << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << this->IF.pc[i] << ((is_debug && this->IF.pc[i] < static_cast<int>(code_size*4)) ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->IF.pc[i])))) : "") << std::endl;
         }
 
         // ID
         std::cout << "\x1b[1m[ID]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << this->ID.op[i].to_string() << " (pc=" << this->ID.pc[i] << ")" << (this->ID.is_not_dispatched(i) ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(this->ID.hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << this->ID.op[i].to_string() << " (pc=" << this->ID.pc[i] << ((is_debug && 0 <= this->ID.pc[i] && this->ID.pc[i] < static_cast<int>(code_size*4)) ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->ID.pc[i])))) : "") << ")" << (this->ID.is_not_dispatched(i) ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(this->ID.hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
         }
 
         // EX
@@ -329,7 +329,7 @@ int Configuration::advance_clock(bool verbose, std::string bp){
         // EX_al
         for(unsigned int i=0; i<2; ++i){
             if(!this->EX.als[i].inst.op.is_nop()){
-                std::cout << (i==0 ? " " : "     ") << "al" << i << "   : " << this->EX.als[i].inst.op.to_string() << " (pc=" << this->EX.als[i].inst.pc << ")" << std::endl;
+                std::cout << (i==0 ? " " : "     ") << "al" << i << "   : " << this->EX.als[i].inst.op.to_string() << " (pc=" << this->EX.als[i].inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.als[i].inst.pc)))) : "") << ")" << std::endl;
             }else{
                 std::cout << (i==0 ? " " : "     ") << "al" << i << "   :" << std::endl;
             }
@@ -337,21 +337,21 @@ int Configuration::advance_clock(bool verbose, std::string bp){
 
         // EX_br
         if(!this->EX.br.inst.op.is_nop()){
-            std::cout << "     br    : " << this->EX.br.inst.op.to_string() << " (pc=" << this->EX.br.inst.pc << ")" << (this->EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
+            std::cout << "     br    : " << this->EX.br.inst.op.to_string() << " (pc=" << this->EX.br.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.br.inst.pc)))) : "") << ")" << (this->EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
         }else{
             std::cout << "     br    :" << std::endl;
         }
 
         // EX_ma
         if(!this->EX.ma.inst.op.is_nop()){
-            std::cout << "     ma    : " << this->EX.ma.inst.op.to_string() << " (pc=" << this->EX.ma.inst.pc << ") [state: " << NAMEOF_ENUM(this->EX.ma.state) << (this->EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(this->EX.ma.cycle_count)) : "") << "]" << (this->EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+            std::cout << "     ma    : " << this->EX.ma.inst.op.to_string() << " (pc=" << this->EX.ma.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.ma.inst.pc)))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.ma.state) << (this->EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(this->EX.ma.cycle_count)) : "") << "]" << (this->EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
         }else{
             std::cout << "     ma    :" << std::endl;
         }
 
         // EX_mfp
         if(!this->EX.mfp.inst.op.is_nop()){
-            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state != Configuration::EX_stage::EX_mfp::State_mfp::Waiting ? (", cycle: " + std::to_string(this->EX.mfp.cycle_count)) : "") << "]" << (this->EX.mfp.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.mfp.inst.pc)))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state != Configuration::EX_stage::EX_mfp::State_mfp::Waiting ? (", cycle: " + std::to_string(this->EX.mfp.cycle_count)) : "") << "]" << (this->EX.mfp.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
         }else{
             std::cout << "     mfp   :" << std::endl;
         }
@@ -359,7 +359,7 @@ int Configuration::advance_clock(bool verbose, std::string bp){
         // EX_pfp
         for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
             if(!this->EX.pfp.inst[i].op.is_nop()){
-                std::cout << "     pfp[" << i << "]: " << this->EX.pfp.inst[i].op.to_string() << " (pc=" << this->EX.pfp.inst[i].pc << ")" << std::endl;
+                std::cout << "     pfp[" << i << "]: " << this->EX.pfp.inst[i].op.to_string() << " (pc=" << this->EX.pfp.inst[i].pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.pfp.inst[i].pc)))) : "") << ")" << std::endl;
             }else{
                 std::cout << "     pfp[" << i << "]:" << std::endl;
             }
@@ -369,14 +369,14 @@ int Configuration::advance_clock(bool verbose, std::string bp){
         std::cout << "\x1b[1m[WB]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
             if(this->WB.inst_int[i].has_value()){
-                std::cout << (i==0 ? " " : "     ") << "int[" << i << "]: " << this->WB.inst_int[i].value().op.to_string() << " (pc=" << this->WB.inst_int[i].value().pc << ")" << std::endl;
+                std::cout << (i==0 ? " " : "     ") << "int[" << i << "]: " << this->WB.inst_int[i].value().op.to_string() << " (pc=" << this->WB.inst_int[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->WB.inst_int[i].value().pc)))) : "") << ")" << std::endl;
             }else{
                 std::cout << (i==0 ? " " : "     ") << "int[" << i << "]:" << std::endl;
             }
         }
         for(unsigned int i=0; i<2; ++i){
             if(this->WB.inst_fp[i].has_value()){
-                std::cout << "     fp[" << i << "] : " << this->WB.inst_fp[i].value().op.to_string() << " (pc=" << this->WB.inst_fp[i].value().pc << ")" << std::endl;
+                std::cout << "     fp[" << i << "] : " << this->WB.inst_fp[i].value().op.to_string() << " (pc=" << this->WB.inst_fp[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->WB.inst_fp[i].value().pc)))) : "") << ")" << std::endl;
             }else{
                 std::cout << "     fp[" << i << "] :" << std::endl;
             }
@@ -864,15 +864,6 @@ void Configuration::EX_stage::EX_pfp::exec(){
             exit_with_output("invalid operation for pFP (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
     }
 }
-
-// void exec_inst(Instruction inst){
-//     switch(inst.op.type){
-        
-        
-        // default:
-        //     exit_with_output("error in executing the code (at pc " + std::to_string(this->in) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
-//     }
-// }
 
 // EXステージに命令がないかどうかの判定
 bool Configuration::EX_stage::is_clear(){
