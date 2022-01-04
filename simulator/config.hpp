@@ -68,7 +68,7 @@ class Configuration{
                 class EX_ma{
                     public:
                         enum class State_ma{
-                            Idle, Recv_uart, Store_data_mem, Load_data_mem_int, Load_data_mem_fp
+                            Idle, Store_data_mem, Load_data_mem_int, Load_data_mem_fp
                         };
                         class Hazard_info_ma{
                             public:

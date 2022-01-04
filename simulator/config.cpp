@@ -35,11 +35,6 @@ int Configuration::advance_clock(bool verbose, std::string bp){
     if(!this->EX.ma.inst.op.is_nop()){
         if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
             switch(this->EX.ma.inst.op.type){
-                case o_lrd:
-                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Recv_uart;
-                    config_next.EX.ma.inst = this->EX.ma.inst;
-                    config_next.EX.ma.cycle_count = 1;
-                    break;
                 case o_sw:
                 case o_fsw:
                     if(this->EX.ma.available()){
@@ -68,6 +63,7 @@ int Configuration::advance_clock(bool verbose, std::string bp){
                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
                     break;
                 case o_lre:
+                case o_lrd:
                 case o_ltf:
                     this->EX.ma.exec();
                     config_next.wb_req(this->EX.ma.inst);
@@ -75,12 +71,6 @@ int Configuration::advance_clock(bool verbose, std::string bp){
                     break;
                 default: std::exit(EXIT_FAILURE);
             }
-        }else if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Recv_uart){
-            this->EX.ma.exec();
-            if(this->EX.ma.inst.op.type == o_lrd){
-                config_next.wb_req(this->EX.ma.inst);
-            }
-            config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
         }else{
             if(this->EX.ma.available()){
                 this->EX.ma.exec();
@@ -97,16 +87,17 @@ int Configuration::advance_clock(bool verbose, std::string bp){
     }
 
     // MA (hazard info)
-    this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd; // todo: いらない？
+    this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd;
     this->EX.ma.info.is_willing_but_not_ready_int =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (this->EX.ma.inst.op.type == o_lrd || this->EX.ma.inst.op.type == o_lw))
+        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_lw)
         || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int && !this->EX.ma.available());
     this->EX.ma.info.is_willing_but_not_ready_fp =
         (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_flw)
         || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !this->EX.ma.available());
     this->EX.ma.info.cannot_accept =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && (this->EX.ma.inst.op.type == o_lrd || ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw))
-        || ((this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Store_data_mem || this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int || this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp) && !this->EX.ma.available());
+        this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle ?
+            ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw
+            : !this->EX.ma.available();
 
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
