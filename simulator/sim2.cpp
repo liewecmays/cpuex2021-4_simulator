@@ -45,6 +45,7 @@ bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string filename; // 処理対象のファイル名
 std::string preload_filename; // プリロード対象のファイル名
+unsigned int bp_counter = 0; // ブレークポイント自動命名のときに使う数字
 
 // 統計・出力関連
 unsigned long long *op_type_count; // 各命令の実行数
@@ -535,6 +536,25 @@ bool exec_command(std::string cmd){
             reg_int.write_int(reg_no, val);
         }else{
             std::cout << head_error << "invalid argument (integer registers are x0,...,x31)" << std::endl;
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s*$"))){ // break N (Nはアセンブリコードの行数)
+        unsigned int line_no = std::stoi(match[3].str());
+        if(id_to_line.right.find(line_no) != id_to_line.right.end()){ // 行番号は命令に対応している？
+            unsigned int id = id_to_line.right.at(line_no);
+            if(bp_to_id.right.find(id) == bp_to_id.right.end()){ // idはまだブレークポイントが付いていない？
+                if(label_to_id.right.find(id) == label_to_id.right.end()){ // idにはラベルが付いていない？
+                    bp_to_id.insert(bimap_value_t("__bp" + std::to_string(bp_counter), id));
+                    std::cout << head_info << "breakpoint '" << ("__bp" + std::to_string(bp_counter)) << "' is now set to line " << line_no << std::endl;
+                    ++bp_counter;
+                }else{
+                    std::string label = label_to_id.right.at(id);
+                    std::cout << head_error << "line " << line_no << " is labeled '" << label << "' (hint: exec 'break " << label << "')" << std::endl;
+                }   
+            }else{
+                std::cout << head_error << "a breakpoint has already been set to line " << line_no << std::endl;
+            }
+        }else{
+            std::cout << head_error << "invalid line number" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(b|(break))\\s+(\\d+)\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // break N id (Nはアセンブリコードの行数)
         unsigned int line_no = std::stoi(match[3].str());
