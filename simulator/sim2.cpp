@@ -41,6 +41,7 @@ bool is_debug = false; // デバッグモード
 bool is_bin = false; // バイナリファイルモード
 bool is_raytracing = false; // レイトレ専用モード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
+bool is_quick = false; // マルチサイクルの処理をすぐに終わったものと見なすモード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string filename; // 処理対象のファイル名
@@ -75,6 +76,7 @@ int main(int argc, char *argv[]){
         ("mem,m", po::value<int>(), "memory size")
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
+        ("quick,q", "quick multicycle mode")
         ("ieee", "IEEE754 mode")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
 	po::variables_map vm;
@@ -102,6 +104,7 @@ int main(int argc, char *argv[]){
     if(vm.count("mem")) mem_size = vm["mem"].as<int>();
     if(vm.count("raytracing")) is_raytracing = true;
     if(vm.count("skip")) is_skip = true;
+    if(vm.count("quick")) is_quick = true;
     if(vm.count("ieee")) is_ieee = true;
     if(vm.count("preload")){
         is_preloading = true;
