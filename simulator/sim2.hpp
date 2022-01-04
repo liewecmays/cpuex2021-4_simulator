@@ -24,6 +24,8 @@ extern std::queue<Bit32> receive_buffer;
 extern boost::lockfree::queue<Bit32> send_buffer;
 extern bool is_debug;
 extern bool is_ieee;
+extern bimap_t bp_to_id;
+extern bimap_t label_to_id;
 extern bimap_t2 id_to_line;
 extern unsigned long long* op_type_count;
 

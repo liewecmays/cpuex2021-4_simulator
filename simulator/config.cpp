@@ -13,8 +13,10 @@
 using ::Otype;
 
 // クロックを1つ分先に進める
-bool Configuration::advance_clock(bool verbose){
+int Configuration::advance_clock(bool verbose, std::string bp){
     Configuration config_next = Configuration(); // *thisを現在の状態として、次の状態
+    int res = sim_state_continue;
+
     config_next.clk = this->clk + 1;
 
     /* execution */
@@ -281,6 +283,30 @@ bool Configuration::advance_clock(bool verbose){
         }
     }
 
+    /* 返り値の決定 */
+    if(this->IF.pc[0] == static_cast<int>(code_size*4) && this->EX.is_clear()){ // 終了
+        res = sim_state_end;
+    }else if(is_debug && bp != ""){
+        if(bp == "__continue"){ // continue, 名前指定なし
+            if(!this->ID.is_not_dispatched(0) && bp_to_id.right.find(this->ID.pc[0] / 4) != bp_to_id.right.end()){
+                res = this->ID.pc[0];
+                verbose = true;
+            }else if(!this->ID.is_not_dispatched(1) && bp_to_id.right.find(this->ID.pc[1] / 4) != bp_to_id.right.end()){
+                res = this->ID.pc[1];
+                verbose = true;
+            }
+        }else{ // continue, 名前指定あり
+            int bp_id = static_cast<int>(bp_to_id.left.at(bp));
+            if(!this->ID.is_not_dispatched(0) && this->ID.pc[0] / 4 == bp_id){
+                res = this->ID.pc[0];
+                verbose = true;
+            }else if(!this->ID.is_not_dispatched(1) && this->ID.pc[1] / 4 == bp_id){
+                res = this->ID.pc[1];
+                verbose = true;
+            }
+        }
+    }
+
     /* print */
     if(verbose){
         std::cout << "clk: " << this->clk << std::endl;
@@ -357,12 +383,10 @@ bool Configuration::advance_clock(bool verbose){
         }
     }
 
-    bool is_end = this->IF.pc[0] == static_cast<int>(code_size*4) && this->EX.is_clear();
-
     /* update */
     *this = config_next;
 
-    return is_end;
+    return res;
 }
 
 // Hazard_type間のOR

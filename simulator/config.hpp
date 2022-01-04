@@ -17,19 +17,21 @@ class Instruction{
 // 各時点の状態
 class Configuration{
     public:
-        // hazard type
+        // ハザードの種類
         enum class Hazard_type{
-            No_hazard, Trivial, End,
-            // intra
+            No_hazard, // ハザードなし
+            Trivial, // 1命令目が発行されないときの2命令目は自明に発行されない
+            End, // 命令メモリの終わりに当たったとき
+            // 同時発行される命令間
             Intra_RAW_rd_to_rs1, Intra_RAW_rd_to_rs2,
             Intra_WAW_rd_to_rd,
             Intra_control,
             Intra_structural_mem, Intra_structural_mfp, Intra_structural_pfp,
-            // inter
+            // 同時発行ではない命令間
             Inter_RAW_ma_to_rs1, Inter_RAW_ma_to_rs2, Inter_RAW_mfp_to_rs1, Inter_RAW_mfp_to_rs2, Inter_RAW_pfp_to_rs1, Inter_RAW_pfp_to_rs2,
             Inter_WAW_ma_to_rd, Inter_WAW_mfp_to_rd, Inter_WAW_pfp_to_rd,
             Inter_structural_mem, Inter_structural_mfp,
-            // iwp
+            // 書き込みポート不十分
             Insufficient_write_port
         };
 
@@ -136,17 +138,20 @@ class Configuration{
         ID_stage ID;
         EX_stage EX;
         WB_stage WB;
-        bool advance_clock(bool); // クロックを1つ分先に進める
+        int advance_clock(bool, std::string); // クロックを1つ分先に進める
         Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
         Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
         Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
         void wb_req(Instruction); // WBステージに命令を渡す
-        // bool is_end(); // 実行終了かどうかの判定
 };
+
+inline constexpr int sim_state_continue = -1;
+inline constexpr int sim_state_end = -2;
 
 Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
 
 /* インライン展開したいコンストラクタ */
+
 inline Instruction::Instruction(){
     this->op = nop;
     this->rs1_v = 0;

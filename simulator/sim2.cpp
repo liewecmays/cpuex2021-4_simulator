@@ -344,7 +344,7 @@ void send_data(Cancel_flag& flg){
 
 // デバッグモードのコマンドを認識して実行
 bool no_info = false; // infoを表示しない(一時的な仕様)
-bool simulation_end = false;
+int sim_state = sim_state_continue; // シミュレータの状態管理
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue
     std::smatch match;
@@ -356,9 +356,8 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
-        if(!simulation_end){
-            if(config.advance_clock(true)){
-                simulation_end = true;
+        if(sim_state != sim_state_end){
+            if((sim_state = config.advance_clock(true, "")) == sim_state_end){
                 std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
             }
         }else{
@@ -366,10 +365,9 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
         unsigned int n = std::stoi(match[3].str());
-        if(!simulation_end){
+        if(sim_state != sim_state_end){
             for(unsigned int i=0; i<n; ++i){
-                if(config.advance_clock(false)){
-                    simulation_end = true;
+                if((sim_state = config.advance_clock(false, "")) == sim_state_end){
                     std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
@@ -378,12 +376,13 @@ bool exec_command(std::string cmd){
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
-        bool is_time_measuring = match[4].str() == "-t";
-        if(!simulation_end){
+        if(sim_state != sim_state_end){
+            bool is_time_measuring = match[4].str() == "-t";
             auto start = std::chrono::system_clock::now();
-            while(!config.advance_clock(false));
-            simulation_end = true;
+            // Endになるまで実行
+            while((sim_state = config.advance_clock(false, "")) != sim_state_end);
             std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+            // 実行時間などの情報の表示
             if(is_time_measuring){
                 auto end = std::chrono::system_clock::now();
                 double exec_time = std::chrono::duration<double>(end - start).count();
@@ -399,6 +398,7 @@ bool exec_command(std::string cmd){
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
+        sim_state = sim_state_continue;
         config = Configuration();
         for(unsigned int i=0; i<op_type_num; ++i){
             op_type_count[i] = 0;
@@ -412,13 +412,59 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(ir|(init run))\\s*$"))){ // init run
         exec_command("init");
         exec_command("run");
+    }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
+        if(sim_state != sim_state_end){
+            while(true){
+                switch(sim_state = config.advance_clock(false, "__continue")){
+                    case sim_state_continue: break;
+                    case sim_state_end:
+                        std::cout << head_info << "all operations have been simulated successfully! (no breakpoint encountered)" << std::endl;
+                        break;
+                    default:
+                        if(sim_state >= 0){ // ブレークポイントに当たった
+                            std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(sim_state)) << "' (pc " << sim_state << ", line " << id_to_line.left.at(id_of_pc(sim_state)) << ")" << std::endl;
+                        }else{
+                            std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
+                            std::exit(EXIT_FAILURE);
+                        }
+                }
+                if(sim_state != sim_state_continue) break;
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // continue break
+        if(sim_state != sim_state_end){
+            std::string bp = match[3].str();
+            if(bp_to_id.left.find(bp) != bp_to_id.left.end()){
+                while(true){
+                    switch(sim_state = config.advance_clock(false, bp)){
+                        case sim_state_continue: break;
+                        case sim_state_end:
+                            std::cout << head_info << "all operations have been simulated successfully! (breakpoint '" << bp << "' not encountered)"  << std::endl;
+                            break;
+                        default:
+                            if(sim_state >= 0){ // ブレークポイントに当たった
+                                std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(id_of_pc(sim_state)) << ")" << std::endl;
+                            }else{
+                                std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
+                                std::exit(EXIT_FAILURE);
+                            }
+                    }
+                    if(sim_state != sim_state_continue) break;
+                }
+            }else{
+                std::cout << head_error << "breakpoint '" << bp << "' has not been set" << std::endl;
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
-        // std::cout << "operations executed: " << op_count << std::endl;
-        // if(simulation_end){
-        //     std::cout << "next: (no operation left to be simulated)" << std::endl;
-        // }else{
-        //     std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << op_list[id_of_pc(pc)].to_string() << std::endl;
-        // }
+        if(sim_state == sim_state_end){
+            std::cout << "simulation state: (no operation left to be simulated)" << std::endl;
+        }else{
+            // todo
+        }
         if(bp_to_id.empty()){
             std::cout << "breakpoints: (no breakpoint found)" << std::endl;
         }else{
