@@ -114,7 +114,7 @@ operation_: // 命令とその行番号の組を返す
 	// load_fp
 	| FLW reg COMMA immediate LPAR reg RPAR { Flw ($6, $2, $4) } // flw rd,offset(rs1)
 	// jalr
-	| JALR reg COMMA reg COMMA immediate { Jalr ($4, $2, $6) } // jalr rd,rs1,offset
+	| JALR reg COMMA reg { Jalr ($4, $2) } // jalr rd,rs1
 	// jal
 	| JAL reg COMMA label { Jal ($2, $4) } // jal rd,label
 	// lui

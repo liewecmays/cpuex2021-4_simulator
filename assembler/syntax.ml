@@ -51,7 +51,7 @@ type operation =
 	(* load_fp *)
 	| Flw of reg * reg * imm (* rs1, rd, offset *)
 	(* jalr *)
-	| Jalr of reg * reg * imm (* rs1, rd, offset *)
+	| Jalr of reg * reg (* rs1, rd *)
 	(* jal *)
 	| Jal of reg * string (* rd, label *)
 	(* lui *)
