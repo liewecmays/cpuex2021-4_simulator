@@ -379,6 +379,23 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
+        if(sim_state != sim_state_end){
+            if(config.EX.br.inst.op.type == o_jalr || config.EX.br.inst.op.type == o_jal){
+                int old_pc = config.EX.br.inst.pc;
+                no_info = true;
+                exec_command("do");
+                exec_command("break " + std::to_string(id_to_line.left.at(id_of_pc(old_pc + 4))) + " __ret");
+                exec_command("continue __ret");
+                exec_command("delete __ret");
+                no_info = false;
+                std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(id_of_pc(old_pc)) << ") " << op_list[id_of_pc(old_pc)].to_string() << std::endl;
+            }else{
+                exec_command("do");
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
         if(sim_state != sim_state_end){
             bool is_time_measuring = match[4].str() == "-t";
@@ -449,7 +466,9 @@ bool exec_command(std::string cmd){
                             break;
                         default:
                             if(sim_state >= 0){ // ブレークポイントに当たった
-                                std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(id_of_pc(sim_state)) << ")" << std::endl;
+                                if(!no_info){
+                                    std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(id_of_pc(sim_state)) << ")" << std::endl;
+                                }
                             }else{
                                 std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
                                 std::exit(EXIT_FAILURE);
@@ -595,7 +614,6 @@ bool exec_command(std::string cmd){
                 int label_id = label_to_id.left.at(label); // 0-indexed
                 bp_to_id.insert(bimap_value_t(label, label_id));
                 std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id * 4 << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
-            
             }else{
                 std::vector<std::string> matched_labels;
                 for(auto x : label_to_id.left){
