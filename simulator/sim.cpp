@@ -29,7 +29,7 @@ Bit32 *memory; // メモリ領域
 
 unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
-constexpr unsigned long long max_op_count = 10000000000;
+constexpr unsigned long long max_op_count = 1000000000000;
 int mem_size = 100; // メモリサイズ
 constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
 bool memory_exceeding_flag = false;
@@ -38,7 +38,7 @@ int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バッファ
 
-cache_line *cache; // キャッシュ本体
+Cache_line *cache; // キャッシュ本体
 unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
 unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
 unsigned int cache_read_times = 0; // キャッシュへのアクセス回数(読み込み)
@@ -49,6 +49,7 @@ bool is_debug = false; // デバッグモード
 bool is_detailed_debug = false; // 詳細なデバッグモード
 bool is_info_output = false; // 出力モード
 bool is_bin = false; // バイナリファイルモード
+bool is_cache_enabled = false; // キャッシュを考慮するモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
@@ -108,6 +109,7 @@ int main(int argc, char *argv[]){
         ("bin,b", "binary-input mode")
         ("port,p", po::value<int>(), "port number")
         ("mem,m", po::value<int>(), "memory size")
+        ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
         ("boot", "bootloading mode")
@@ -142,6 +144,21 @@ int main(int argc, char *argv[]){
     if(vm.count("bin")) is_bin = true;
     if(vm.count("port")) port = vm["port"].as<int>();
     if(vm.count("mem")) mem_size = vm["mem"].as<int>();
+    if(vm.count("cache")){
+        is_cache_enabled = true;
+        std::vector<unsigned int> cache_setting = vm["cache"].as<std::vector<unsigned int>>();
+        if(cache_setting.size() == 2){
+            index_width = cache_setting[0];
+            offset_width = cache_setting[1];
+            if(index_width + offset_width >= 32){
+                std::cout << head_error << "invalid cache setting" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+        }else{
+            std::cout << head_error << "invalid argument(s) for -c option (there should be 2 ones)" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
     if(vm.count("raytracing")) is_raytracing = true;
     if(vm.count("skip")) is_skip = true;
     if(vm.count("boot")) is_bootloading = true;
@@ -200,7 +217,7 @@ int main(int argc, char *argv[]){
 
     // キャッシュの初期化
     if(is_debug){
-        cache = (cache_line*) calloc(1 << index_width, sizeof(cache_line));
+        cache = (Cache_line*) calloc(1 << index_width, sizeof(Cache_line));
     }
     
     // バッファのデータのプリロード
@@ -1180,11 +1197,12 @@ void output_info(){
         std::exit(EXIT_FAILURE);
     }
     std::stringstream ss;
-    ss << "# basic stat" << std::endl;
-    ss << "- operation count: " << op_count << std::endl;
+    ss << "# execution stat" << std::endl;
     ss << "- execution time(s): " << exec_time << std::endl;
     ss << "- operations per second: " << op_per_sec << std::endl;
-    if(is_debug){
+    ss << "# basic stat" << std::endl;
+    ss << "- operation count: " << op_count << std::endl;
+    if(is_debug && is_cache_enabled){
         ss << "- cache:" << std::endl;
         ss << "\t- accessed: " << cache_read_times << std::endl;
         ss << "\t- hit rate: " << static_cast<double>(cache_hit_times) / cache_read_times << std::endl;
@@ -1303,7 +1321,7 @@ inline Bit32 read_memory(int w){
         memory_exceeding_flag = true;
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
-    if(is_detailed_debug){
+    if(is_detailed_debug && is_cache_enabled){
         ++mem_accessed_read[w];
         w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
 
@@ -1312,7 +1330,7 @@ inline Bit32 read_memory(int w){
         unsigned int tag = ((w * 4) >> (index_width + offset_width)) & ((1 << (32 - (index_width + offset_width))) - 1);
         unsigned int index = ((w * 4) >> offset_width) & ((1 << index_width) - 1);
         // int offset = (w * 4) & ((1 << offset_width) - 1);
-        cache_line line = cache[index];
+        Cache_line line = cache[index];
         if(line.tag == tag){
             if(line.is_valid){
                 ++cache_hit_times;
@@ -1334,7 +1352,7 @@ inline void write_memory(int w, Bit32 v){
         memory_exceeding_flag = true;
         std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     }
-    if(is_detailed_debug){
+    if(is_detailed_debug && is_cache_enabled){
         ++mem_accessed_write[w];
         w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
     }

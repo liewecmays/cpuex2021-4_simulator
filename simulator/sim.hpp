@@ -22,7 +22,7 @@ class cancel_flag{
 };
 
 // キャッシュのライン
-struct cache_line{
+struct Cache_line{
     bool is_valid : 1;
     unsigned int tag : 31;
 };
