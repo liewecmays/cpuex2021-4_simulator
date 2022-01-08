@@ -1204,6 +1204,8 @@ void output_info(){
     ss << "- operation count: " << op_count << std::endl;
     if(is_debug && is_cache_enabled){
         ss << "- cache:" << std::endl;
+        ss << "\t- line num: " << std::pow(2, index_width) << std::endl;
+        ss << "\t- block size: " << std::pow(2, offset_width) << std::endl;
         ss << "\t- accessed: " << cache_read_times << std::endl;
         ss << "\t- hit rate: " << static_cast<double>(cache_hit_times) / cache_read_times << std::endl;
     }
