@@ -41,8 +41,8 @@ boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バ
 Cache_line *cache; // キャッシュ本体
 unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
 unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
-unsigned int cache_read_times = 0; // キャッシュへのアクセス回数(読み込み)
-unsigned int cache_hit_times = 0; // キャッシュのヒット率
+unsigned long long cache_read_times = 0; // キャッシュへのアクセス回数(読み込み)
+unsigned long long cache_hit_times = 0; // キャッシュのヒット率
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
@@ -65,12 +65,12 @@ unsigned int *line_exec_count; // 行ごとの実行回数
 int max_x2 = 0;
 int memory_used = 0;
 constexpr int stack_border = 4000;
-unsigned int *mem_accessed_read; // メモリのreadによるアクセス回数
-unsigned int *mem_accessed_write; // メモリのwriteによるアクセス回数
-unsigned int stack_accessed_read_count = 0; // スタックのreadによるアクセスの総回数
-unsigned int stack_accessed_write_count = 0; // スタックのwriteによるアクセスの総回数
-unsigned int heap_accessed_read_count = 0; // ヒープのreadによるアクセスの総回数
-unsigned int heap_accessed_write_count = 0; // ヒープのwriteによるアクセスの総回数
+unsigned long long *mem_accessed_read; // メモリのreadによるアクセス回数
+unsigned long long *mem_accessed_write; // メモリのwriteによるアクセス回数
+unsigned long long stack_accessed_read_count = 0; // スタックのreadによるアクセスの総回数
+unsigned long long stack_accessed_write_count = 0; // スタックのwriteによるアクセスの総回数
+unsigned long long heap_accessed_read_count = 0; // ヒープのreadによるアクセスの総回数
+unsigned long long heap_accessed_write_count = 0; // ヒープのwriteによるアクセスの総回数
 double exec_time; // 実行時間
 double op_per_sec; // 秒あたりの実行命令数
 std::string timestamp;
@@ -211,8 +211,8 @@ int main(int argc, char *argv[]){
 
     // 統計データの初期化
     if(is_detailed_debug){
-        mem_accessed_read = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
-        mem_accessed_write = (unsigned int*) calloc(mem_size, sizeof(unsigned int));
+        mem_accessed_read = (unsigned long long*) calloc(mem_size, sizeof(unsigned long long));
+        mem_accessed_write = (unsigned long long*) calloc(mem_size, sizeof(unsigned long long));
     }
 
     // キャッシュの初期化
@@ -1012,7 +1012,7 @@ void exec_op(){
             pc += 4;
             return;
         case Otype::o_ltf:
-            write_reg(op.rd.value(), 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+            write_reg(op.rd.value(), 0); // 暫定的に、常にfunsigned long long flagが立っていない(=送信バッファの大きさに制限がない)としている
             ++op_type_count[Otype::o_ltf];
             pc += 4;
             return;
@@ -1329,7 +1329,6 @@ inline Bit32 read_memory(int w){
         ++cache_read_times;
         unsigned int tag = ((w * 4) >> (index_width + offset_width)) & ((1 << (32 - (index_width + offset_width))) - 1);
         unsigned int index = ((w * 4) >> offset_width) & ((1 << index_width) - 1);
-        // int offset = (w * 4) & ((1 << offset_width) - 1);
         Cache_line line = cache[index];
         if(line.tag == tag){
             if(line.is_valid){
@@ -1355,6 +1354,14 @@ inline void write_memory(int w, Bit32 v){
     if(is_detailed_debug && is_cache_enabled){
         ++mem_accessed_write[w];
         w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
+
+        // キャッシュ関連の処理
+        unsigned int tag = ((w * 4) >> (index_width + offset_width)) & ((1 << (32 - (index_width + offset_width))) - 1);
+        unsigned int index = ((w * 4) >> offset_width) & ((1 << index_width) - 1);
+        Cache_line line = cache[index];
+        line.is_valid = true;
+        line.tag = tag;
+        cache[index] = line;
     }
     memory[w] = v;
 }
