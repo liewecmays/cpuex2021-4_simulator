@@ -282,7 +282,7 @@ int Configuration::advance_clock(bool verbose, std::string bp){
     /* 返り値の決定 */
     if(this->IF.pc[0] == static_cast<int>(code_size*4) && this->EX.is_clear()){ // 終了
         res = sim_state_end;
-    }else if(is_debug && bp != ""){
+    }else if(is_debug && bp != "" && !this->EX.br.branch_addr.has_value()){
         if(bp == "__continue"){ // continue, 名前指定なし
             if(!this->ID.is_not_dispatched(0) && bp_to_id.right.find(this->ID.pc[0] / 4) != bp_to_id.right.end()){
                 res = this->ID.pc[0];
