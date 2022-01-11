@@ -222,6 +222,7 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
+                && !(std::abs(d_y) == e_126.d && d_y * d_std > 0.0 && std::abs(d_y - d_std) == e_126.d) // yが2^-126のときの情報落ちに対応
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_22.d, e_126.d));
         case Ftype::o_fdiv:
@@ -230,6 +231,7 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
                 && x2.f != 0.0f
+                && !(std::abs(d_y) == e_126.d && d_y * d_std > 0.0 && std::abs(d_y - d_std) == e_126.d) // yが2^-126のときの情報落ちに対応
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_20.d, e_126.d));
         case Ftype::o_fsqrt:

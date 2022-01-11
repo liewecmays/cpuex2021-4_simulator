@@ -161,7 +161,7 @@ inline Bit32 fmul(Bit32 x1, Bit32 x2){
     // assign
     ui e3 = !isset_bit(e3a, 8) ? 0 : ((isset_bit(sum, 25)) ? take_bits(e3b, 0, 7) : take_bits(e3a, 0, 7));
     ui m3 = isset_bit(sum, 25) ? take_bits(sum, 2, 24) : take_bits(sum, 1, 23);
-    ui y = (e3 == 0 || zero1 == 1) ? 0 : ((s3 << 31) + (e3 << 23) + m3);
+    ui y = (zero1 == 1) ? 0 : ((e3 == 0) ? ((s3 << 31) + (1 << 23)) : ((s3 << 31) + (e3 << 23) + m3));
     
     return Bit32(y);
 }
