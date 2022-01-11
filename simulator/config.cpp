@@ -206,11 +206,16 @@ int Configuration::advance_clock(bool verbose, std::string bp){
             // BR (conditional)
             case o_beq:
             case o_blt:
-            case o_fbeq:
-            case o_fblt:
                 config_next.EX.br.inst.op = this->ID.op[i];
                 config_next.EX.br.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.br.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
+                config_next.EX.br.inst.pc = this->ID.pc[i];
+                break;
+            case o_fbeq:
+            case o_fblt:
+                config_next.EX.br.inst.op = this->ID.op[i];
+                config_next.EX.br.inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
+                config_next.EX.br.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.br.inst.pc = this->ID.pc[i];
                 break;
             // BR (unconditional)
