@@ -34,7 +34,6 @@ void receive_data(); // データの受信
 void send_data(cancel_flag&); // データの送信
 void output_info(); // 情報の出力
 void exec_op(); // 命令を実行し、PCを変化させる
-unsigned int id_of_pc(unsigned int); // PCから命令IDへの変換
 int read_reg(unsigned int); // 整数レジスタから読む
 Bit32 read_reg_32(unsigned int); // 整数レジスタから読む(Bit32で)
 void write_reg(unsigned int, int); // 整数レジスタに書き込む

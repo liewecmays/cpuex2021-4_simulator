@@ -188,7 +188,7 @@ int main(int argc, char *argv[]){
     // ブートローダ処理をスキップする場合の処理
     if(is_skip){
         op_list.resize(100);
-        pc = 100 * 4;
+        pc = 100;
     }
 
     // レイトレを処理する場合は予めreserve
@@ -395,10 +395,13 @@ bool exec_command(std::string cmd){
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }else{
             bool end_flag = false;
-            if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-            std::cout << "pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << op_list[id_of_pc(pc)].to_string() << std::endl;
+            if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+            std::cout << "pc " << pc << " (line " << id_to_line.left.at(pc) << ") " << op_list[pc].to_string() << std::endl;
             exec_op();
-            if(id_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+            if(pc >= op_list.size()){
+                end_flag = true; // 最後の命令に到達した場合も終了とする
+                std::cout << pc << ", " << op_list.size() << std::endl;
+            }
             ++op_count;
 
             if(end_flag){
@@ -408,16 +411,16 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
         breakpoint_skip = false;
-        Operation op = op_list[id_of_pc(pc)];
+        Operation op = op_list[pc];
         if(op.type == Otype::o_jalr || op.type == Otype::o_jal){
             unsigned int old_pc = pc;
             no_info = true;
-            exec_command("break " + std::to_string(id_to_line.left.at(id_of_pc(pc + 4))) + " __ret");
+            exec_command("break " + std::to_string(id_to_line.left.at(pc + 1)) + " __ret");
             exec_command("continue __ret");
             exec_command("delete __ret");
             no_info = false;
-            std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(id_of_pc(old_pc)) << ") " << op_list[id_of_pc(old_pc)].to_string() << std::endl;
-            std::cout << head_info << "returned to pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << op_list[id_of_pc(pc)].to_string() << std::endl;
+            std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(old_pc) << ") " << op_list[old_pc].to_string() << std::endl;
+            std::cout << head_info << "returned to pc " << pc << " (line " << id_to_line.left.at(pc) << ") " << op_list[pc].to_string() << std::endl;
         }else{
             exec_command("do");
         }
@@ -428,9 +431,9 @@ bool exec_command(std::string cmd){
         }else{
             bool end_flag = false;
             for(int i=0; i<std::stoi(match[3].str()); ++i){
-                if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
                 exec_op();
-                if(id_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 ++op_count;
                 
                 if(end_flag){
@@ -450,9 +453,9 @@ bool exec_command(std::string cmd){
             bool end_flag = false;
             auto start = std::chrono::system_clock::now();
             while(true){
-                if(is_end(op_list[pc/4])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
                 exec_op();
-                if(pc / 4 >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 ++op_count;
                 
                 if(end_flag){
@@ -498,20 +501,20 @@ bool exec_command(std::string cmd){
             loop_flag = true;
             bool end_flag = false;
             while(true){
-                if(bp_to_id.right.find(id_of_pc(pc)) != bp_to_id.right.end()){ // ブレークポイントに当たった場合は停止
+                if(bp_to_id.right.find(pc) != bp_to_id.right.end()){ // ブレークポイントに当たった場合は停止
                     if(breakpoint_skip){
                         breakpoint_skip = false;
                     }else{
-                        std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(pc)) << "' (line " << id_to_line.left.at(id_of_pc(pc)) << ")" << std::endl;
+                        std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(pc) << "' (line " << id_to_line.left.at(pc) << ")" << std::endl;
                         loop_flag = false;
                         breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
                         break;
                     }
                 }
 
-                if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
                 exec_op();
-                if(id_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                 ++op_count;
                 
                 if(end_flag){
@@ -531,12 +534,12 @@ bool exec_command(std::string cmd){
                 unsigned int bp_id = bp_to_id.left.at(bp);
                 bool end_flag = false;
                 while(true){
-                    if(id_of_pc(pc) == bp_id){
+                    if(pc == bp_id){
                         if(breakpoint_skip){
                             breakpoint_skip = false;
                         }else{
                             if(!no_info){
-                                std::cout << head_info << "halt before breakpoint '" + bp << "' (line " << id_of_pc(pc) + 1 << ")" << std::endl;
+                                std::cout << head_info << "halt before breakpoint '" + bp << "'" << std::endl;
                             }
                             loop_flag = false;
                             breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
@@ -544,9 +547,9 @@ bool exec_command(std::string cmd){
                         }
                     }
 
-                    if(is_end(op_list[id_of_pc(pc)])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+                    if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
                     exec_op();
-                    if(id_of_pc(pc) >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
+                    if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
                     ++op_count;
                     
                     if(end_flag){
@@ -565,7 +568,7 @@ bool exec_command(std::string cmd){
         if(simulation_end){
             std::cout << "next: (no operation left to be simulated)" << std::endl;
         }else{
-            std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(id_of_pc(pc)) << ") " << op_list[id_of_pc(pc)].to_string() << std::endl;
+            std::cout << "next: pc " << pc << " (line " << id_to_line.left.at(pc) << ") " << op_list[pc].to_string() << std::endl;
         }
         if(bp_to_id.empty()){
             std::cout << "breakpoints: (no breakpoint found)" << std::endl;
@@ -766,17 +769,11 @@ bool exec_command(std::string cmd){
 
 // 命令を実行し、PCを変化させる
 void exec_op(){
-    Operation op;
-    if(pc % 4 == 0){
-        op = op_list[pc/4];
-        // std::cout << op.to_string() << std::endl;
-    }else{
-        exit_with_output("error with program counter: pc = " + std::to_string(pc));
-    }
+    Operation op = op_list[pc];
 
     // 詳細デバッグモードの場合、行数ごとの実行回数を更新
     if(is_detailed_debug){
-        int l = id_to_line.left.at(id_of_pc(pc));
+        int l = id_to_line.left.at(pc);
         if(l > 0) ++line_exec_count[l-1];
     }
 
@@ -819,32 +816,32 @@ void exec_op(){
         case Otype::o_add:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) + read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_add];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_sub:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) - read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_sub];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_sll:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) << read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_sll];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_srl:
             write_reg(op.rd.value(), static_cast<unsigned int>(read_reg(op.rs1.value())) >> read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_srl];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_sra:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) >> read_reg(op.rs2.value())); // todo: 処理系依存
             ++op_type_count[Otype::o_sra];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_and:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) & read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_and];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fadd:
             if(is_ieee){
@@ -853,7 +850,7 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), fadd(read_reg_fp_32(op.rs1.value()), read_reg_fp_32(op.rs2.value())));
             }
             ++op_type_count[Otype::o_fadd];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fsub:
             if(is_ieee){
@@ -862,7 +859,7 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), fsub(read_reg_fp_32(op.rs1.value()), read_reg_fp_32(op.rs2.value())));
             }
             ++op_type_count[Otype::o_fsub];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fmul:
             if(is_ieee){
@@ -871,7 +868,7 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), fmul(read_reg_fp_32(op.rs1.value()), read_reg_fp_32(op.rs2.value())));
             }
             ++op_type_count[Otype::o_fmul];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fdiv:
             if(is_ieee){
@@ -880,7 +877,7 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), fdiv(read_reg_fp_32(op.rs1.value()), read_reg_fp_32(op.rs2.value())));
             }
             ++op_type_count[Otype::o_fdiv];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fsqrt:
             if(is_ieee){
@@ -889,7 +886,7 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), fsqrt(read_reg_fp_32(op.rs1.value())));
             }
             ++op_type_count[Otype::o_fsqrt];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fcvtif:
             if(is_ieee){
@@ -898,7 +895,7 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), itof(read_reg_fp_32(op.rs1.value())));
             }
             ++op_type_count[Otype::o_fcvtif];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fcvtfi:
             if(is_ieee){
@@ -907,98 +904,98 @@ void exec_op(){
                 write_reg_fp_32(op.rd.value(), ftoi(read_reg_fp_32(op.rs1.value())));
             }
             ++op_type_count[Otype::o_fcvtfi];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fmvff:
             write_reg_fp_32(op.rd.value(), read_reg_fp_32(op.rs1.value()));
             ++op_type_count[Otype::o_fmvff];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_beq:
-            read_reg(op.rs1.value()) == read_reg(op.rs2.value()) ? pc += op.imm.value() * 4 : pc += 4;
+            read_reg(op.rs1.value()) == read_reg(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_beq];
             return;
         case Otype::o_blt:
-            read_reg(op.rs1.value()) < read_reg(op.rs2.value()) ? pc += op.imm.value() * 4 : pc += 4;
+            read_reg(op.rs1.value()) < read_reg(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_blt];
             return;
         case Otype::o_fbeq:
-            read_reg_fp(op.rs1.value()) == read_reg_fp(op.rs2.value()) ? pc += op.imm.value() * 4 : pc += 4;
+            read_reg_fp(op.rs1.value()) == read_reg_fp(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_fbeq];
             return;
         case Otype::o_fblt:
-            read_reg_fp(op.rs1.value()) < read_reg_fp(op.rs2.value()) ? pc += op.imm.value() * 4 : pc += 4;
+            read_reg_fp(op.rs1.value()) < read_reg_fp(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_fblt];
             return;
         case Otype::o_sw:
             if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
                 write_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4, read_reg_32(op.rs2.value()));
             }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_sw];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_si:
             if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
                 op_list[(read_reg(op.rs1.value()) + op.imm.value()) / 4] = Operation(read_reg(op.rs2.value()));
             }else{
-                exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+                exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_si];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_std:
             send_buffer.push(read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_std];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fsw:
             if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
                 write_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4, read_reg_fp_32(op.rs2.value()));
             }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_fsw];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_addi:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) + op.imm.value());
             ++op_type_count[Otype::o_addi];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_slli:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) << op.imm.value());
             ++op_type_count[Otype::o_slli];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_srli:
             write_reg(op.rd.value(), static_cast<unsigned int>(read_reg(op.rs1.value())) >> op.imm.value());
             ++op_type_count[Otype::o_srli];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_srai:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) >> op.imm.value()); // todo: 処理系依存
             ++op_type_count[Otype::o_srai];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_andi:
             write_reg(op.rd.value(), read_reg(op.rs1.value()) & op.imm.value());
             ++op_type_count[Otype::o_andi];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_lw:
             if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
                 write_reg_32(op.rd.value(), read_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4));
             }else{
-                exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+                exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_lw];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_lre:
             write_reg(op.rd.value(), receive_buffer.empty() ? 1 : 0);
-            pc += 4;
+            ++pc;
             ++op_type_count[Otype::o_lre];
             return;
         case Otype::o_lrd:
@@ -1006,55 +1003,55 @@ void exec_op(){
                 write_reg(op.rd.value(), receive_buffer.front().i);
                 receive_buffer.pop();
             }else{
-                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_lrd];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_ltf:
             write_reg(op.rd.value(), 0); // 暫定的に、常にfunsigned long long flagが立っていない(=送信バッファの大きさに制限がない)としている
             ++op_type_count[Otype::o_ltf];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_flw:
             if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
                 write_reg_fp_32(op.rd.value(), read_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4));
             }else{
-                exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+                exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_flw];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_jalr:
             {
-                unsigned next_pc = pc + 4;
+                unsigned next_pc = pc + 1;
                 pc = read_reg(op.rs1.value());
                 write_reg(op.rd.value(), next_pc);
                 ++op_type_count[Otype::o_jalr];
             }
             return;
         case Otype::o_jal:
-            write_reg(op.rd.value(), pc + 4);
+            write_reg(op.rd.value(), pc + 1);
             ++op_type_count[Otype::o_jal];
-            pc += op.imm.value() * 4;
+            pc += op.imm.value();
             return;
         case Otype::o_lui:
             write_reg(op.rd.value(), op.imm.value() << 12);
             ++op_type_count[Otype::o_lui];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fmvif:
             write_reg_fp_32(op.rd.value(), read_reg_32(op.rs1.value()));
             ++op_type_count[Otype::o_fmvif];
-            pc += 4;
+            ++pc;
             return;
         case Otype::o_fmvfi:
             write_reg_32(op.rd.value(), read_reg_fp_32(op.rs1.value()));
             ++op_type_count[Otype::o_fmvfi];
-            pc += 4;
+            ++pc;
             return;
         default:
-            exit_with_output("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(pc)))) : "") + ")");
+            exit_with_output("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
     }
 }
 
@@ -1260,16 +1257,6 @@ void output_info(){
     }
 
     return;
-}
-
-// PCから命令IDへの変換(4の倍数になっていない場合エラー)
-inline unsigned int id_of_pc(unsigned int n){
-    if(n % 4 == 0){
-        return n / 4;
-    }else{
-        exit_with_output("error with program counter: pc = " + std::to_string(n));
-        return 0; // 実行されない
-    }
 }
 
 // 整数レジスタから読む
