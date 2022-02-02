@@ -18,6 +18,100 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 
+
+#include <algorithm>
+
+class Correlating {
+private:
+    int hist_width;
+    int pc_width;
+    unsigned global_history;
+    std::vector<int> branch_history_table;
+    unsigned long long total_count;
+    unsigned long long taken_count;
+    unsigned long long correct_count;
+public:
+    Correlating(int hist_width, int pc_width);
+    void update(unsigned pc, bool taken);
+    void show_stats();
+};
+
+Correlating::Correlating(int hist_width, int pc_width) : branch_history_table(1U << (hist_width + pc_width), 1)
+{
+    this->hist_width = hist_width;
+    this->pc_width = pc_width;
+    this->global_history = 0;
+    this->total_count = 0;
+    this->taken_count = 0;
+    this->correct_count = 0;
+}
+
+void Correlating::update(unsigned pc, bool taken)
+{
+    unsigned index = ((global_history & ((1U << hist_width) - 1)) << pc_width) | (pc & ((1U << pc_width) - 1));
+    total_count++;
+    if (taken) {
+        taken_count++;
+    }
+    if ((branch_history_table[index] >= 2) == taken) {
+        correct_count++;
+    }
+    global_history = (global_history << 1) | (taken ? 1U : 0U);
+    branch_history_table[index] = std::clamp(branch_history_table[index] + (taken ? 1 : -1), 0, 3);
+}
+
+void Correlating::show_stats()
+{
+    std::cout << "taken: " << 100.0 * taken_count / total_count << std::endl;
+    std::cout << "correct: " << 100.0 * correct_count / total_count << std::endl;
+}
+
+class Gshare {
+private:
+    int width;
+    unsigned global_history;
+    std::vector<int> branch_history_table;
+    unsigned long long total_count;
+    unsigned long long taken_count;
+    unsigned long long correct_count;
+public:
+    Gshare(int width);
+    void update(unsigned pc, bool taken);
+    void show_stats();
+};
+
+Gshare::Gshare(int width) : branch_history_table(1U << width, 1)
+{
+    this->width = width;
+    this->global_history = 0;
+    this->total_count = 0;
+    this->taken_count = 0;
+    this->correct_count = 0;
+}
+
+void Gshare::update(unsigned pc, bool taken)
+{
+    unsigned index = (global_history ^ pc) & ((1U << width) - 1);
+    total_count++;
+    if (taken) {
+        taken_count++;
+    }
+    if ((branch_history_table[index] >= 2) == taken) {
+        correct_count++;
+    }
+    global_history = (global_history << 1) | (taken ? 1U : 0U);
+    branch_history_table[index] = std::clamp(branch_history_table[index] + (taken ? 1 : -1), 0, 3);
+}
+
+void Gshare::show_stats()
+{
+    std::cout << "taken: " << 100.0 * taken_count / total_count << std::endl;
+    std::cout << "correct: " << 100.0 * correct_count / total_count << std::endl;
+}
+
+Gshare branch_predictor(14);
+
+
 namespace po = boost::program_options;
 
 /* グローバル変数 */
@@ -564,6 +658,7 @@ bool exec_command(std::string cmd){
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
+        branch_predictor.show_stats();
         std::cout << "operations executed: " << op_count << std::endl;
         if(simulation_end){
             std::cout << "next: (no operation left to be simulated)" << std::endl;
@@ -904,18 +999,22 @@ void exec_op(){
             ++pc;
             return;
         case Otype::o_beq:
+            branch_predictor.update(pc, read_reg(op.rs1.value()) == read_reg(op.rs2.value()));
             read_reg(op.rs1.value()) == read_reg(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_beq];
             return;
         case Otype::o_blt:
+            branch_predictor.update(pc, read_reg(op.rs1.value()) < read_reg(op.rs2.value()));
             read_reg(op.rs1.value()) < read_reg(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_blt];
             return;
         case Otype::o_fbeq:
+            branch_predictor.update(pc, read_reg_fp(op.rs1.value()) == read_reg_fp(op.rs2.value()));
             read_reg_fp(op.rs1.value()) == read_reg_fp(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_fbeq];
             return;
         case Otype::o_fblt:
+            branch_predictor.update(pc, read_reg_fp(op.rs1.value()) < read_reg_fp(op.rs2.value()));
             read_reg_fp(op.rs1.value()) < read_reg_fp(op.rs2.value()) ? pc += op.imm.value() : ++pc;
             ++op_type_count[Otype::o_fblt];
             return;
