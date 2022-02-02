@@ -31,8 +31,8 @@ unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
 constexpr unsigned long long max_op_count = 1000000000000;
 int mem_size = 100; // メモリサイズ
-constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
-bool memory_exceeding_flag = false;
+// constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
+// bool memory_exceeding_flag = false;
 
 int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
@@ -1278,10 +1278,10 @@ inline void write_reg_fp_32(unsigned int i, Bit32 v){
 }
 
 inline Bit32 read_memory(int w){
-    if(!memory_exceeding_flag && w >= max_mem_size){
-        memory_exceeding_flag = true;
-        std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
-    }
+    // if(!memory_exceeding_flag && w >= max_mem_size){
+    //     memory_exceeding_flag = true;
+    //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
+    // }
     if(is_detailed_debug && is_cache_enabled){
         ++mem_accessed_read[w];
         w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
@@ -1308,10 +1308,10 @@ inline Bit32 read_memory(int w){
 }
 
 inline void write_memory(int w, Bit32 v){
-    if(!memory_exceeding_flag && w >= max_mem_size){
-        memory_exceeding_flag = true;
-        std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
-    }
+    // if(!memory_exceeding_flag && w >= max_mem_size){
+    //     memory_exceeding_flag = true;
+    //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
+    // }
     if(is_detailed_debug && is_cache_enabled){
         ++mem_accessed_write[w];
         w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
