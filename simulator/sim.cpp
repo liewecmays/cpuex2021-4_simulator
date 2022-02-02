@@ -626,15 +626,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(-w))?\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
         int start = std::stoi(match[6].str());
         int width = std::stoi(match[7].str());
-        if(match[4].str() == "-w"){
-            print_memory(start, width);
-        }else{
-            if(start % 4 == 0 && width % 4 == 0){
-                print_memory(start/4, width/4);
-            }else{
-                std::cout << head_error << "memory address should be multiple of 4 (hint: use `print -w m[N:M]` for word addressing)" << std::endl;   
-            }
-        }
+        print_memory(start, width);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
@@ -928,20 +920,12 @@ void exec_op(){
             ++op_type_count[Otype::o_fblt];
             return;
         case Otype::o_sw:
-            if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
-                write_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4, read_reg_32(op.rs2.value()));
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
-            }
+            write_memory(read_reg(op.rs1.value()) + op.imm.value(), read_reg_32(op.rs2.value()));
             ++op_type_count[Otype::o_sw];
             ++pc;
             return;
         case Otype::o_si:
-            if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
-                op_list[(read_reg(op.rs1.value()) + op.imm.value()) / 4] = Operation(read_reg(op.rs2.value()));
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
-            }
+            op_list[read_reg(op.rs1.value()) + op.imm.value()] = Operation(read_reg(op.rs2.value()));
             ++op_type_count[Otype::o_si];
             ++pc;
             return;
@@ -951,11 +935,7 @@ void exec_op(){
             ++pc;
             return;
         case Otype::o_fsw:
-            if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
-                write_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4, read_reg_fp_32(op.rs2.value()));
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
-            }
+            write_memory(read_reg(op.rs1.value()) + op.imm.value(), read_reg_fp_32(op.rs2.value()));
             ++op_type_count[Otype::o_fsw];
             ++pc;
             return;
@@ -985,11 +965,7 @@ void exec_op(){
             ++pc;
             return;
         case Otype::o_lw:
-            if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
-                write_reg_32(op.rd.value(), read_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4));
-            }else{
-                exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
-            }
+            write_reg_32(op.rd.value(), read_memory(read_reg(op.rs1.value()) + op.imm.value()));
             ++op_type_count[Otype::o_lw];
             ++pc;
             return;
@@ -1014,11 +990,7 @@ void exec_op(){
             ++pc;
             return;
         case Otype::o_flw:
-            if((read_reg(op.rs1.value()) + op.imm.value()) % 4 == 0){
-                write_reg_fp_32(op.rd.value(), read_memory((read_reg(op.rs1.value()) + op.imm.value()) / 4));
-            }else{
-                exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
-            }
+            write_reg_fp_32(op.rd.value(), read_memory(read_reg(op.rs1.value()) + op.imm.value()));
             ++op_type_count[Otype::o_flw];
             ++pc;
             return;
