@@ -954,7 +954,7 @@ void exec_op(){
             ++pc;
             return;
         case Otype::o_lw:
-            reg_int.write_32(op.rd, read_memory(reg_int.read_int(op.rs1) + op.imm);
+            reg_int.write_32(op.rd, read_memory(reg_int.read_int(op.rs1) + op.imm));
             ++op_type_count[Otype::o_lw];
             ++pc;
             return;
@@ -1101,7 +1101,7 @@ void receive_data(){
 }
 
 // データの送信
-void send_data(cancel_flag& flg){
+void send_data(Cancel_flag& flg){
     if(!is_raytracing){
         // データ送信の準備
         struct in_addr host_addr;

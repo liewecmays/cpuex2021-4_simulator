@@ -14,7 +14,7 @@ typedef bimap_t2::value_type bimap_value_t2;
 
 /* クラスの定義 */
 // スレッドの管理用フラグ
-class cancel_flag{
+class Cancel_flag{
     std::atomic<bool> signaled_{ false };
     public:
         void signal(){signaled_ = true;}
