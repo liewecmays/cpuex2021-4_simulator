@@ -163,8 +163,8 @@ inline Instruction::Instruction(){
 
 /* class Configuration */
 inline Configuration::ID_stage::ID_stage(){ // pcの初期値に注意
-    this->pc[0] = -8;
-    this->pc[1] = -4;
+    this->pc[0] = -2;
+    this->pc[1] = -1;
 }
 
 // クロックを1つ分先に進める
@@ -315,21 +315,21 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     // pc manager
     if(this->EX.br.branch_addr.has_value()){
         this->IF.pc[0] = this->EX.br.branch_addr.value();
-        this->IF.pc[1] = this->EX.br.branch_addr.value() + 4;
+        this->IF.pc[1] = this->EX.br.branch_addr.value() + 1;
     }else if(this->ID.is_not_dispatched(0)){
         this->IF.pc = this->ID.pc;
     }else if(this->ID.is_not_dispatched(1)){
-        this->IF.pc[0] = this->ID.pc[0] + 4;
-        this->IF.pc[1] = this->ID.pc[1] + 4;
+        this->IF.pc[0] = this->ID.pc[0] + 1;
+        this->IF.pc[1] = this->ID.pc[1] + 1;
     }else{
-        this->IF.pc[0] = this->ID.pc[0] + 8;
-        this->IF.pc[1] = this->ID.pc[1] + 8;
+        this->IF.pc[0] = this->ID.pc[0] + 2;
+        this->IF.pc[1] = this->ID.pc[1] + 2;
     }
 
     // instruction fetch
     config_next.ID.pc = this->IF.pc;
-    config_next.ID.op[0] = op_list[id_of_pc(this->IF.pc[0])];
-    config_next.ID.op[1] = op_list[id_of_pc(this->IF.pc[1])];
+    config_next.ID.op[0] = op_list[this->IF.pc[0]];
+    config_next.ID.op[1] = op_list[this->IF.pc[1]];
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
@@ -435,23 +435,23 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     }
 
     /* 返り値の決定 */
-    if(this->IF.pc[0] == static_cast<int>(code_size*4) && this->EX.is_clear()){ // 終了
+    if(this->IF.pc[0] == static_cast<int>(code_size) && this->EX.is_clear()){ // 終了
         res = sim_state_end;
     }else if(is_debug && bp != "" && !this->EX.br.branch_addr.has_value()){
         if(bp == "__continue"){ // continue, 名前指定なし
-            if(!this->ID.is_not_dispatched(0) && bp_to_id.right.find(this->ID.pc[0] / 4) != bp_to_id.right.end()){
+            if(!this->ID.is_not_dispatched(0) && bp_to_id.right.find(this->ID.pc[0]) != bp_to_id.right.end()){
                 res = this->ID.pc[0];
                 verbose = true;
-            }else if(!this->ID.is_not_dispatched(1) && bp_to_id.right.find(this->ID.pc[1] / 4) != bp_to_id.right.end()){
+            }else if(!this->ID.is_not_dispatched(1) && bp_to_id.right.find(this->ID.pc[1]) != bp_to_id.right.end()){
                 res = this->ID.pc[1];
                 verbose = true;
             }
         }else{ // continue, 名前指定あり
             int bp_id = static_cast<int>(bp_to_id.left.at(bp));
-            if(!this->ID.is_not_dispatched(0) && this->ID.pc[0] / 4 == bp_id){
+            if(!this->ID.is_not_dispatched(0) && this->ID.pc[0] == bp_id){
                 res = this->ID.pc[0];
                 verbose = true;
-            }else if(!this->ID.is_not_dispatched(1) && this->ID.pc[1] / 4 == bp_id){
+            }else if(!this->ID.is_not_dispatched(1) && this->ID.pc[1] == bp_id){
                 res = this->ID.pc[1];
                 verbose = true;
             }
@@ -465,13 +465,13 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         // IF
         std::cout << "\x1b[1m[IF]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << this->IF.pc[i] << ((is_debug && this->IF.pc[i] < static_cast<int>(code_size*4)) ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->IF.pc[i])))) : "") << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << this->IF.pc[i] << ((is_debug && this->IF.pc[i] < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->IF.pc[i]))) : "") << std::endl;
         }
 
         // ID
         std::cout << "\x1b[1m[ID]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << this->ID.op[i].to_string() << " (pc=" << this->ID.pc[i] << ((is_debug && 0 <= this->ID.pc[i] && this->ID.pc[i] < static_cast<int>(code_size*4)) ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->ID.pc[i])))) : "") << ")" << (this->ID.is_not_dispatched(i) ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(this->ID.hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << this->ID.op[i].to_string() << " (pc=" << this->ID.pc[i] << ((is_debug && 0 <= this->ID.pc[i] && this->ID.pc[i] < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->ID.pc[i]))) : "") << ")" << (this->ID.is_not_dispatched(i) ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(this->ID.hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
         }
 
         // EX
@@ -480,7 +480,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         // EX_al
         for(unsigned int i=0; i<2; ++i){
             if(!this->EX.als[i].inst.op.is_nop()){
-                std::cout << (i==0 ? " " : "     ") << "al" << i << "   : " << this->EX.als[i].inst.op.to_string() << " (pc=" << this->EX.als[i].inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.als[i].inst.pc)))) : "") << ")" << std::endl;
+                std::cout << (i==0 ? " " : "     ") << "al" << i << "   : " << this->EX.als[i].inst.op.to_string() << " (pc=" << this->EX.als[i].inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.als[i].inst.pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << (i==0 ? " " : "     ") << "al" << i << "   :" << std::endl;
             }
@@ -488,21 +488,21 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
 
         // EX_br
         if(!this->EX.br.inst.op.is_nop()){
-            std::cout << "     br    : " << this->EX.br.inst.op.to_string() << " (pc=" << this->EX.br.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.br.inst.pc)))) : "") << ")" << (this->EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
+            std::cout << "     br    : " << this->EX.br.inst.op.to_string() << " (pc=" << this->EX.br.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.br.inst.pc))) : "") << ")" << (this->EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
         }else{
             std::cout << "     br    :" << std::endl;
         }
 
         // EX_ma
         if(!this->EX.ma.inst.op.is_nop()){
-            std::cout << "     ma    : " << this->EX.ma.inst.op.to_string() << " (pc=" << this->EX.ma.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.ma.inst.pc)))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.ma.state) << (this->EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(this->EX.ma.cycle_count)) : "") << "]" << (this->EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+            std::cout << "     ma    : " << this->EX.ma.inst.op.to_string() << " (pc=" << this->EX.ma.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.ma.state) << (this->EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(this->EX.ma.cycle_count)) : "") << "]" << (this->EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
         }else{
             std::cout << "     ma    :" << std::endl;
         }
 
         // EX_mfp
         if(!this->EX.mfp.inst.op.is_nop()){
-            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.mfp.inst.pc)))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state != Configuration::EX_stage::EX_mfp::State_mfp::Waiting ? (", cycle: " + std::to_string(this->EX.mfp.cycle_count)) : "") << "]" << (this->EX.mfp.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.mfp.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state != Configuration::EX_stage::EX_mfp::State_mfp::Waiting ? (", cycle: " + std::to_string(this->EX.mfp.cycle_count)) : "") << "]" << (this->EX.mfp.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
         }else{
             std::cout << "     mfp   :" << std::endl;
         }
@@ -510,7 +510,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         // EX_pfp
         for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
             if(!this->EX.pfp.inst[i].op.is_nop()){
-                std::cout << "     pfp[" << i << "]: " << this->EX.pfp.inst[i].op.to_string() << " (pc=" << this->EX.pfp.inst[i].pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->EX.pfp.inst[i].pc)))) : "") << ")" << std::endl;
+                std::cout << "     pfp[" << i << "]: " << this->EX.pfp.inst[i].op.to_string() << " (pc=" << this->EX.pfp.inst[i].pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.pfp.inst[i].pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << "     pfp[" << i << "]:" << std::endl;
             }
@@ -520,14 +520,14 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         std::cout << "\x1b[1m[WB]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
             if(this->WB.inst_int[i].has_value()){
-                std::cout << (i==0 ? " " : "     ") << "int[" << i << "]: " << this->WB.inst_int[i].value().op.to_string() << " (pc=" << this->WB.inst_int[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->WB.inst_int[i].value().pc)))) : "") << ")" << std::endl;
+                std::cout << (i==0 ? " " : "     ") << "int[" << i << "]: " << this->WB.inst_int[i].value().op.to_string() << " (pc=" << this->WB.inst_int[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->WB.inst_int[i].value().pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << (i==0 ? " " : "     ") << "int[" << i << "]:" << std::endl;
             }
         }
         for(unsigned int i=0; i<2; ++i){
             if(this->WB.inst_fp[i].has_value()){
-                std::cout << "     fp[" << i << "] : " << this->WB.inst_fp[i].value().op.to_string() << " (pc=" << this->WB.inst_fp[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(id_of_pc(this->WB.inst_fp[i].value().pc)))) : "") << ")" << std::endl;
+                std::cout << "     fp[" << i << "] : " << this->WB.inst_fp[i].value().op.to_string() << " (pc=" << this->WB.inst_fp[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->WB.inst_fp[i].value().pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << "     fp[" << i << "] :" << std::endl;
             }
@@ -709,7 +709,7 @@ inline void Configuration::wb_req(Instruction inst){
             }else if(!this->WB.inst_int[1].has_value()){
                 this->WB.inst_int[1] = inst;
             }else{
-                exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
+                exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
             }
             return;
         case Otype::o_fadd:
@@ -727,12 +727,12 @@ inline void Configuration::wb_req(Instruction inst){
             }else if(!this->WB.inst_fp[1].has_value()){
                 this->WB.inst_fp[1] = inst;
             }else{
-                exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
+                exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
             }
             return;
         case Otype::o_nop: return;
         default:
-            exit_with_output("invalid request for WB (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
+            exit_with_output("invalid request for WB (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
     }
 }
 
@@ -800,15 +800,15 @@ inline void Configuration::EX_stage::EX_al::exec(){
             return;
         // jalr (pass through)
         case Otype::o_jalr:
-            reg_int.write_int(this->inst.op.rd, this->inst.pc + 4);
+            reg_int.write_int(this->inst.op.rd, this->inst.pc + 1);
             return;
         // jal (pass through)
         case Otype::o_jal:
-            reg_int.write_int(this->inst.op.rd, this->inst.pc + 4);
+            reg_int.write_int(this->inst.op.rd, this->inst.pc + 1);
             return;
         case Otype::o_nop: return;
         default:
-            exit_with_output("invalid operation for AL (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            exit_with_output("invalid operation for AL (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
     }
 }
 
@@ -817,26 +817,26 @@ inline void Configuration::EX_stage::EX_br::exec(){
         // branch
         case Otype::o_beq:
             if(this->inst.rs1_v.i == this->inst.rs2_v.i){
-                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+                this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
             ++op_type_count[Otype::o_beq];
             return;
         case Otype::o_blt:
             if(this->inst.rs1_v.i < this->inst.rs2_v.i){
-                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+                this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
             ++op_type_count[Otype::o_blt];
             return;
         // branch_fp
         case Otype::o_fbeq:
             if(this->inst.rs1_v.f == this->inst.rs2_v.f){
-                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+                this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
             ++op_type_count[Otype::o_fbeq];
             return;
         case Otype::o_fblt:
             if(this->inst.rs1_v.f < this->inst.rs2_v.f){
-                this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+                this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
             ++op_type_count[Otype::o_fblt];
             return;
@@ -847,31 +847,23 @@ inline void Configuration::EX_stage::EX_br::exec(){
             return;
         // jal
         case Otype::o_jal:
-            this->branch_addr = this->inst.pc + this->inst.op.imm * 4;
+            this->branch_addr = this->inst.pc + this->inst.op.imm;
             ++op_type_count[Otype::o_jal];
             return;
         case Otype::o_nop: return;
         default:
-            exit_with_output("invalid operation for BR (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            exit_with_output("invalid operation for BR (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
     }
 }
 
 inline void Configuration::EX_stage::EX_ma::exec(){
     switch(this->inst.op.type){
         case Otype::o_sw:
-            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                write_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4, this->inst.rs2_v);
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [sw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
-            }
+            write_memory(this->inst.rs1_v.i + this->inst.op.imm, this->inst.rs2_v);
             ++op_type_count[Otype::o_sw];
             return;
         case Otype::o_si:
-            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                op_list[(this->inst.rs1_v.i + this->inst.op.imm) / 4] = Operation(this->inst.rs2_v.i);
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [si] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
-            }
+            op_list[this->inst.rs1_v.i + this->inst.op.imm] = Operation(this->inst.rs2_v.i);
             ++op_type_count[Otype::o_si];
             return;
         case Otype::o_std:
@@ -879,19 +871,11 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             ++op_type_count[Otype::o_std];
             return;
         case Otype::o_fsw:
-            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                write_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4, this->inst.rs2_v);
-            }else{
-                exit_with_output("address of store operation should be multiple of 4 [fsw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
-            }
+            write_memory(this->inst.rs1_v.i + this->inst.op.imm, this->inst.rs2_v);
             ++op_type_count[Otype::o_fsw];
             return;
         case Otype::o_lw:
-            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                reg_int.write_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
-            }else{
-                exit_with_output("address of load operation should be multiple of 4 [lw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
-            }
+            reg_int.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
             ++op_type_count[Otype::o_lw];
             return;
         case Otype::o_lre:
@@ -903,7 +887,7 @@ inline void Configuration::EX_stage::EX_ma::exec(){
                 reg_int.write_32(this->inst.op.rd, receive_buffer.front());
                 receive_buffer.pop();
             }else{
-                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
             }
             ++op_type_count[Otype::o_lrd];
             return;
@@ -912,16 +896,12 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             ++op_type_count[Otype::o_ltf];
             return;
         case Otype::o_flw:
-            if((this->inst.rs1_v.i + this->inst.op.imm) % 4 == 0){
-                reg_fp.write_32(this->inst.op.rd, read_memory((this->inst.rs1_v.i + this->inst.op.imm) / 4));
-            }else{
-                exit_with_output("address of load operation should be multiple of 4 [flw] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
-            }
+            reg_fp.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
             ++op_type_count[Otype::o_flw];
             return;
         case Otype::o_nop: return;
         default:
-            exit_with_output("invalid operation for MA (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            exit_with_output("invalid operation for MA (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
     }
 }
 
@@ -979,7 +959,7 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             return;
         case Otype::o_nop: return;
         default:
-            exit_with_output("invalid operation for mFP (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(this->inst.pc)))) : "") + ")");
+            exit_with_output("invalid operation for mFP (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
     }
 }
 
@@ -1020,7 +1000,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
             return;
         case Otype::o_nop: return;
         default:
-            exit_with_output("invalid operation for pFP (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(id_of_pc(inst.pc)))) : "") + ")");
+            exit_with_output("invalid operation for pFP (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
     }
 }
 

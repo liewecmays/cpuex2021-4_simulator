@@ -385,11 +385,11 @@ bool exec_command(std::string cmd){
                 int old_pc = config.EX.br.inst.pc;
                 no_info = true;
                 exec_command("do");
-                exec_command("break " + std::to_string(id_to_line.left.at(id_of_pc(old_pc + 4))) + " __ret");
+                exec_command("break " + std::to_string(id_to_line.left.at(old_pc + 1)) + " __ret");
                 exec_command("continue __ret");
                 exec_command("delete __ret");
                 no_info = false;
-                std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(id_of_pc(old_pc)) << ") " << op_list[id_of_pc(old_pc)].to_string() << std::endl;
+                std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(old_pc) << ") " << op_list[old_pc].to_string() << std::endl;
             }else{
                 exec_command("do");
             }
@@ -443,7 +443,7 @@ bool exec_command(std::string cmd){
                         break;
                     default:
                         if(sim_state >= 0){ // ブレークポイントに当たった
-                            std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(id_of_pc(sim_state)) << "' (pc " << sim_state << ", line " << id_to_line.left.at(id_of_pc(sim_state)) << ")" << std::endl;
+                            std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(sim_state) << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
                         }else{
                             std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
                             std::exit(EXIT_FAILURE);
@@ -467,7 +467,7 @@ bool exec_command(std::string cmd){
                         default:
                             if(sim_state >= 0){ // ブレークポイントに当たった
                                 if(!no_info){
-                                    std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(id_of_pc(sim_state)) << ")" << std::endl;
+                                    std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
                                 }
                             }else{
                                 std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
@@ -493,7 +493,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << "breakpoints:" << std::endl;
             for(auto x : bp_to_id.left) {
-                std::cout << "  " << x.first << " (pc " << x.second * 4 << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
+                std::cout << "  " << x.first << " (pc " << x.second << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
@@ -538,19 +538,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(-w))?\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
         int start = std::stoi(match[6].str());
         int width = std::stoi(match[7].str());
-        if(match[4].str() == "-w"){
-            for(int i=start; i<start+width; ++i){
-                std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
-            }
-        }else{
-            if(start % 4 == 0 && width % 4 == 0){
-                for(int i=start/4; i<start/4+width/4; ++i){
-                    std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
-                }
-            }else{
-                std::cout << head_error << "memory address should be multiple of 4 (hint: use `print -w m[N:M]` for word addressing)" << std::endl;   
-            }
-        }
+        print_memory(start, width);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         unsigned int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
@@ -613,7 +601,7 @@ bool exec_command(std::string cmd){
             if(label_to_id.left.find(label) != label_to_id.left.end()){
                 int label_id = label_to_id.left.at(label); // 0-indexed
                 bp_to_id.insert(bimap_value_t(label, label_id));
-                std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id * 4 << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
+                std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
             }else{
                 std::vector<std::string> matched_labels;
                 for(auto x : label_to_id.left){
@@ -701,15 +689,6 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-// PCから命令IDへの変換(4の倍数になっていない場合エラー)
-unsigned int id_of_pc(int n){
-    if(n % 4 == 0){
-        return n / 4;
-    }else{
-        exit_with_output("error with program counter: pc = " + std::to_string(n));
-        return 0; // 実行されない
-    }
-}
 
 Bit32 read_memory(int w){
     return memory[w];
@@ -752,5 +731,3 @@ void exit_with_output(std::string msg){
     std::cout << head << "abnormal end" << std::endl;
     std::quick_exit(EXIT_FAILURE);
 }
-
-

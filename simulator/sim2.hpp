@@ -47,7 +47,6 @@ void receive_data(); // データの受信
 void send_data(Cancel_flag&); // データの送信
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
 // void output_info(); // 情報の出力
-unsigned int id_of_pc(int); // PCから命令IDへの変換
 Bit32 read_memory(int);
 void write_memory(int, Bit32);
 // bool check_cache(int);
