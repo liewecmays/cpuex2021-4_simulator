@@ -64,7 +64,7 @@ int input_line_num = 0; // ファイルの行数
 unsigned int *line_exec_count; // 行ごとの実行回数
 int max_x2 = 0;
 int memory_used = 0;
-constexpr int stack_border = 4000;
+constexpr int stack_border = 1000;
 unsigned long long *mem_accessed_read; // メモリのreadによるアクセス回数
 unsigned long long *mem_accessed_write; // メモリのwriteによるアクセス回数
 unsigned long long stack_accessed_read_count = 0; // スタックのreadによるアクセスの総回数
@@ -564,7 +564,7 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << "breakpoints:" << std::endl;
             for(auto x : bp_to_id.left) {
-                std::cout << "  " << x.first << " (pc " << x.second * 4 << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
+                std::cout << "  " << x.first << " (pc " << x.second << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
             }
         }
         std::cout << "execution stat:" << std::endl;
@@ -659,7 +659,7 @@ bool exec_command(std::string cmd){
             if(label_to_id.left.find(label) != label_to_id.left.end()){
                 int label_id = label_to_id.left.at(label); // 0-indexed
                 bp_to_id.insert(bimap_value_t(label, label_id));
-                std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id * 4 << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
+                std::cout << head_info << "breakpoint '" << label << "' is now set (at pc " << label_id << ", line " << id_to_line.left.at(label_id) << ")" << std::endl;
             
             }else{
                 std::vector<std::string> matched_labels;
@@ -779,7 +779,7 @@ void exec_op(){
 
         if(is_waiting_for_lnum && op.type == Otype::o_addi && op.rs1 == 6 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
             is_waiting_for_lnum = false;
-            int loaded_op_num = reg_int.read_int(6) / 4;
+            int loaded_op_num = reg_int.read_int(6);
             if(is_debug){
                 std::cout << head_info << "operations to be loaded: " << loaded_op_num << std::endl;
                 is_loading_codes = true; // 命令のロード開始
@@ -1194,10 +1194,10 @@ void output_info(){
             std::exit(EXIT_FAILURE);
         }
         std::stringstream ss_mem;
-        int m = is_raytracing ? memory_used/4 : mem_size/4;
+        int m = is_raytracing ? memory_used : mem_size;
         ss_mem << "address,value,read,write" << std::endl;
         for(int i=0; i<m; ++i){
-            ss_mem << i*4 << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
+            ss_mem << i << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
         }
         output_file_mem << ss_mem.str();
         std::cout << head << "memory info: " << output_filename_mem << std::endl;
