@@ -145,7 +145,8 @@ class Configuration{
         Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
         Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
         Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
-        void wb_req(Instruction); // WBステージに命令を渡す
+        void wb_req_int(Instruction&); // WBステージに命令を渡す
+        void wb_req_fp(Instruction&); // WBステージに命令を渡す
 };
 Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
 
@@ -155,7 +156,7 @@ inline constexpr int sim_state_end = -2;
 
 /* class Instruction */
 inline Instruction::Instruction(){
-    this->op = Operation("nop");
+    this->op = Operation();
     this->rs1_v = 0;
     this->rs2_v = 0;
     this->pc = 0;
@@ -179,7 +180,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     for(unsigned int i=0; i<2; ++i){
         this->EX.als[i].exec();
         if(!this->EX.als[i].inst.op.is_nop()){
-            config_next.wb_req(this->EX.als[i].inst);
+            config_next.wb_req_int(this->EX.als[i].inst);
         }
     }
 
@@ -221,7 +222,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
                 case Otype::o_lrd:
                 case Otype::o_ltf:
                     this->EX.ma.exec();
-                    config_next.wb_req(this->EX.ma.inst);
+                    config_next.wb_req_int(this->EX.ma.inst);
                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
                     break;
                 default: std::exit(EXIT_FAILURE);
@@ -229,8 +230,10 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         }else{
             if(this->EX.ma.available()){
                 this->EX.ma.exec();
-                if(this->EX.ma.inst.op.type == Otype::o_lw || this->EX.ma.inst.op.type == Otype::o_flw){
-                    config_next.wb_req(this->EX.ma.inst);
+                if(this->EX.ma.inst.op.type == Otype::o_lw){
+                    config_next.wb_req_int(this->EX.ma.inst);
+                }else if(this->EX.ma.inst.op.type == Otype::o_flw){
+                    config_next.wb_req_fp(this->EX.ma.inst);
                 }
                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
             }else{
@@ -259,7 +262,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         if(this->EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Waiting){
             if(this->EX.mfp.available()){
                 this->EX.mfp.exec();
-                config_next.wb_req(this->EX.mfp.inst);
+                config_next.wb_req_fp(this->EX.mfp.inst);
                 config_next.EX.mfp.state = this->EX.mfp.state;
             }else{
                 config_next.EX.mfp.state = Configuration::EX_stage::EX_mfp::State_mfp::Processing;
@@ -269,7 +272,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         }else{
             if(this->EX.mfp.available()){
                 this->EX.mfp.exec();
-                config_next.wb_req(this->EX.mfp.inst);
+                config_next.wb_req_fp(this->EX.mfp.inst);
                 config_next.EX.mfp.state = Configuration::EX_stage::EX_mfp::State_mfp::Waiting;
             }else{
                 config_next.EX.mfp.state = this->EX.mfp.state;
@@ -289,7 +292,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         config_next.EX.pfp.inst[i] = this->EX.pfp.inst[i-1];
     }
     this->EX.pfp.exec();
-    config_next.wb_req(this->EX.pfp.inst[pipelined_fpu_stage_num-1]);
+    config_next.wb_req_fp(this->EX.pfp.inst[pipelined_fpu_stage_num-1]);
 
     // pFP (hazard info)
     for(unsigned int i=0; i<pipelined_fpu_stage_num-1; ++i){
@@ -677,62 +680,29 @@ inline Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned in
             return Configuration::Hazard_type::No_hazard;
         }
     }else{
-        std::exit(EXIT_FAILURE);
+        return Configuration::Hazard_type::No_hazard; // error
     }
 }
 
 // WBステージに命令を渡す
-inline void Configuration::wb_req(Instruction inst){
-    switch(inst.op.type){
-        // int
-        case Otype::o_add:
-        case Otype::o_sub:
-        case Otype::o_sll:
-        case Otype::o_srl:
-        case Otype::o_sra:
-        case Otype::o_and:
-        case Otype::o_addi:
-        case Otype::o_slli:
-        case Otype::o_srli:
-        case Otype::o_srai:
-        case Otype::o_andi:
-        case Otype::o_lui:
-        case Otype::o_fmvfi:
-        case Otype::o_jal:
-        case Otype::o_jalr:
-        case Otype::o_lw:
-        case Otype::o_lrd:
-        case Otype::o_lre:
-        case Otype::o_ltf:
-            if(!this->WB.inst_int[0].has_value()){
-                this->WB.inst_int[0] = inst;
-            }else if(!this->WB.inst_int[1].has_value()){
-                this->WB.inst_int[1] = inst;
-            }else{
-                exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
-            }
-            return;
-        case Otype::o_fadd:
-        case Otype::o_fsub:
-        case Otype::o_fmul:
-        case Otype::o_fdiv:
-        case Otype::o_fsqrt:
-        case Otype::o_fcvtif:
-        case Otype::o_fcvtfi:
-        case Otype::o_fmvff:
-        case Otype::o_flw:
-        case Otype::o_fmvif:
-            if(!this->WB.inst_fp[0].has_value()){
-                this->WB.inst_fp[0] = inst;
-            }else if(!this->WB.inst_fp[1].has_value()){
-                this->WB.inst_fp[1] = inst;
-            }else{
-                exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
-            }
-            return;
-        case Otype::o_nop: return;
-        default:
-            exit_with_output("invalid request for WB (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
+inline void Configuration::wb_req_int(Instruction& inst){
+    if(!this->WB.inst_int[0].has_value()){
+        this->WB.inst_int[0] = inst;
+    }else if(!this->WB.inst_int[1].has_value()){
+        this->WB.inst_int[1] = inst;
+    }else{
+        // exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
+        // インライン展開のために省略
+    }
+}
+inline void Configuration::wb_req_fp(Instruction& inst){
+    if(!this->WB.inst_fp[0].has_value()){
+        this->WB.inst_fp[0] = inst;
+    }else if(!this->WB.inst_fp[1].has_value()){
+        this->WB.inst_fp[1] = inst;
+    }else{
+        // exit_with_output("too many requests for WB(fp) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
+        // インライン展開のため省略
     }
 }
 
@@ -806,9 +776,7 @@ inline void Configuration::EX_stage::EX_al::exec(){
         case Otype::o_jal:
             reg_int.write_int(this->inst.op.rd, this->inst.pc + 1);
             return;
-        case Otype::o_nop: return;
-        default:
-            exit_with_output("invalid operation for AL (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
+        default: return; // note: 仕様上はここにその他の命令が指定されることはないので、(インライン展開のために)例外を出していない。以下同様。
     }
 }
 
@@ -850,9 +818,7 @@ inline void Configuration::EX_stage::EX_br::exec(){
             this->branch_addr = this->inst.pc + this->inst.op.imm;
             ++op_type_count[Otype::o_jal];
             return;
-        case Otype::o_nop: return;
-        default:
-            exit_with_output("invalid operation for BR (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
+        default: return;
     }
 }
 
@@ -899,9 +865,7 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             reg_fp.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
             ++op_type_count[Otype::o_flw];
             return;
-        case Otype::o_nop: return;
-        default:
-            exit_with_output("invalid operation for MA (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
+        default: return;
     }
 }
 
@@ -957,9 +921,7 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             reg_fp.write_32(this->inst.op.rd, this->inst.rs1_v);
             ++op_type_count[Otype::o_fmvif];
             return;
-        case Otype::o_nop: return;
-        default:
-            exit_with_output("invalid operation for mFP (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
+        default: return;
     }
 }
 
@@ -998,9 +960,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
             }
             ++op_type_count[Otype::o_fmul];
             return;
-        case Otype::o_nop: return;
-        default:
-            exit_with_output("invalid operation for pFP (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
+        default: return;
     }
 }
 

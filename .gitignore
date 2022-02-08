@@ -34,4 +34,4 @@ simulator/fpu_test
 #gprof関連
 simulator/prof
 simulator/prof2
-simulator/gmon.*
+simulator/gmon*

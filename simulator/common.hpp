@@ -347,11 +347,6 @@ inline Operation::Operation(int i){
 
 // stringをパースするコンストラクタ
 inline Operation::Operation(std::string code){
-    if(code == "nop"){
-        this->type = Otype::o_nop;
-        return;
-    }
-
     unsigned int opcode = std::stoi(code.substr(0, 4), 0, 2);
     unsigned int funct = std::stoi(code.substr(4, 3), 0, 2);
     this->rs1 = std::stoi(code.substr(7, 5), 0, 2);
