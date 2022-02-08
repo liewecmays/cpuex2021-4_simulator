@@ -319,7 +319,7 @@ int main(int argc, char *argv[]){
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
     std::thread t2(receive_data);
-    cancel_flag flg;
+    Cancel_flag flg;
     std::thread t3(send_data, std::ref(flg));
     t1.join();
     t2.detach();

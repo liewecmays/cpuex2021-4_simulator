@@ -31,7 +31,7 @@ struct Cache_line{
 void simulate(); // シミュレーションの本体処理
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
 void receive_data(); // データの受信
-void send_data(cancel_flag&); // データの送信
+void send_data(Cancel_flag&); // データの送信
 void output_info(); // 情報の出力
 void exec_op(); // 命令を実行し、PCを変化させる
 Bit32 read_memory(int);

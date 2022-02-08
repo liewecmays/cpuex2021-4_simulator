@@ -5,29 +5,23 @@ default: sim server
 
 all: clean sim sim2 prof prof2 server fpu_test
 
-sim: common.hpp fpu.hpp sim.o
+sim: common.hpp fpu.hpp sim.hpp sim.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim.cpp -lboost_program_options
 
 sim2: common.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim2.cpp -lboost_program_options
 
-prof: util.prof.o common.prof.o fpu.prof.o sim.prof.o
-	$(CC) $(OUTPUT_OPTION) -pg -o $@ $^ -lboost_program_options
+prof: common.hpp fpu.hpp sim.hpp sim.cpp
+	$(CC) $(OUTPUT_OPTION) -pg -o $@ sim.cpp -lboost_program_options
 
 prof2: common.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
 	$(CC) $(OUTPUT_OPTION) -pg -o $@ sim2.cpp -lboost_program_options
 
-server: util.o common.o server.o
-	$(CC) $(OUTPUT_OPTION) -o $@ $^
+server: common.hpp server.hpp server.cpp
+	$(CC) $(OUTPUT_OPTION) -o $@ server.cpp
 
-fpu_test: util.o common.o fpu.o fpu_test.o
-	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
-
-%.o: %.cpp %.hpp
-	$(CC) $(OUTPUT_OPTION) -o $@ -c $<
-
-%.prof.o: %.cpp %.hpp
-	$(CC) $(OUTPUT_OPTION) -pg -o $@ -c $<
+fpu_test: fpu.hpp fpu_test.hpp fpu_test.cpp
+	$(CC) $(OUTPUT_OPTION) -o $@ fpu_test.cpp -lboost_program_options
 
 clean:
 	rm -f sim sim2 server fpu_test prof prof2 *.o
