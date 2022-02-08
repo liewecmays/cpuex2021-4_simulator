@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <bitset>
 #include <algorithm>
+#include <string_view>
 
 /* 命令の種類 */
 inline constexpr int op_type_num = 38;
@@ -105,15 +106,14 @@ class Operation{
         bool is_exit();
 };
 inline constexpr unsigned int pipelined_fpu_stage_num = 4;
-Operation nop = Operation("nop");
 
 
 /* utility functions */
 // ターミナルへの出力用
-std::string head_error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
-std::string head_info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
-std::string head_data = "\033[2D\x1b[34mData: \x1b[0m";
-std::string head_warning = "\033[2D\x1b[33mWarning: \x1b[0m";
+inline constexpr std::string_view head_error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";
+inline constexpr std::string_view head_info = "\033[2D\x1b[34m\x1b[32mInfo: \x1b[0m";
+inline constexpr std::string_view head_data = "\033[2D\x1b[34mData: \x1b[0m";
+inline constexpr std::string_view head_warning = "\033[2D\x1b[33mWarning: \x1b[0m";
 
 // 2進数を表す文字列から整数に変換
 inline int int_of_binary(std::string s){
@@ -199,7 +199,7 @@ inline Bit32 bit32_of_data(std::string data){
 
 /* enum class Otype */
 // Otypeを文字列に変換
-std::string string_of_otype(Otype t){
+inline std::string string_of_otype(Otype t){
     switch(t){
         case Otype::o_add: return "add";
         case Otype::o_sub: return "sub";

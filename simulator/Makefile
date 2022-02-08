@@ -8,14 +8,14 @@ all: clean sim sim2 prof prof2 server fpu_test
 sim: util.o common.o fpu.o sim.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
 
-sim2: common.hpp fpu.hpp sim2.hpp sim2.cpp
-	$(CC) $(OUTPUT_OPTION) -o $@ common.hpp fpu.hpp sim2.cpp -lboost_program_options
+sim2: common.hpp fpu.o config.hpp sim2.o
+	$(CC) $(OUTPUT_OPTION) -o $@ fpu.cpp sim2.cpp -lboost_program_options
 
 prof: util.prof.o common.prof.o fpu.prof.o sim.prof.o
 	$(CC) $(OUTPUT_OPTION) -pg -o $@ $^ -lboost_program_options
 
 prof2: common.hpp fpu.hpp sim2.hpp sim2.cpp
-	$(CC) $(OUTPUT_OPTION) -pg -o $@ common.hpp fpu.hpp sim2.cpp -lboost_program_options
+	$(CC) $(OUTPUT_OPTION) -pg -o $@ sim2.cpp -lboost_program_options
 
 server: util.o common.o server.o
 	$(CC) $(OUTPUT_OPTION) -o $@ $^
