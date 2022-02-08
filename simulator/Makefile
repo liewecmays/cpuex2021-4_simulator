@@ -5,8 +5,8 @@ default: sim server
 
 all: clean sim sim2 prof prof2 server fpu_test
 
-sim: util.o common.o fpu.o sim.o
-	$(CC) $(OUTPUT_OPTION) -o $@ $^ -lboost_program_options
+sim: common.hpp fpu.hpp sim.o
+	$(CC) $(OUTPUT_OPTION) -o $@ sim.cpp -lboost_program_options
 
 sim2: common.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim2.cpp -lboost_program_options
