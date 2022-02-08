@@ -27,9 +27,11 @@ assembler/parser.mli
 assembler/asm
 simulator/**/*.o
 simulator/sim
+simulator/sim2
 simulator/server
 simulator/fpu_test
 
 #gprof関連
 simulator/prof
+simulator/prof2
 simulator/gmon.*
