@@ -29,6 +29,7 @@ std::vector<Operation> op_list; // 命令のリスト(PC順)
 Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
+Fpu fpu; // FPU
 unsigned int code_size = 0; // コードサイズ
 
 int mem_size = 100; // メモリサイズ
@@ -147,9 +148,6 @@ int main(int argc, char *argv[]){
 
     // メモリ領域の確保
     memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
-
-    // RAMの初期化
-    init_ram();
 
     // バッファのデータのプリロード
     if(is_preloading){

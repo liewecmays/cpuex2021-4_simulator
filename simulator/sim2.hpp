@@ -1,5 +1,6 @@
 #pragma once
 #include "common.hpp"
+#include "fpu.hpp"
 #include <string>
 #include <vector>
 #include <queue>
@@ -18,6 +19,7 @@ extern std::vector<Operation> op_list;
 extern Reg reg_int;
 extern Reg reg_fp;
 extern Bit32 *memory;
+extern Fpu fpu;
 extern unsigned int code_size;
 extern std::queue<Bit32> receive_buffer;
 extern boost::lockfree::queue<Bit32> send_buffer;

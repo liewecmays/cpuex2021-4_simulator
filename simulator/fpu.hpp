@@ -11,15 +11,25 @@ union Bit64{
     double d;
 };
 
-/* RAMの設定 */
 inline constexpr ui ram_size = 1024;
-extern unsigned int ram_fsqrt_a[ram_size];
-extern unsigned int ram_fsqrt_b[ram_size];
-extern unsigned int ram_fsqrt_c[ram_size];
-extern unsigned int ram_fsqrt_d[ram_size];
-extern unsigned int ram_finv_a[ram_size];
-extern unsigned int ram_finv_b[ram_size];
-void init_ram();
+class Fpu{
+    public:
+        unsigned int ram_fsqrt_a[ram_size];
+        unsigned int ram_fsqrt_b[ram_size];
+        unsigned int ram_fsqrt_c[ram_size];
+        unsigned int ram_fsqrt_d[ram_size];
+        unsigned int ram_finv_a[ram_size];
+        unsigned int ram_finv_b[ram_size];
+        Fpu();
+        Bit32 fadd(Bit32, Bit32);
+        Bit32 fsub(Bit32, Bit32);
+        Bit32 fmul(Bit32, Bit32);
+        Bit32 finv(Bit32);
+        Bit32 fdiv(Bit32, Bit32);
+        Bit32 fsqrt(Bit32);
+        Bit32 itof(Bit32);
+        Bit32 ftoi(Bit32);
+};
 
 
 /* 補助関数 */
@@ -77,8 +87,28 @@ inline ui and_all(ui x, ui len){ // 下lenビットを見る
 }
 
 
-/* 浮動小数点演算の定義 */
-inline Bit32 fadd(Bit32 x1, Bit32 x2){
+/* class Fpu */
+// 初期化
+inline Fpu::Fpu(){
+    ull x0, x1;
+    for(ui i=0; i<ram_size; ++i){
+        x0 = static_cast<ull>(
+            std::nearbyint((std::sqrt(static_cast<double>(static_cast<ull>(1024+i) << 20))
+            + std::sqrt(static_cast<double>(static_cast<ull>(1025+i) << 20))) / 2));
+        this->ram_fsqrt_a[i] = static_cast<ui>(take_bits(x0 << 8, 0, 23));
+        this->ram_fsqrt_b[i] = static_cast<ui>(take_bits((1ULL << 46) / (x0 << 8), 0, 23));
+        this->ram_fsqrt_c[i] = static_cast<ui>(take_bits((x0 * 47453133ULL) >> 17, 0, 23));
+        this->ram_fsqrt_d[i] = static_cast<ui>(take_bits((47453132ULL << 21) / (x0 << 8), 0, 23));
+    }
+    for(ui i=0; i<ram_size; ++i){
+        x0 = (((1ULL << 46) / ((1024+i)*4096)) + ((1ULL << 46) / ((1025+i)*4096))) / 2;
+        x1 = x0 * x0;
+        this->ram_finv_a[i] = static_cast<ui>(take_bits(x1 >> 24, 0, 23));
+        this->ram_finv_b[i] = static_cast<ui>(take_bits(x0, 0, 23));
+    }
+}
+
+inline Bit32 Fpu::fadd(Bit32 x1, Bit32 x2){
     ui big =
         x1.F.e == x2.F.e ?
             (x1.F.m >= x2.F.m ? 1 : 0) :
@@ -128,11 +158,11 @@ inline Bit32 fadd(Bit32 x1, Bit32 x2){
     return Bit32(y);
 }
 
-inline Bit32 fsub(Bit32 x1, Bit32 x2){
+inline Bit32 Fpu::fsub(Bit32 x1, Bit32 x2){
     return fadd(x1, ((~x2.F.s) << 31) + (x2.F.e << 23) + x2.F.m);
 }
 
-inline Bit32 fmul(Bit32 x1, Bit32 x2){
+inline Bit32 Fpu::fmul(Bit32 x1, Bit32 x2){
     ui m1h = (1 << 12) + take_bits(x1.F.m, 11, 22);
     ui m2h = (1 << 12) + take_bits(x2.F.m, 11, 22);
     ui m1l = take_bits(x1.F.m, 0, 10);
@@ -158,7 +188,7 @@ inline Bit32 fmul(Bit32 x1, Bit32 x2){
     return Bit32(y);
 }
 
-inline Bit32 finv(Bit32 x){
+inline Bit32 Fpu::finv(Bit32 x){
     // stage1
     ui m1 = (1 << 23) + x.F.m;
 
@@ -179,7 +209,7 @@ inline Bit32 finv(Bit32 x){
     return Bit32(y);
 }
 
-inline Bit32 fdiv(Bit32 x1, Bit32 x2){
+inline Bit32 Fpu::fdiv(Bit32 x1, Bit32 x2){
     ui e_diff = x2.F.e >= 253 ? 4 : 0;
     ui modified_x2 = (x2.F.s << 31) + ((x2.F.e - e_diff) << 23) + x2.F.m;
 
@@ -192,7 +222,7 @@ inline Bit32 fdiv(Bit32 x1, Bit32 x2){
     return Bit32(y);
 }
 
-inline Bit32 fsqrt(Bit32 x){
+inline Bit32 Fpu::fsqrt(Bit32 x){
     // stage1
     ui m1 = x.F.m;
     
@@ -227,7 +257,7 @@ inline Bit32 fsqrt(Bit32 x){
     return Bit32(y);
 }
 
-inline Bit32 itof(Bit32 x){
+inline Bit32 Fpu::itof(Bit32 x){
     // stage1
     ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
 
@@ -260,7 +290,7 @@ inline Bit32 itof(Bit32 x){
     return Bit32(y);
 }
 
-inline Bit32 ftoi(Bit32 x){
+inline Bit32 Fpu::ftoi(Bit32 x){
     ui m1 = (1 << 23) + x.F.m;
 
     // stage1

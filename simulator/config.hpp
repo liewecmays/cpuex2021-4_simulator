@@ -940,7 +940,7 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, this->inst.rs1_v.f / this->inst.rs2_v.f);
             }else{
-                reg_fp.write_32(this->inst.op.rd, fdiv(this->inst.rs1_v, this->inst.rs2_v));
+                reg_fp.write_32(this->inst.op.rd, fpu.fdiv(this->inst.rs1_v, this->inst.rs2_v));
             }
             ++op_type_count[Otype::o_fdiv];
             return;
@@ -948,7 +948,7 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, std::sqrt(this->inst.rs1_v.f));
             }else{
-                reg_fp.write_32(this->inst.op.rd, fsqrt(this->inst.rs1_v));
+                reg_fp.write_32(this->inst.op.rd, fpu.fsqrt(this->inst.rs1_v));
             }
             ++op_type_count[Otype::o_fsqrt];
             return;
@@ -956,7 +956,7 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, static_cast<float>(this->inst.rs1_v.i));
             }else{
-                reg_fp.write_32(this->inst.op.rd, itof(this->inst.rs1_v));
+                reg_fp.write_32(this->inst.op.rd, fpu.itof(this->inst.rs1_v));
             }
             ++op_type_count[Otype::o_fcvtif];
             return;
@@ -964,7 +964,7 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, static_cast<int>(std::nearbyint(this->inst.rs1_v.f)));
             }else{
-                reg_fp.write_32(this->inst.op.rd, ftoi(this->inst.rs1_v));
+                reg_fp.write_32(this->inst.op.rd, fpu.ftoi(this->inst.rs1_v));
             }
             ++op_type_count[Otype::o_fcvtfi];
             return;
@@ -998,7 +998,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(inst.op.rd, inst.rs1_v.f + inst.rs2_v.f);
             }else{
-                reg_fp.write_32(inst.op.rd, fadd(inst.rs1_v, inst.rs2_v));
+                reg_fp.write_32(inst.op.rd, fpu.fadd(inst.rs1_v, inst.rs2_v));
             }
             ++op_type_count[Otype::o_fadd];
             return;
@@ -1006,7 +1006,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(inst.op.rd, inst.rs1_v.f - inst.rs2_v.f);
             }else{
-                reg_fp.write_32(inst.op.rd, fsub(inst.rs1_v, inst.rs2_v));
+                reg_fp.write_32(inst.op.rd, fpu.fsub(inst.rs1_v, inst.rs2_v));
             }
             ++op_type_count[Otype::o_fsub];
             return;
@@ -1014,7 +1014,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
             if(is_ieee){
                 reg_fp.write_float(inst.op.rd, inst.rs1_v.f * inst.rs2_v.f);
             }else{
-                reg_fp.write_32(inst.op.rd, fmul(inst.rs1_v, inst.rs2_v));
+                reg_fp.write_32(inst.op.rd, fpu.fmul(inst.rs1_v, inst.rs2_v));
             }
             ++op_type_count[Otype::o_fmul];
             return;
