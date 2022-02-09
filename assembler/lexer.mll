@@ -23,15 +23,18 @@ rule token = parse
 | "srl" { Parser.SRL }
 | "sra" { Parser.SRA }
 | "and" { Parser.AND }
-(* op_fp *)
-| "fadd" { Parser.FADD }
-| "fsub" { Parser.FSUB }
-| "fmul" { Parser.FMUL }
+(* op_mfp *)
+| "fabs" { Parser.FABS }
+| "fneg" { Parser.FNEG }
 | "fdiv" { Parser.FDIV }
 | "fsqrt" { Parser.FSQRT }
 | "fcvt.i.f" { Parser.FCVTIF }
 | "fcvt.f.i" { Parser.FCVTFI }
 | "fmv.f.f" { Parser.FMVFF }
+(* op_pfp *)
+| "fadd" { Parser.FADD }
+| "fsub" { Parser.FSUB }
+| "fmul" { Parser.FMUL }
 (* branch *)
 | "beq" { Parser.BEQ }
 | "blt" { Parser.BLT }

@@ -10,7 +10,8 @@
 %token LPAR RPAR COLON COMMA PERIOD MINUS EXCLAM EOF
 %token INTREG FLOATREG
 %token ADD SUB SLL SRL SRA AND
-%token FADD FSUB FMUL FDIV FSQRT FCVTIF FCVTFI FMVFF
+%token FADD FSUB FMUL
+%token FABS FNEG FDIV FSQRT FCVTIF FCVTFI FMVFF
 %token BEQ BLT
 %token FBEQ FBLT
 %token SW SI STD
@@ -79,15 +80,18 @@ operation_: // 命令とその行番号の組を返す
 	| SRL reg COMMA reg COMMA reg { Srl ($4, $6, $2) } // srl rd,rs1,rs2
 	| SRA reg COMMA reg COMMA reg { Sra ($4, $6, $2) } // sra rd,rs1,rs2
 	| AND reg COMMA reg COMMA reg { And ($4, $6, $2) } // and rd,rs1,rs2
-	// op_fp
-	| FADD reg COMMA reg COMMA reg { Fadd ($4, $6, $2) } // fadd rd,rs1,rs2
-	| FSUB reg COMMA reg COMMA reg { Fsub ($4, $6, $2) } // fsub rd,rs1,rs2
-	| FMUL reg COMMA reg COMMA reg { Fmul ($4, $6, $2) } // fmul rd,rs1,rs2
+	// op_mfp
+	| FABS reg COMMA reg { Fabs ($4, $2) } // fabs rd,rs1
+	| FNEG reg COMMA reg { Fneg ($4, $2) } // fneg rd,rs1
 	| FDIV reg COMMA reg COMMA reg { Fdiv ($4, $6, $2) } // fdiv rd,rs1,rs2
 	| FSQRT reg COMMA reg { Fsqrt ($4, $2) } // fsqrt rd,rs1
 	| FCVTIF reg COMMA reg { Fcvtif ($4, $2) } // fcvt.i.f rd,rs1
 	| FCVTFI reg COMMA reg { Fcvtfi ($4, $2) } // fcvt.f.i rd,rs1
 	| FMVFF reg COMMA reg { Fmvff ($4, $2) } // fmv.f.f rd,rs1
+	// op_pfp
+	| FADD reg COMMA reg COMMA reg { Fadd ($4, $6, $2) } // fadd rd,rs1,rs2
+	| FSUB reg COMMA reg COMMA reg { Fsub ($4, $6, $2) } // fsub rd,rs1,rs2
+	| FMUL reg COMMA reg COMMA reg { Fmul ($4, $6, $2) } // fmul rd,rs1,rs2
 	// branch
 	| BEQ reg COMMA reg COMMA label { Beq ($2, $4, $6) } // beq rs1,rs2,label
 	| BLT reg COMMA reg COMMA label { Blt ($2, $4, $6) } // blt rs1,rs2,label
