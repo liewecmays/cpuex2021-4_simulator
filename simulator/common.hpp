@@ -93,6 +93,7 @@ class Operation{
         constexpr bool is_itof();
         constexpr bool is_ftoi();
         constexpr bool use_mem();
+        constexpr bool use_alu();
         constexpr bool use_multicycle_fpu();
         constexpr bool use_pipelined_fpu();
         constexpr bool use_rd_int();
@@ -592,6 +593,9 @@ inline constexpr bool Operation::is_ftoi(){
 }
 inline constexpr bool Operation::use_mem(){
     return this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp();
+}
+inline constexpr bool Operation::use_alu(){
+    return this->is_op() || this->is_op_imm() || this->is_lui() || this->is_jal() || this->is_jalr() || this->is_itof();
 }
 inline constexpr bool Operation::use_multicycle_fpu(){
     return this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff || this->type == Otype::o_fmvif;
