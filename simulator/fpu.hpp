@@ -21,13 +21,15 @@ class Fpu{
         unsigned int ram_finv_a[ram_size];
         unsigned int ram_finv_b[ram_size];
         Fpu();
-        Bit32 fadd(Bit32, Bit32);
-        Bit32 fsub(Bit32, Bit32);
-        Bit32 fmul(Bit32, Bit32);
+        Bit32 fabs(Bit32);
+        Bit32 fneg(Bit32);
         Bit32 fdiv(Bit32, Bit32);
         Bit32 fsqrt(Bit32);
         Bit32 itof(Bit32);
         Bit32 ftoi(Bit32);
+        Bit32 fadd(Bit32, Bit32);
+        Bit32 fsub(Bit32, Bit32);
+        Bit32 fmul(Bit32, Bit32);
     private:
         Bit32 finv(Bit32);
         std::optional<Bit32> close_path(Bit32, Bit32);
@@ -117,48 +119,12 @@ inline Fpu::Fpu(){
 }
 
 // 浮動小数点演算の定義
-inline Bit32 Fpu::fadd(Bit32 x, Bit32 y){
-    std::optional<Bit32> special_z = this->special_path(x, y);
-    std::optional<Bit32> close_z = this->close_path(x, y);
-    Bit32 far_z = this->far_path(x, y);
-    
-    if(special_z.has_value()){
-        return(special_z.value());
-    }else if(close_z.has_value()){
-        return(close_z.value());
-    }else{
-        return far_z;
-    }
+inline Bit32 Fpu::fabs(Bit32 x){
+    return (x.F.e << 23) + x.F.m;
 }
 
-inline Bit32 Fpu::fsub(Bit32 x, Bit32 y){
-    return this->fadd(x, Bit32(((~y.F.s) << 31) + (y.F.e << 23) + y.F.m));
-}
-
-inline Bit32 Fpu::fmul(Bit32 x1, Bit32 x2){
-    ui m1h = (1 << 12) + take_bits(x1.F.m, 11, 22);
-    ui m2h = (1 << 12) + take_bits(x2.F.m, 11, 22);
-    ui m1l = take_bits(x1.F.m, 0, 10);
-    ui m2l = take_bits(x2.F.m, 0, 10);
-
-    // stage 1
-    ui hh = m1h * m2h;
-    ui hl = m1h * m2l;
-    ui lh = m1l * m2h;
-    ui e3a = x1.F.e + x2.F.e + 129;
-    ui s3 = x1.F.s ^ x2.F.s;
-    ui zero1 = (x1.F.e == 0 || x2.F.e == 0) ? 1 : 0;
-    
-    // stage 2
-    ui sum = hh + (hl >> 11) + (lh >> 11) + 2;
-    ui e3b = e3a + 1;
-
-    // assign
-    ui e3 = !isset_bit(e3a, 8) ? 0 : ((isset_bit(sum, 25)) ? take_bits(e3b, 0, 7) : take_bits(e3a, 0, 7));
-    ui m3 = isset_bit(sum, 25) ? take_bits(sum, 2, 24) : take_bits(sum, 1, 23);
-    ui y = (zero1 == 1) ? 0 : ((e3 == 0) ? ((s3 << 31) + (1 << 23)) : ((s3 << 31) + (e3 << 23) + m3));
-    
-    return Bit32(y);
+inline Bit32 Fpu::fneg(Bit32 x){
+    return (((x.F.e == 0 ? 0 : ~x.F.s) << 31) + (x.F.e << 23) + x.F.m);
 }
 
 inline Bit32 Fpu::fdiv(Bit32 x1, Bit32 x2){
@@ -264,6 +230,51 @@ inline Bit32 Fpu::ftoi(Bit32 x){
     
     return Bit32(y);
 }
+
+inline Bit32 Fpu::fadd(Bit32 x, Bit32 y){
+    std::optional<Bit32> special_z = this->special_path(x, y);
+    std::optional<Bit32> close_z = this->close_path(x, y);
+    Bit32 far_z = this->far_path(x, y);
+    
+    if(special_z.has_value()){
+        return(special_z.value());
+    }else if(close_z.has_value()){
+        return(close_z.value());
+    }else{
+        return far_z;
+    }
+}
+
+inline Bit32 Fpu::fsub(Bit32 x, Bit32 y){
+    return this->fadd(x, Bit32(((~y.F.s) << 31) + (y.F.e << 23) + y.F.m));
+}
+
+inline Bit32 Fpu::fmul(Bit32 x1, Bit32 x2){
+    ui m1h = (1 << 12) + take_bits(x1.F.m, 11, 22);
+    ui m2h = (1 << 12) + take_bits(x2.F.m, 11, 22);
+    ui m1l = take_bits(x1.F.m, 0, 10);
+    ui m2l = take_bits(x2.F.m, 0, 10);
+
+    // stage 1
+    ui hh = m1h * m2h;
+    ui hl = m1h * m2l;
+    ui lh = m1l * m2h;
+    ui e3a = x1.F.e + x2.F.e + 129;
+    ui s3 = x1.F.s ^ x2.F.s;
+    ui zero1 = (x1.F.e == 0 || x2.F.e == 0) ? 1 : 0;
+    
+    // stage 2
+    ui sum = hh + (hl >> 11) + (lh >> 11) + 2;
+    ui e3b = e3a + 1;
+
+    // assign
+    ui e3 = !isset_bit(e3a, 8) ? 0 : ((isset_bit(sum, 25)) ? take_bits(e3b, 0, 7) : take_bits(e3a, 0, 7));
+    ui m3 = isset_bit(sum, 25) ? take_bits(sum, 2, 24) : take_bits(sum, 1, 23);
+    ui y = (zero1 == 1) ? 0 : ((e3 == 0) ? ((s3 << 31) + (1 << 23)) : ((s3 << 31) + (e3 << 23) + m3));
+    
+    return Bit32(y);
+}
+
 
 // 以下は内部的に必要な関数たち
 inline Bit32 Fpu::finv(Bit32 x){

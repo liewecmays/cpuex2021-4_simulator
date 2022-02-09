@@ -825,20 +825,20 @@ void exec_op(){
             ++pc;
             return;
         case Otype::o_fabs:
-            // if(is_ieee){
+            if(is_ieee){
                 reg_fp.write_float(op.rd, std::abs(reg_fp.read_float(op.rs1)));
-            // }else{
-            //     reg_fp.write_32(op.rd, fpu.fabs(reg_fp.read_32(op.rs1)));
-            // }
+            }else{
+                reg_fp.write_32(op.rd, fpu.fabs(reg_fp.read_32(op.rs1)));
+            }
             ++op_type_count[Otype::o_fabs];
             ++pc;
             return;
         case Otype::o_fneg:
-            // if(is_ieee){
+            if(is_ieee){
                 reg_fp.write_float(op.rd, - reg_fp.read_float(op.rs1));
-            // }else{
-            //     reg_fp.write_32(op.rd, fpu.fneg(reg_fp.read_32(op.rs1)));
-            // }
+            }else{
+                reg_fp.write_32(op.rd, fpu.fneg(reg_fp.read_32(op.rs1)));
+            }
             ++op_type_count[Otype::o_fneg];
             ++pc;
             return;
