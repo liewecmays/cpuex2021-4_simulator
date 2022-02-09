@@ -14,7 +14,7 @@ class Instruction{
         Bit32 rs1_v;
         Bit32 rs2_v;
         int pc;
-        Instruction();
+        constexpr Instruction();
 };
 
 // 各時点の状態
@@ -50,8 +50,8 @@ class Configuration{
                 std::array<int, 2> pc;
                 std::array<Operation, 2> op;
                 std::array<Hazard_type, 2> hazard_type;
-                ID_stage();
-                bool is_not_dispatched(unsigned int);
+                constexpr ID_stage();
+                constexpr bool is_not_dispatched(unsigned int);
         };
 
         // execution
@@ -86,7 +86,7 @@ class Configuration{
                         State_ma state;
                         Hazard_info_ma info;
                         void exec();
-                        bool available();
+                        constexpr bool available();
                 };
                 class EX_mfp{
                     public:
@@ -105,7 +105,7 @@ class Configuration{
                         State_mfp state;
                         Hazard_info_mfp info;
                         void exec();
-                        bool available();
+                        constexpr bool available();
                 };
                 class EX_pfp{
                     public:
@@ -125,7 +125,7 @@ class Configuration{
                 EX_ma ma;
                 EX_mfp mfp;
                 EX_pfp pfp;
-                bool is_clear();
+                constexpr bool is_clear();
         };
 
         // write back
@@ -142,13 +142,13 @@ class Configuration{
         EX_stage EX;
         WB_stage WB;
         int advance_clock(bool, std::string); // クロックを1つ分先に進める
-        Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
-        Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
-        Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
-        void wb_req_int(Instruction&); // WBステージに命令を渡す
-        void wb_req_fp(Instruction&); // WBステージに命令を渡す
+        constexpr Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
+        constexpr Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
+        constexpr Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
+        constexpr void wb_req_int(Instruction&); // WBステージに命令を渡す
+        constexpr void wb_req_fp(Instruction&); // WBステージに命令を渡す
 };
-Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
+constexpr Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
 
 inline constexpr int sim_state_continue = -1;
 inline constexpr int sim_state_end = -2;
@@ -160,7 +160,7 @@ using enum Stype;
 using enum Configuration::Hazard_type;
 
 /* class Instruction */
-inline Instruction::Instruction(){
+inline constexpr Instruction::Instruction(){
     this->op = Operation();
     this->rs1_v = 0;
     this->rs2_v = 0;
@@ -168,7 +168,7 @@ inline Instruction::Instruction(){
 }
 
 /* class Configuration */
-inline Configuration::ID_stage::ID_stage(){ // pcの初期値に注意
+inline constexpr Configuration::ID_stage::ID_stage(){ // pcの初期値に注意
     this->pc[0] = -2;
     this->pc[1] = -1;
 }
@@ -549,7 +549,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
 }
 
 // Hazard_type間のOR
-inline Configuration::Hazard_type operator||(Configuration::Hazard_type t1, Configuration::Hazard_type t2){
+inline constexpr Configuration::Hazard_type operator||(Configuration::Hazard_type t1, Configuration::Hazard_type t2){
     if(t1 == No_hazard){
         return t2;
     }else{
@@ -558,7 +558,7 @@ inline Configuration::Hazard_type operator||(Configuration::Hazard_type t1, Conf
 }
 
 // 同時発行される命令の間のハザード検出
-inline Configuration::Hazard_type Configuration::intra_hazard_detector(){
+inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector(){
     // RAW hazards
     if(
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs1_int())
@@ -599,7 +599,7 @@ inline Configuration::Hazard_type Configuration::intra_hazard_detector(){
 }
 
 // 同時発行されない命令間のハザード検出
-inline Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned int i){ // i = 0,1
+inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned int i){ // i = 0,1
     // RAW hazards
     if(
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs1_int())
@@ -656,7 +656,7 @@ inline Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned 
 }
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
-inline Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned int i){
+inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned int i){
     bool ma_wb_fp = this->EX.ma.info.is_willing_but_not_ready_fp;
     bool mfp_wb_fp = this->EX.mfp.info.is_willing_but_not_ready;
     bool pfp_wb_fp = false;
@@ -690,7 +690,7 @@ inline Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned in
 }
 
 // WBステージに命令を渡す
-inline void Configuration::wb_req_int(Instruction& inst){
+inline constexpr void Configuration::wb_req_int(Instruction& inst){
     if(!this->WB.inst_int[0].has_value()){
         this->WB.inst_int[0] = inst;
     }else if(!this->WB.inst_int[1].has_value()){
@@ -700,7 +700,7 @@ inline void Configuration::wb_req_int(Instruction& inst){
         // インライン展開のために省略
     }
 }
-inline void Configuration::wb_req_fp(Instruction& inst){
+inline constexpr void Configuration::wb_req_fp(Instruction& inst){
     if(!this->WB.inst_fp[0].has_value()){
         this->WB.inst_fp[0] = inst;
     }else if(!this->WB.inst_fp[1].has_value()){
@@ -711,7 +711,7 @@ inline void Configuration::wb_req_fp(Instruction& inst){
     }
 }
 
-inline bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
+inline constexpr bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
     return this->hazard_type[i] != No_hazard;
 }
 
@@ -874,12 +874,9 @@ inline void Configuration::EX_stage::EX_ma::exec(){
     }
 }
 
-inline bool Configuration::EX_stage::EX_ma::available(){
-    if(is_quick){
-        return true;
-    }else{
-        return this->cycle_count == 2; // 仮の値
-    }
+inline constexpr bool Configuration::EX_stage::EX_ma::available(){
+    return this->cycle_count == 2; // 仮の値
+    // return true;
 }
 
 inline void Configuration::EX_stage::EX_mfp::exec(){
@@ -930,12 +927,9 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
     }
 }
 
-inline bool Configuration::EX_stage::EX_mfp::available(){
-    if(is_quick){
-        return true;
-    }else{
-        return this->cycle_count == 2; // 仮の値
-    }
+inline constexpr bool Configuration::EX_stage::EX_mfp::available(){
+    return this->cycle_count == 2; // 仮の値
+    // return true;
 }
 
 inline void Configuration::EX_stage::EX_pfp::exec(){
@@ -970,7 +964,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
 }
 
 // EXステージに命令がないかどうかの判定
-inline bool Configuration::EX_stage::is_clear(){
+inline constexpr bool Configuration::EX_stage::is_clear(){
     bool pfp_clear = true;
     for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
         if(!this->pfp.inst[i].op.is_nop()){

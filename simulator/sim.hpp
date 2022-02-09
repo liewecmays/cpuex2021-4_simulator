@@ -41,5 +41,5 @@ void print_reg(); // 整数レジスタの内容を表示
 void print_reg_fp(); // 浮動小数点数レジスタの内容を表示
 void print_memory(int, int); // 4byte単位でメモリの内容を出力
 void print_queue(std::queue<Bit32>, int); // キューの表示
-bool is_end(Operation); // 終了時の命令かどうかを判定
+bool constexpr is_end(Operation); // 終了時の命令かどうかを判定
 void exit_with_output(std::string); // 実効情報を表示したうえで異常終了

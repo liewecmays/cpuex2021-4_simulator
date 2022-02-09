@@ -45,10 +45,10 @@ union Bit32{
     unsigned int ui;
     float f;
     Float F;
-    Bit32();
-    Bit32(int i);
-    Bit32(unsigned int ui);
-    Bit32(float f);
+    constexpr Bit32();
+    constexpr Bit32(int i);
+    constexpr Bit32(unsigned int ui);
+    constexpr Bit32(float f);
     std::string to_string();
     std::string to_string(Stype t);
 };
@@ -58,12 +58,12 @@ class Reg{
     private:
         Bit32 val[32];
     public:
-        Bit32 read_32(unsigned int);
-        int read_int(unsigned int);
-        float read_float(unsigned int);
-        void write_32(unsigned int, Bit32);
-        void write_int(unsigned int, int);
-        void write_float(unsigned int, float);
+        constexpr Bit32 read_32(unsigned int);
+        constexpr int read_int(unsigned int);
+        constexpr float read_float(unsigned int);
+        constexpr void write_32(unsigned int, Bit32);
+        constexpr void write_int(unsigned int, int);
+        constexpr void write_float(unsigned int, float);
 };
 
 /* 命令のクラス */
@@ -74,36 +74,36 @@ class Operation{
         unsigned int rs2;
         unsigned int rd;
         int imm;
-        Operation();
+        constexpr Operation();
         Operation(std::string code);
         Operation(int i);
         std::string to_string();
-        bool is_op();
-        bool is_op_fp();
-        bool is_branch();
-        bool is_branch_fp();
-        bool is_store();
-        bool is_store_fp();
-        bool is_op_imm();
-        bool is_load();
-        bool is_load_fp();
-        bool is_jalr();
-        bool is_jal();
-        bool is_lui();
-        bool is_itof();
-        bool is_ftoi();
-        bool use_mem();
-        bool use_multicycle_fpu();
-        bool use_pipelined_fpu();
-        bool use_rd_int();
-        bool use_rd_fp();
-        bool use_rs1_int();
-        bool use_rs1_fp();
-        bool use_rs2_int();
-        bool use_rs2_fp();
-        bool branch_conditionally_or_unconditionally();
-        bool is_nop();
-        bool is_exit();
+        constexpr bool is_op();
+        constexpr bool is_op_fp();
+        constexpr bool is_branch();
+        constexpr bool is_branch_fp();
+        constexpr bool is_store();
+        constexpr bool is_store_fp();
+        constexpr bool is_op_imm();
+        constexpr bool is_load();
+        constexpr bool is_load_fp();
+        constexpr bool is_jalr();
+        constexpr bool is_jal();
+        constexpr bool is_lui();
+        constexpr bool is_itof();
+        constexpr bool is_ftoi();
+        constexpr bool use_mem();
+        constexpr bool use_multicycle_fpu();
+        constexpr bool use_pipelined_fpu();
+        constexpr bool use_rd_int();
+        constexpr bool use_rd_fp();
+        constexpr bool use_rs1_int();
+        constexpr bool use_rs1_fp();
+        constexpr bool use_rs2_int();
+        constexpr bool use_rs2_fp();
+        constexpr bool branch_conditionally_or_unconditionally();
+        constexpr bool is_nop();
+        constexpr bool is_exit();
 };
 inline constexpr unsigned int pipelined_fpu_stage_num = 4;
 
@@ -244,22 +244,22 @@ inline std::string string_of_otype(Otype t){
 
 
 /* class Bit32 */
-inline Bit32::Bit32(){
+inline constexpr Bit32::Bit32(){
     this->i = 0;
 }
 
 // intを引数に取るコンストラクタ
-inline Bit32::Bit32(int i){
+inline constexpr Bit32::Bit32(int i){
     this->i = i;
 }
 
 // unsigned intを引数に取るコンストラクタ
-inline Bit32::Bit32(unsigned int i){
+inline constexpr Bit32::Bit32(unsigned int i){
     this->ui = i;
 }
 
 // floatを引数に取るコンストラクタ
-inline Bit32::Bit32(float f){
+inline constexpr Bit32::Bit32(float f){
     this->f = f;
 }
 
@@ -307,31 +307,31 @@ inline std::string Bit32::to_string(Stype t){
 
 /* class Reg */
 // read
-inline Bit32 Reg::read_32(unsigned int i){
+inline constexpr Bit32 Reg::read_32(unsigned int i){
     return i == 0 ? Bit32(0) : this->val[i];
 }
-inline int Reg::read_int(unsigned int i){
+inline constexpr int Reg::read_int(unsigned int i){
     return i == 0 ? 0 : this->val[i].i;
 }
-inline float Reg::read_float(unsigned int i){
+inline constexpr float Reg::read_float(unsigned int i){
     return i == 0 ? 0.0f : this->val[i].f;
 }
 
 // write
-inline void Reg::write_32(unsigned int i, Bit32 v){
+inline constexpr void Reg::write_32(unsigned int i, Bit32 v){
     if(i != 0) this->val[i] = v;
 }
-inline void Reg::write_int(unsigned int i, int v){
+inline constexpr void Reg::write_int(unsigned int i, int v){
     if(i != 0) this->val[i] = Bit32(v);
 }
-inline void Reg::write_float(unsigned int i, float v){
+inline constexpr void Reg::write_float(unsigned int i, float v){
     if(i != 0) this->val[i] = Bit32(v);
 }
 
 
 /* class Operation */
 // デフォルトコンストラクタではnopを指定
-inline Operation::Operation(){
+inline constexpr Operation::Operation(){
     this->type = Otype::o_nop;
     this->rs1 = 0;
     this->rs2 = 0;
@@ -548,82 +548,82 @@ inline Operation::Operation(std::string code){
 }
 
 // opの属性に関する判定
-inline bool Operation::is_op(){
+inline constexpr bool Operation::is_op(){
     return this->type == Otype::o_add || this->type == Otype::o_sub || this->type == Otype::o_sll || this->type == Otype::o_srl || this->type == Otype::o_sra || this->type == Otype::o_and;
 }
-inline bool Operation::is_op_fp(){
+inline constexpr bool Operation::is_op_fp(){
     return this->type == Otype::o_fadd || this->type == Otype::o_fsub || this->type == Otype::o_fmul || this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff;
 }
-inline bool Operation::is_branch(){
+inline constexpr bool Operation::is_branch(){
     return this->type == Otype::o_beq || this->type == Otype::o_blt;
 }
-inline bool Operation::is_branch_fp(){
+inline constexpr bool Operation::is_branch_fp(){
     return this->type == Otype::o_fbeq || this->type == Otype::o_fblt;
 }
-inline bool Operation::is_store(){
+inline constexpr bool Operation::is_store(){
     return this->type == Otype::o_sw || this->type == Otype::o_si || this->type == Otype::o_std;
 }
-inline bool Operation::is_store_fp(){
+inline constexpr bool Operation::is_store_fp(){
     return this->type == Otype::o_fsw;
 }
-inline bool Operation::is_op_imm(){
+inline constexpr bool Operation::is_op_imm(){
     return this->type == Otype::o_addi || this->type == Otype::o_slli || this->type == Otype::o_srli || this->type == Otype::o_srai || this->type == Otype::o_andi;
 }
-inline bool Operation::is_load(){
+inline constexpr bool Operation::is_load(){
     return this->type == Otype::o_lw || this->type == Otype::o_lre || this->type == Otype::o_lrd || this->type == Otype::o_ltf;
 }
-inline bool Operation::is_load_fp(){
+inline constexpr bool Operation::is_load_fp(){
     return this->type == Otype::o_flw;
 }
-inline bool Operation::is_jalr(){
+inline constexpr bool Operation::is_jalr(){
     return this->type == Otype::o_jalr;
 }
-inline bool Operation::is_jal(){
+inline constexpr bool Operation::is_jal(){
     return this->type == Otype::o_jal;
 }
-inline bool Operation::is_lui(){
+inline constexpr bool Operation::is_lui(){
     return this->type == Otype::o_lui;
 }
-inline bool Operation::is_itof(){
+inline constexpr bool Operation::is_itof(){
     return this->type == Otype::o_fmvif;
 }
-inline bool Operation::is_ftoi(){
+inline constexpr bool Operation::is_ftoi(){
     return this->type == Otype::o_fmvfi;
 }
-inline bool Operation::use_mem(){
+inline constexpr bool Operation::use_mem(){
     return this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp();
 }
-inline bool Operation::use_multicycle_fpu(){
+inline constexpr bool Operation::use_multicycle_fpu(){
     return this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff || this->type == Otype::o_fmvif;
 }
-inline bool Operation::use_pipelined_fpu(){
+inline constexpr bool Operation::use_pipelined_fpu(){
     return this->type == Otype::o_fadd || this->type == Otype::o_fsub || this->type == Otype::o_fmul;
 }
-inline bool Operation::use_rd_int(){
+inline constexpr bool Operation::use_rd_int(){
     return this->is_op() || this->is_op_imm() || this->is_lui() || this->is_load() || this->is_jal() || this->is_jalr() || this->is_ftoi();
 }
-inline bool Operation::use_rd_fp(){
+inline constexpr bool Operation::use_rd_fp(){
     return this->is_op_fp() || this->is_load_fp() || this->is_itof();
 }
-inline bool Operation::use_rs1_int(){
+inline constexpr bool Operation::use_rs1_int(){
     return this->is_op() || this->is_op_imm() || this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp() || this->is_branch() || this->is_jalr() || this->is_itof();
 }
-inline bool Operation::use_rs1_fp(){
+inline constexpr bool Operation::use_rs1_fp(){
     return this->is_op_fp() || this->is_branch_fp() || this->is_ftoi();
 }
-inline bool Operation::use_rs2_int(){
+inline constexpr bool Operation::use_rs2_int(){
     return this->is_op() || this->is_store() || this->is_branch();
 }
-inline bool Operation::use_rs2_fp(){
+inline constexpr bool Operation::use_rs2_fp(){
     return this->is_op_fp() || this->is_store_fp() || this->is_branch_fp();
 }
-inline bool Operation::branch_conditionally_or_unconditionally(){
+inline constexpr bool Operation::branch_conditionally_or_unconditionally(){
     return this->is_branch() || this->is_branch_fp() || this->is_jal() || this->is_jalr();
 }
-inline bool Operation::is_nop(){
+inline constexpr bool Operation::is_nop(){
     return this->type == Otype::o_nop;
 }
-inline bool Operation::is_exit(){ // jal x0, 0
+inline constexpr bool Operation::is_exit(){ // jal x0, 0
     return this->type == Otype::o_jal && this->rd == 0 && this->imm == 0;
 }
 

@@ -1323,7 +1323,7 @@ void print_queue(std::queue<Bit32> q, int n){
 }
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-inline bool is_end(Operation op){
+inline constexpr bool is_end(Operation op){
     return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
 }
 
