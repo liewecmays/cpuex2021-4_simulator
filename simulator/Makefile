@@ -20,7 +20,7 @@ prof2: common.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
 server: common.hpp server.hpp server.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ server.cpp
 
-fpu_test: fpu.hpp fpu_test.hpp fpu_test.cpp
+fpu_test: common.hpp fpu.hpp fpu_test.hpp fpu_test.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ fpu_test.cpp -lboost_program_options
 
 clean:
