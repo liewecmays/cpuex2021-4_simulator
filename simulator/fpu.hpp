@@ -82,16 +82,16 @@ inline ui count_bit(ui x){
     return x;
 }
 
-inline ui or_all(ui x){
+inline bool or_all(ui x){
     return count_bit(x) != 0;
 }
 
-inline ui and_all(ui x, ui len){ // 下lenビットを見る
+inline bool and_all(ui x, ui len){ // 下lenビットを見る
     return count_bit(x) == len;
 }
 
 inline ui shift_mantissa(ui m, ui diff){
-    return diff >= 24 ? 0 : (m >> take_bits(diff, 0, 4));
+    return (diff >= 24) ? 0 : (m >> take_bits(diff, 0, 4));
 }
 
 
@@ -118,9 +118,9 @@ inline Fpu::Fpu(){
 
 // 浮動小数点演算の定義
 inline Bit32 Fpu::fadd(Bit32 x, Bit32 y){
-    std::optional<Bit32> special_z = Fpu::special_path(x, y);
-    std::optional<Bit32> close_z = Fpu::close_path(x, y);
-    Bit32 far_z = Fpu::far_path(x, y);
+    std::optional<Bit32> special_z = this->special_path(x, y);
+    std::optional<Bit32> close_z = this->close_path(x, y);
+    Bit32 far_z = this->far_path(x, y);
     
     if(special_z.has_value()){
         return(special_z.value());
@@ -132,7 +132,7 @@ inline Bit32 Fpu::fadd(Bit32 x, Bit32 y){
 }
 
 inline Bit32 Fpu::fsub(Bit32 x, Bit32 y){
-    return fadd(x, ((~y.F.s) << 31) + (y.F.e << 23) + y.F.m);
+    return this->fadd(x, Bit32(((~y.F.s) << 31) + (y.F.e << 23) + y.F.m));
 }
 
 inline Bit32 Fpu::fmul(Bit32 x1, Bit32 x2){
@@ -165,8 +165,8 @@ inline Bit32 Fpu::fdiv(Bit32 x1, Bit32 x2){
     ui e_diff = x2.F.e >= 253 ? 4 : 0;
     ui modified_x2 = (x2.F.s << 31) + ((x2.F.e - e_diff) << 23) + x2.F.m;
 
-    Bit32 inv_x2 = finv(Bit32(modified_x2));
-    Bit32 tmp = fmul(x1, inv_x2);
+    Bit32 inv_x2 = this->finv(Bit32(modified_x2));
+    Bit32 tmp = this->fmul(x1, inv_x2);
 
     ui y = tmp.F.e > e_diff ?
         (tmp.F.s << 31) + ((tmp.F.e - e_diff) << 23) + tmp.F.m
@@ -303,7 +303,7 @@ inline std::optional<Bit32> Fpu::close_path(Bit32 x, Bit32 y){
     // difference
     ui m_diff;
     if(x.F.e == y.F.e){
-        m_diff = (x.F.m > y.F.m) ? x.F.m - y.F.m : y.F.m - x.F.m;
+        m_diff = (x.F.m > y.F.m) ? (x.F.m - y.F.m) : (y.F.m - x.F.m);
     }else if(x.F.e > y.F.e){
         m_diff = ((1 << 23) + x.F.m) - ((1 << 22) + take_bits(y.F.m, 1, 22));
     }else{
@@ -311,11 +311,11 @@ inline std::optional<Bit32> Fpu::close_path(Bit32 x, Bit32 y){
     }
 
     // LZC + shift
-    ui shamt, m_shifted;
+    ui shamt = 0, m_shifted;
     ui x_[6];
     x_[5] = m_diff;
-    for(ui i=4; i>=0; --i){
-        if(or_all(take_bits(x_[i+1], 23 - (1 << i), 23))){
+    for(int i=4; i>=0; --i){
+        if(!or_all(take_bits(x_[i+1], 23 - (1 << i) + 1, 23))){
             x_[i] = (x_[i+1] << (1 << i));
             shamt += (1 << i);
         }else{
@@ -327,12 +327,9 @@ inline std::optional<Bit32> Fpu::close_path(Bit32 x, Bit32 y){
     // retain the exponent of the bigger number
     ui e_ref = (x.F.e > y.F.e) ? x.F.e : y.F.e;
 
-    // judge the underflow
-    bool underflow = (e_ref <= shamt);
-
     // calculate z
     Bit32 z;
-    if(!underflow){
+    if(e_ref > shamt){ // no underflow
         z.F.s = (((x.F.e << 23) + x.F.m) > ((y.F.e << 23) + y.F.m)) ? x.F.s : y.F.s;
         z.F.e = e_ref - shamt;
         z.F.m = take_bits(m_shifted, 0, 22);

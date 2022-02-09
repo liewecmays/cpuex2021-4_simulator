@@ -2,7 +2,7 @@
 #include <string>
 
 enum class Ftype{
-    o_fadd, o_fsub, o_fmul, o_finv, o_fdiv, o_fsqrt,
+    o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt,
     o_itof, o_ftoi
 };
 

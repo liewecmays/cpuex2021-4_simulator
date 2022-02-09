@@ -1,6 +1,5 @@
 #include <fpu_test.hpp>
 #include <common.hpp>
-#include <util.hpp>
 #include <fpu.hpp>
 #include <string>
 #include <vector>
@@ -13,6 +12,9 @@ namespace po = boost::program_options;
 
 using ui = unsigned int;
 using ull = unsigned long long;
+
+// FPU
+Fpu fpu;
 
 // 定数の設定
 Bit32 e127_32 = {0x7f000000};
@@ -64,8 +66,6 @@ int main(int argc, char *argv[]){
         is_exhaustive = true;
     }
 
-    // RAMの初期化
-    init_ram();
 
     // 乱数の設定
     std::random_device rnd;
@@ -258,19 +258,19 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
 Bit32 calc_fpu(Bit32 x1, Bit32 x2, Ftype t){
     switch(t){
         case Ftype::o_fadd:
-            return fadd(x1, x2);
+            return fpu.fadd(x1, x2);
         case Ftype::o_fsub:
-            return fsub(x1, x2);
+            return fpu.fsub(x1, x2);
         case Ftype::o_fmul:
-            return fmul(x1, x2);
+            return fpu.fmul(x1, x2);
         case Ftype::o_fdiv:
-            return fdiv(x1, x2);
+            return fpu.fdiv(x1, x2);
         case Ftype::o_fsqrt:
-            return fsqrt(x1);
+            return fpu.fsqrt(x1);
         case Ftype::o_itof:
-            return itof(x1);
+            return fpu.itof(x1);
         case Ftype::o_ftoi:
-            return ftoi(x1);
+            return fpu.ftoi(x1);
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -347,7 +347,6 @@ std::string string_of_ftype(Ftype t){
         case Ftype::o_fadd: return "fadd";
         case Ftype::o_fsub: return "fsub";
         case Ftype::o_fmul: return "fmul";
-        case Ftype::o_finv: return "finv";
         case Ftype::o_fdiv: return "fdiv";
         case Ftype::o_fsqrt: return "fsqrt";
         case Ftype::o_itof: return "itof";
@@ -366,8 +365,6 @@ Ftype ftype_of_string(std::string s){
         return Ftype::o_fsub;
     }else if(s == "fmul"){
         return Ftype::o_fmul;
-    }else if(s == "finv"){
-        return Ftype::o_finv;
     }else if(s == "fdiv"){
         return Ftype::o_fdiv;
     }else if(s == "fsqrt"){
