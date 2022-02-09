@@ -1,9 +1,9 @@
 CC := g++
-OUTPUT_OPTION := -I./ -std=c++17 -Wall -O3 -mtune=native -march=native -pthread
+OUTPUT_OPTION := -I./ -std=c++20 -Wall -O3 -mtune=native -march=native -pthread
 
-default: sim server
+default: sim sim2
 
-all: clean sim sim2 prof prof2 server fpu_test
+all: clean sim sim2 server fpu_test
 
 sim: common.hpp fpu.hpp sim.hpp sim.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim.cpp -lboost_program_options

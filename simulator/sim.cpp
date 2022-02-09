@@ -18,6 +18,8 @@
 #include <chrono>
 
 namespace po = boost::program_options;
+using enum Otype;
+using enum Stype;
 
 /* グローバル変数 */
 // 内部処理関係
@@ -403,7 +405,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
         breakpoint_skip = false;
         Operation op = op_list[pc];
-        if(op.type == Otype::o_jalr || op.type == Otype::o_jal){
+        if(op.type == o_jalr || op.type == o_jal){
             unsigned int old_pc = pc;
             no_info = true;
             exec_command("break " + std::to_string(id_to_line.left.at(pc + 1)) + " __ret");
@@ -591,14 +593,14 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
         int reg_no;
-        Stype st = Stype::t_default;
+        Stype st = t_default;
         char option = match[4].str().front();
         switch(option){
-            case 'd': st = Stype::t_dec; break;
-            case 'b': st = Stype::t_bin; break;
-            case 'h': st = Stype::t_hex; break;
-            case 'f': st = Stype::t_float; break;
-            case 'o': st = Stype::t_op; break;
+            case 'd': st = t_dec; break;
+            case 'b': st = t_bin; break;
+            case 'h': st = t_hex; break;
+            case 'f': st = t_float; break;
+            case 'o': st = t_op; break;
             default: break;
         }
 
@@ -607,7 +609,7 @@ bool exec_command(std::string cmd){
             if(match[1].str() == "x"){ // int
                 std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_int.read_32(reg_no).to_string(st) << std::endl;
             }else{ // float
-                if(st == Stype::t_default) st = Stype::t_float; // デフォルトはfloat
+                if(st == t_default) st = t_float; // デフォルトはfloat
                 std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp.read_32(reg_no).to_string(st) << std::endl;
             }
             cmd = match.suffix();
@@ -733,7 +735,7 @@ bool exec_command(std::string cmd){
                 }
             }else{
                 while(send_buffer.pop(b32)){
-                    output << b32.to_string(Stype::t_hex) << std::endl;
+                    output << b32.to_string(t_hex) << std::endl;
                 }
             }
             output_file << output.str();
@@ -760,7 +762,7 @@ void exec_op(){
 
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
     if(is_bootloading){
-        if(op.type == Otype::o_std && op.rs2 == 5){ // std %x5
+        if(op.type == o_std && op.rs2 == 5){ // std %x5
             int x5 = reg_int.read_int(5);
             if(x5 == 153){ // 0x99
                 is_waiting_for_lnum = true;
@@ -777,7 +779,7 @@ void exec_op(){
             }
         }
 
-        if(is_waiting_for_lnum && op.type == Otype::o_addi && op.rs1 == 6 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
+        if(is_waiting_for_lnum && op.type == o_addi && op.rs1 == 6 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
             is_waiting_for_lnum = false;
             int loaded_op_num = reg_int.read_int(6);
             if(is_debug){
@@ -794,221 +796,221 @@ void exec_op(){
 
     // 実行部分
     switch(op.type){
-        case Otype::o_add:
+        case o_add:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) + reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_add];
+            ++op_type_count[o_add];
             ++pc;
             return;
-        case Otype::o_sub:
+        case o_sub:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) - reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_sub];
+            ++op_type_count[o_sub];
             ++pc;
             return;
-        case Otype::o_sll:
+        case o_sll:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) << reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_sll];
+            ++op_type_count[o_sll];
             ++pc;
             return;
-        case Otype::o_srl:
+        case o_srl:
             reg_int.write_int(op.rd, static_cast<unsigned int>(reg_int.read_int(op.rs1)) >> reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_srl];
+            ++op_type_count[o_srl];
             ++pc;
             return;
-        case Otype::o_sra:
+        case o_sra:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) >> reg_int.read_int(op.rs2)); // note: 処理系依存
-            ++op_type_count[Otype::o_sra];
+            ++op_type_count[o_sra];
             ++pc;
             return;
-        case Otype::o_and:
+        case o_and:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) & reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_and];
+            ++op_type_count[o_and];
             ++pc;
             return;
-        case Otype::o_fadd:
+        case o_fadd:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) + reg_fp.read_float(op.rs2));
             }else{
                 reg_fp.write_32(op.rd, fpu.fadd(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
             }
-            ++op_type_count[Otype::o_fadd];
+            ++op_type_count[o_fadd];
             ++pc;
             return;
-        case Otype::o_fsub:
+        case o_fsub:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) - reg_fp.read_float(op.rs2));
             }else{
                 reg_fp.write_32(op.rd, fpu.fsub(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
             }
-            ++op_type_count[Otype::o_fsub];
+            ++op_type_count[o_fsub];
             ++pc;
             return;
-        case Otype::o_fmul:
+        case o_fmul:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) * reg_fp.read_float(op.rs2));
             }else{
                 reg_fp.write_32(op.rd, fpu.fmul(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
             }
-            ++op_type_count[Otype::o_fmul];
+            ++op_type_count[o_fmul];
             ++pc;
             return;
-        case Otype::o_fdiv:
+        case o_fdiv:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) / reg_fp.read_float(op.rs2));
             }else{
                 reg_fp.write_32(op.rd, fpu.fdiv(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
             }
-            ++op_type_count[Otype::o_fdiv];
+            ++op_type_count[o_fdiv];
             ++pc;
             return;
-        case Otype::o_fsqrt:
+        case o_fsqrt:
             if(is_ieee){
                 reg_fp.write_float(op.rd, std::sqrt(reg_fp.read_float(op.rs1)));
             }else{
                 reg_fp.write_32(op.rd, fpu.fsqrt(reg_fp.read_32(op.rs1)));
             }
-            ++op_type_count[Otype::o_fsqrt];
+            ++op_type_count[o_fsqrt];
             ++pc;
             return;
-        case Otype::o_fcvtif:
+        case o_fcvtif:
             if(is_ieee){
                 reg_fp.write_float(op.rd, static_cast<float>(reg_fp.read_int(op.rs1)));
             }else{
                 reg_fp.write_32(op.rd, fpu.itof(reg_fp.read_32(op.rs1)));
             }
-            ++op_type_count[Otype::o_fcvtif];
+            ++op_type_count[o_fcvtif];
             ++pc;
             return;
-        case Otype::o_fcvtfi:
+        case o_fcvtfi:
             if(is_ieee){
                 reg_fp.write_float(op.rd, static_cast<int>(std::nearbyint(reg_fp.read_float(op.rs1))));
             }else{
                 reg_fp.write_32(op.rd, fpu.ftoi(reg_fp.read_32(op.rs1)));
             }
-            ++op_type_count[Otype::o_fcvtfi];
+            ++op_type_count[o_fcvtfi];
             ++pc;
             return;
-        case Otype::o_fmvff:
+        case o_fmvff:
             reg_fp.write_32(op.rd, reg_fp.read_32(op.rs1));
-            ++op_type_count[Otype::o_fmvff];
+            ++op_type_count[o_fmvff];
             ++pc;
             return;
-        case Otype::o_beq:
+        case o_beq:
             reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
-            ++op_type_count[Otype::o_beq];
+            ++op_type_count[o_beq];
             return;
-        case Otype::o_blt:
+        case o_blt:
             reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
-            ++op_type_count[Otype::o_blt];
+            ++op_type_count[o_blt];
             return;
-        case Otype::o_fbeq:
+        case o_fbeq:
             reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
-            ++op_type_count[Otype::o_fbeq];
+            ++op_type_count[o_fbeq];
             return;
-        case Otype::o_fblt:
+        case o_fblt:
             reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
-            ++op_type_count[Otype::o_fblt];
+            ++op_type_count[o_fblt];
             return;
-        case Otype::o_sw:
+        case o_sw:
             write_memory(reg_int.read_int(op.rs1) + op.imm, reg_int.read_32(op.rs2));
-            ++op_type_count[Otype::o_sw];
+            ++op_type_count[o_sw];
             ++pc;
             return;
-        case Otype::o_si:
+        case o_si:
             op_list[reg_int.read_int(op.rs1) + op.imm] = Operation(reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_si];
+            ++op_type_count[o_si];
             ++pc;
             return;
-        case Otype::o_std:
+        case o_std:
             send_buffer.push(reg_int.read_int(op.rs2));
-            ++op_type_count[Otype::o_std];
+            ++op_type_count[o_std];
             ++pc;
             return;
-        case Otype::o_fsw:
+        case o_fsw:
             write_memory(reg_int.read_int(op.rs1) + op.imm, reg_fp.read_32(op.rs2));
-            ++op_type_count[Otype::o_fsw];
+            ++op_type_count[o_fsw];
             ++pc;
             return;
-        case Otype::o_addi:
+        case o_addi:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) + op.imm);
-            ++op_type_count[Otype::o_addi];
+            ++op_type_count[o_addi];
             ++pc;
             return;
-        case Otype::o_slli:
+        case o_slli:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) << op.imm);
-            ++op_type_count[Otype::o_slli];
+            ++op_type_count[o_slli];
             ++pc;
             return;
-        case Otype::o_srli:
+        case o_srli:
             reg_int.write_int(op.rd, static_cast<unsigned int>(reg_int.read_int(op.rs1)) >> op.imm);
-            ++op_type_count[Otype::o_srli];
+            ++op_type_count[o_srli];
             ++pc;
             return;
-        case Otype::o_srai:
+        case o_srai:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) >> op.imm); // todo: 処理系依存
-            ++op_type_count[Otype::o_srai];
+            ++op_type_count[o_srai];
             ++pc;
             return;
-        case Otype::o_andi:
+        case o_andi:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) & op.imm);
-            ++op_type_count[Otype::o_andi];
+            ++op_type_count[o_andi];
             ++pc;
             return;
-        case Otype::o_lw:
+        case o_lw:
             reg_int.write_32(op.rd, read_memory(reg_int.read_int(op.rs1) + op.imm));
-            ++op_type_count[Otype::o_lw];
+            ++op_type_count[o_lw];
             ++pc;
             return;
-        case Otype::o_lre:
+        case o_lre:
             reg_int.write_int(op.rd, receive_buffer.empty() ? 1 : 0);
             ++pc;
-            ++op_type_count[Otype::o_lre];
+            ++op_type_count[o_lre];
             return;
-        case Otype::o_lrd:
+        case o_lrd:
             if(!receive_buffer.empty()){
                 reg_int.write_int(op.rd, receive_buffer.front().i);
                 receive_buffer.pop();
             }else{
                 exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
-            ++op_type_count[Otype::o_lrd];
+            ++op_type_count[o_lrd];
             ++pc;
             return;
-        case Otype::o_ltf:
+        case o_ltf:
             reg_int.write_int(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
-            ++op_type_count[Otype::o_ltf];
+            ++op_type_count[o_ltf];
             ++pc;
             return;
-        case Otype::o_flw:
+        case o_flw:
             reg_fp.write_32(op.rd, read_memory(reg_int.read_int(op.rs1) + op.imm));
-            ++op_type_count[Otype::o_flw];
+            ++op_type_count[o_flw];
             ++pc;
             return;
-        case Otype::o_jalr:
+        case o_jalr:
             {
                 unsigned next_pc = pc + 1;
                 pc = reg_int.read_int(op.rs1);
                 reg_int.write_int(op.rd, next_pc);
-                ++op_type_count[Otype::o_jalr];
+                ++op_type_count[o_jalr];
             }
             return;
-        case Otype::o_jal:
+        case o_jal:
             reg_int.write_int(op.rd, pc + 1);
-            ++op_type_count[Otype::o_jal];
+            ++op_type_count[o_jal];
             pc += op.imm;
             return;
-        case Otype::o_lui:
+        case o_lui:
             reg_int.write_int(op.rd, op.imm << 12);
-            ++op_type_count[Otype::o_lui];
+            ++op_type_count[o_lui];
             ++pc;
             return;
-        case Otype::o_fmvif:
+        case o_fmvif:
             reg_fp.write_32(op.rd, reg_int.read_32(op.rs1));
-            ++op_type_count[Otype::o_fmvif];
+            ++op_type_count[o_fmvif];
             ++pc;
             return;
-        case Otype::o_fmvfi:
+        case o_fmvfi:
             reg_int.write_32(op.rd, reg_fp.read_32(op.rs1));
-            ++op_type_count[Otype::o_fmvfi];
+            ++op_type_count[o_fmvfi];
             ++pc;
             return;
         default:
@@ -1197,7 +1199,7 @@ void output_info(){
         int m = is_raytracing ? memory_used : mem_size;
         ss_mem << "address,value,read,write" << std::endl;
         for(int i=0; i<m; ++i){
-            ss_mem << i << "," << memory[i].to_string(Stype::t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
+            ss_mem << i << "," << memory[i].to_string(t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
         }
         output_file_mem << ss_mem.str();
         std::cout << head << "memory info: " << output_filename_mem << std::endl;
@@ -1322,7 +1324,7 @@ void print_queue(std::queue<Bit32> q, int n){
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
 inline bool is_end(Operation op){
-    return (op.type == Otype::o_jal) && (op.rd == 0) && (op.imm == 0);
+    return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
 }
 
 // 実効情報を表示したうえで異常終了

@@ -154,6 +154,11 @@ inline constexpr int sim_state_continue = -1;
 inline constexpr int sim_state_end = -2;
 
 
+/* using宣言 */
+using enum Otype;
+using enum Stype;
+using enum Configuration::Hazard_type;
+
 /* class Instruction */
 inline Instruction::Instruction(){
     this->op = Operation();
@@ -191,8 +196,8 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     if(!this->EX.ma.inst.op.is_nop()){
         if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
             switch(this->EX.ma.inst.op.type){
-                case Otype::o_sw:
-                case Otype::o_fsw:
+                case o_sw:
+                case o_fsw:
                     if(this->EX.ma.available()){
                         this->EX.ma.exec();
                         config_next.EX.ma.state = this->EX.ma.state;
@@ -202,25 +207,25 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
                         config_next.EX.ma.cycle_count = 1;
                     }
                     break;
-                case Otype::o_lw:
+                case o_lw:
                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
                     config_next.EX.ma.inst = this->EX.ma.inst;
                     config_next.EX.ma.cycle_count = 1;
                     break;
-                case Otype::o_flw:
+                case o_flw:
                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
                     config_next.EX.ma.inst = this->EX.ma.inst;
                     config_next.EX.ma.cycle_count = 1;
                     break;
                 // 以下は状態遷移しない命令
-                case Otype::o_si:
-                case Otype::o_std:
+                case o_si:
+                case o_std:
                     this->EX.ma.exec();
                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
                     break;
-                case Otype::o_lre:
-                case Otype::o_lrd:
-                case Otype::o_ltf:
+                case o_lre:
+                case o_lrd:
+                case o_ltf:
                     this->EX.ma.exec();
                     config_next.wb_req_int(this->EX.ma.inst);
                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
@@ -230,9 +235,9 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         }else{
             if(this->EX.ma.available()){
                 this->EX.ma.exec();
-                if(this->EX.ma.inst.op.type == Otype::o_lw){
+                if(this->EX.ma.inst.op.type == o_lw){
                     config_next.wb_req_int(this->EX.ma.inst);
-                }else if(this->EX.ma.inst.op.type == Otype::o_flw){
+                }else if(this->EX.ma.inst.op.type == o_flw){
                     config_next.wb_req_fp(this->EX.ma.inst);
                 }
                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
@@ -247,14 +252,14 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     // MA (hazard info)
     this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd;
     this->EX.ma.info.is_willing_but_not_ready_int =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == Otype::o_lw)
+        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_lw)
         || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int && !this->EX.ma.available());
     this->EX.ma.info.is_willing_but_not_ready_fp =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == Otype::o_flw)
+        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_flw)
         || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !this->EX.ma.available());
     this->EX.ma.info.cannot_accept =
         this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle ?
-            ((this->EX.ma.inst.op.type == Otype::o_sw || this->EX.ma.inst.op.type == Otype::o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == Otype::o_lw || this->EX.ma.inst.op.type == Otype::o_flw
+            ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw
             : !this->EX.ma.available();
 
     // mFP
@@ -304,12 +309,12 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     /* instruction fetch/decode */
     // dispatch?
     if(this->ID.op[0].is_nop() && this->ID.op[1].is_nop() && this->clk != 0){
-        this->ID.hazard_type[0] = Configuration::Hazard_type::End;
-        this->ID.hazard_type[1] = Configuration::Hazard_type::End;
+        this->ID.hazard_type[0] = End;
+        this->ID.hazard_type[1] = End;
     }else{
         this->ID.hazard_type[0] = this->inter_hazard_detector(0) || this->iwp_hazard_detector(0);
         if(this->ID.is_not_dispatched(0)){
-            this->ID.hazard_type[1] = Configuration::Hazard_type::Trivial;
+            this->ID.hazard_type[1] = Trivial;
         }else{
             this->ID.hazard_type[1] = this->intra_hazard_detector() || this->inter_hazard_detector(1) || this->iwp_hazard_detector(1);
         }
@@ -339,46 +344,46 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         if(this->EX.br.branch_addr.has_value() || this->ID.is_not_dispatched(i)) continue; // rst from br/id
         switch(this->ID.op[i].type){
             // AL
-            case Otype::o_add:
-            case Otype::o_sub:
-            case Otype::o_sll:
-            case Otype::o_srl:
-            case Otype::o_sra:
-            case Otype::o_and:
-            case Otype::o_addi:
-            case Otype::o_slli:
-            case Otype::o_srli:
-            case Otype::o_srai:
-            case Otype::o_andi:
-            case Otype::o_lui:
+            case o_add:
+            case o_sub:
+            case o_sll:
+            case o_srl:
+            case o_sra:
+            case o_and:
+            case o_addi:
+            case o_slli:
+            case o_srli:
+            case o_srai:
+            case o_andi:
+            case o_lui:
                 config_next.EX.als[i].inst.op = this->ID.op[i];
                 config_next.EX.als[i].inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.als[i].inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
                 config_next.EX.als[i].inst.pc = this->ID.pc[i];
                 break;
-            case Otype::o_fmvfi:
+            case o_fmvfi:
                 config_next.EX.als[i].inst.op = this->ID.op[i];
                 config_next.EX.als[i].inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
                 config_next.EX.als[i].inst.pc = this->ID.pc[i];
                 break;
             // BR (conditional)
-            case Otype::o_beq:
-            case Otype::o_blt:
+            case o_beq:
+            case o_blt:
                 config_next.EX.br.inst.op = this->ID.op[i];
                 config_next.EX.br.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.br.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
                 config_next.EX.br.inst.pc = this->ID.pc[i];
                 break;
-            case Otype::o_fbeq:
-            case Otype::o_fblt:
+            case o_fbeq:
+            case o_fblt:
                 config_next.EX.br.inst.op = this->ID.op[i];
                 config_next.EX.br.inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
                 config_next.EX.br.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.br.inst.pc = this->ID.pc[i];
                 break;
             // BR (unconditional)
-            case Otype::o_jal:
-            case Otype::o_jalr:
+            case o_jal:
+            case o_jalr:
                 // ALとBRの両方にdistribute
                 config_next.EX.als[i].inst.op = this->ID.op[i];
                 config_next.EX.als[i].inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
@@ -388,51 +393,51 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
                 config_next.EX.br.inst.pc = this->ID.pc[i];
                 break;
             // MA
-            case Otype::o_sw:
-            case Otype::o_si:
-            case Otype::o_std:
-            case Otype::o_lw:
-            case Otype::o_lre:
-            case Otype::o_lrd:
-            case Otype::o_ltf:
-            case Otype::o_flw:
+            case o_sw:
+            case o_si:
+            case o_std:
+            case o_lw:
+            case o_lre:
+            case o_lrd:
+            case o_ltf:
+            case o_flw:
                 config_next.EX.ma.inst.op = this->ID.op[i];
                 config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.ma.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
                 config_next.EX.ma.inst.pc = this->ID.pc[i];
                 break;
-            case Otype::o_fsw:
+            case o_fsw:
                 config_next.EX.ma.inst.op = this->ID.op[i];
                 config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.ma.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.ma.inst.pc = this->ID.pc[i];
                 break;
             // mFP
-            case Otype::o_fdiv:
-            case Otype::o_fsqrt:
-            case Otype::o_fcvtif:
-            case Otype::o_fcvtfi:
-            case Otype::o_fmvff:
+            case o_fdiv:
+            case o_fsqrt:
+            case o_fcvtif:
+            case o_fcvtfi:
+            case o_fmvff:
                 config_next.EX.mfp.inst.op = this->ID.op[i];
                 config_next.EX.mfp.inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
                 config_next.EX.mfp.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.mfp.inst.pc = this->ID.pc[i];
                 break;
-            case Otype::o_fmvif:
+            case o_fmvif:
                 config_next.EX.mfp.inst.op = this->ID.op[i];
                 config_next.EX.mfp.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
                 config_next.EX.mfp.inst.pc = this->ID.pc[i];
                 break;
             // pFP
-            case Otype::o_fadd:
-            case Otype::o_fsub:
-            case Otype::o_fmul:
+            case o_fadd:
+            case o_fsub:
+            case o_fmul:
                 config_next.EX.pfp.inst[0].op = this->ID.op[i];
                 config_next.EX.pfp.inst[0].rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
                 config_next.EX.pfp.inst[0].rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
                 config_next.EX.pfp.inst[0].pc = this->ID.pc[i];
                 break;
-            case Otype::o_nop: break;
+            case o_nop: break;
             default: std::exit(EXIT_FAILURE);
         }
     }
@@ -545,7 +550,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
 
 // Hazard_type間のOR
 inline Configuration::Hazard_type operator||(Configuration::Hazard_type t1, Configuration::Hazard_type t2){
-    if(t1 == Configuration::Hazard_type::No_hazard){
+    if(t1 == No_hazard){
         return t2;
     }else{
         return t1;
@@ -559,38 +564,38 @@ inline Configuration::Hazard_type Configuration::intra_hazard_detector(){
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs1_int())
         || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs1_fp()))
         && this->ID.op[0].rd == this->ID.op[1].rs1
-    ) return Configuration::Hazard_type::Intra_RAW_rd_to_rs1;
+    ) return Intra_RAW_rd_to_rs1;
     if(
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs2_int())
         || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs2_fp()))
         && this->ID.op[0].rd == this->ID.op[1].rs2
-    ) return Configuration::Hazard_type::Intra_RAW_rd_to_rs2;
+    ) return Intra_RAW_rd_to_rs2;
 
     // WAW hazards
     if(
         ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rd_int())
         || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp()))
         && this->ID.op[0].rd == this->ID.op[1].rd
-    ) return Configuration::Hazard_type::Intra_WAW_rd_to_rd;
+    ) return Intra_WAW_rd_to_rd;
 
     // control hazards
     if(
         this->ID.op[0].branch_conditionally_or_unconditionally()
-    ) return Configuration::Hazard_type::Intra_control;
+    ) return Intra_control;
 
     // structural hazards
     if(
         this->ID.op[0].use_mem() && this->ID.op[1].use_mem()
-    ) return Configuration::Hazard_type::Intra_structural_mem;
+    ) return Intra_structural_mem;
     if(
         this->ID.op[0].use_multicycle_fpu() && this->ID.op[1].use_multicycle_fpu()
-    ) return Configuration::Hazard_type::Intra_structural_mfp;
+    ) return Intra_structural_mfp;
     if(
         this->ID.op[0].use_pipelined_fpu() && this->ID.op[1].use_pipelined_fpu()
-    ) return Configuration::Hazard_type::Intra_structural_pfp;
+    ) return Intra_structural_pfp;
 
     // no hazard detected
-    return Configuration::Hazard_type::No_hazard;
+    return No_hazard;
 }
 
 // 同時発行されない命令間のハザード検出
@@ -600,26 +605,26 @@ inline Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned 
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs1_int())
         || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rs1_fp()))
         && this->EX.ma.info.wb_addr == this->ID.op[i].rs1
-    ) return Configuration::Hazard_type::Inter_RAW_ma_to_rs1;
+    ) return Inter_RAW_ma_to_rs1;
     if(
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rs2_int())
         || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rs2_fp()))
         && this->EX.ma.info.wb_addr == this->ID.op[i].rs2
-    ) return Configuration::Hazard_type::Inter_RAW_ma_to_rs2;
+    ) return Inter_RAW_ma_to_rs2;
     if(
         this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs1_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs1)
-    ) return Configuration::Hazard_type::Inter_RAW_mfp_to_rs1;
+    ) return Inter_RAW_mfp_to_rs1;
     if(
         this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs2_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs2)
-    ) return Configuration::Hazard_type::Inter_RAW_mfp_to_rs2;
+    ) return Inter_RAW_mfp_to_rs2;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
         if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs1_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs1)){
-            return Configuration::Hazard_type::Inter_RAW_pfp_to_rs1;
+            return Inter_RAW_pfp_to_rs1;
         }
     }
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
         if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs2_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs2)){
-            return Configuration::Hazard_type::Inter_RAW_pfp_to_rs2;
+            return Inter_RAW_pfp_to_rs2;
         }
     }
 
@@ -628,26 +633,26 @@ inline Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned 
         ((this->EX.ma.info.is_willing_but_not_ready_int && this->ID.op[i].use_rd_int())
         || (this->EX.ma.info.is_willing_but_not_ready_fp && this->ID.op[i].use_rd_fp()))
         && this->EX.ma.info.wb_addr == this->ID.op[i].rd
-    ) return Configuration::Hazard_type::Inter_WAW_ma_to_rd;
+    ) return Inter_WAW_ma_to_rd;
     if(
         this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rd_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rd)
-    ) return Configuration::Hazard_type::Inter_WAW_mfp_to_rd;
+    ) return Inter_WAW_mfp_to_rd;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
         if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rd_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rd)){
-            return Configuration::Hazard_type::Inter_WAW_pfp_to_rd;
+            return Inter_WAW_pfp_to_rd;
         }
     }
 
     // structural hazards
     if(
         this->EX.ma.info.cannot_accept && this->ID.op[i].use_mem()
-    ) return Configuration::Hazard_type::Inter_structural_mem;
+    ) return Inter_structural_mem;
     if(
         this->EX.mfp.info.cannot_accept && this->ID.op[i].use_multicycle_fpu()
-    ) return Configuration::Hazard_type::Inter_structural_mfp;
+    ) return Inter_structural_mfp;
 
     // no hazard detected
-    return Configuration::Hazard_type::No_hazard;
+    return No_hazard;
 }
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
@@ -665,9 +670,9 @@ inline Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned in
     // todo: COMPLEX_HAZARD_DETECTION
     if(i == 0){
         if(this->ID.op[0].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp))){
-            return Configuration::Hazard_type::Insufficient_write_port;
+            return Insufficient_write_port;
         }else{
-            return Configuration::Hazard_type::No_hazard;
+            return No_hazard;
         }
     }else if(i == 1){
         if(
@@ -675,12 +680,12 @@ inline Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned in
             || (this->ID.op[1].use_rd_fp() && ((ma_wb_fp && mfp_wb_fp) || (mfp_wb_fp && pfp_wb_fp) || (pfp_wb_fp && ma_wb_fp)))
             || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp() && (ma_wb_fp || mfp_wb_fp || pfp_wb_fp))
         ){
-            return Configuration::Hazard_type::Insufficient_write_port;
+            return Insufficient_write_port;
         }else{
-            return Configuration::Hazard_type::No_hazard;
+            return No_hazard;
         }
     }else{
-        return Configuration::Hazard_type::No_hazard; // error
+        return No_hazard; // error
     }
 }
 
@@ -707,73 +712,73 @@ inline void Configuration::wb_req_fp(Instruction& inst){
 }
 
 inline bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
-    return this->hazard_type[i] != Configuration::Hazard_type::No_hazard;
+    return this->hazard_type[i] != No_hazard;
 }
 
 inline void Configuration::EX_stage::EX_al::exec(){
     switch(this->inst.op.type){
         // op
-        case Otype::o_add:
+        case o_add:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i + this->inst.rs2_v.i);
-            ++op_type_count[Otype::o_add];
+            ++op_type_count[o_add];
             return;
-        case Otype::o_sub:
+        case o_sub:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i - this->inst.rs2_v.i);
-            ++op_type_count[Otype::o_sub];
+            ++op_type_count[o_sub];
             return;
-        case Otype::o_sll:
+        case o_sll:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i << this->inst.rs2_v.i);
-            ++op_type_count[Otype::o_sll];
+            ++op_type_count[o_sll];
             return;
-        case Otype::o_srl:
+        case o_srl:
             reg_int.write_int(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.rs2_v.i);
-            ++op_type_count[Otype::o_srl];
+            ++op_type_count[o_srl];
             return;
-        case Otype::o_sra:
+        case o_sra:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.rs2_v.i); // todo: 処理系依存
-            ++op_type_count[Otype::o_sra];
+            ++op_type_count[o_sra];
             return;
-        case Otype::o_and:
+        case o_and:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i & this->inst.rs2_v.i);
-            ++op_type_count[Otype::o_and];
+            ++op_type_count[o_and];
             return;
         // op_imm
-        case Otype::o_addi:
+        case o_addi:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i + this->inst.op.imm);
-            ++op_type_count[Otype::o_addi];
+            ++op_type_count[o_addi];
             return;
-        case Otype::o_slli:
+        case o_slli:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i << this->inst.op.imm);
-            ++op_type_count[Otype::o_slli];
+            ++op_type_count[o_slli];
             return;
-        case Otype::o_srli:
+        case o_srli:
             reg_int.write_int(this->inst.op.rd, static_cast<unsigned int>(this->inst.rs1_v.i) >> this->inst.op.imm);
-            ++op_type_count[Otype::o_srli];
+            ++op_type_count[o_srli];
             return;
-        case Otype::o_srai:
+        case o_srai:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i >> this->inst.op.imm); // todo: 処理系依存
-            ++op_type_count[Otype::o_srai];
+            ++op_type_count[o_srai];
             return;
-        case Otype::o_andi:
+        case o_andi:
             reg_int.write_int(this->inst.op.rd, this->inst.rs1_v.i & this->inst.op.imm);
-            ++op_type_count[Otype::o_andi];
+            ++op_type_count[o_andi];
             return;
         // lui
-        case Otype::o_lui:
+        case o_lui:
             reg_int.write_int(this->inst.op.rd, this->inst.op.imm << 12);
-            ++op_type_count[Otype::o_lui];
+            ++op_type_count[o_lui];
             return;
         // ftoi
-        case Otype::o_fmvfi:
+        case o_fmvfi:
             reg_int.write_32(this->inst.op.rd, this->inst.rs1_v);
-            ++op_type_count[Otype::o_fmvfi];
+            ++op_type_count[o_fmvfi];
             return;
         // jalr (pass through)
-        case Otype::o_jalr:
+        case o_jalr:
             reg_int.write_int(this->inst.op.rd, this->inst.pc + 1);
             return;
         // jal (pass through)
-        case Otype::o_jal:
+        case o_jal:
             reg_int.write_int(this->inst.op.rd, this->inst.pc + 1);
             return;
         default: return; // note: 仕様上はここにその他の命令が指定されることはないので、(インライン展開のために)例外を出していない。以下同様。
@@ -783,40 +788,40 @@ inline void Configuration::EX_stage::EX_al::exec(){
 inline void Configuration::EX_stage::EX_br::exec(){
     switch(this->inst.op.type){
         // branch
-        case Otype::o_beq:
+        case o_beq:
             if(this->inst.rs1_v.i == this->inst.rs2_v.i){
                 this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
-            ++op_type_count[Otype::o_beq];
+            ++op_type_count[o_beq];
             return;
-        case Otype::o_blt:
+        case o_blt:
             if(this->inst.rs1_v.i < this->inst.rs2_v.i){
                 this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
-            ++op_type_count[Otype::o_blt];
+            ++op_type_count[o_blt];
             return;
         // branch_fp
-        case Otype::o_fbeq:
+        case o_fbeq:
             if(this->inst.rs1_v.f == this->inst.rs2_v.f){
                 this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
-            ++op_type_count[Otype::o_fbeq];
+            ++op_type_count[o_fbeq];
             return;
-        case Otype::o_fblt:
+        case o_fblt:
             if(this->inst.rs1_v.f < this->inst.rs2_v.f){
                 this->branch_addr = this->inst.pc + this->inst.op.imm;
             }
-            ++op_type_count[Otype::o_fblt];
+            ++op_type_count[o_fblt];
             return;
         // jalr
-        case Otype::o_jalr:
+        case o_jalr:
             this->branch_addr = this->inst.rs1_v.ui;
-            ++op_type_count[Otype::o_jalr];
+            ++op_type_count[o_jalr];
             return;
         // jal
-        case Otype::o_jal:
+        case o_jal:
             this->branch_addr = this->inst.pc + this->inst.op.imm;
-            ++op_type_count[Otype::o_jal];
+            ++op_type_count[o_jal];
             return;
         default: return;
     }
@@ -824,46 +829,46 @@ inline void Configuration::EX_stage::EX_br::exec(){
 
 inline void Configuration::EX_stage::EX_ma::exec(){
     switch(this->inst.op.type){
-        case Otype::o_sw:
+        case o_sw:
             write_memory(this->inst.rs1_v.i + this->inst.op.imm, this->inst.rs2_v);
-            ++op_type_count[Otype::o_sw];
+            ++op_type_count[o_sw];
             return;
-        case Otype::o_si:
+        case o_si:
             op_list[this->inst.rs1_v.i + this->inst.op.imm] = Operation(this->inst.rs2_v.i);
-            ++op_type_count[Otype::o_si];
+            ++op_type_count[o_si];
             return;
-        case Otype::o_std:
+        case o_std:
             send_buffer.push(inst.rs2_v);
-            ++op_type_count[Otype::o_std];
+            ++op_type_count[o_std];
             return;
-        case Otype::o_fsw:
+        case o_fsw:
             write_memory(this->inst.rs1_v.i + this->inst.op.imm, this->inst.rs2_v);
-            ++op_type_count[Otype::o_fsw];
+            ++op_type_count[o_fsw];
             return;
-        case Otype::o_lw:
+        case o_lw:
             reg_int.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
-            ++op_type_count[Otype::o_lw];
+            ++op_type_count[o_lw];
             return;
-        case Otype::o_lre:
+        case o_lre:
             reg_int.write_int(this->inst.op.rd, receive_buffer.empty() ? 1 : 0);
-            ++op_type_count[Otype::o_lre];
+            ++op_type_count[o_lre];
             return;
-        case Otype::o_lrd:
+        case o_lrd:
             if(!receive_buffer.empty()){
                 reg_int.write_32(this->inst.op.rd, receive_buffer.front());
                 receive_buffer.pop();
             }else{
                 exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
             }
-            ++op_type_count[Otype::o_lrd];
+            ++op_type_count[o_lrd];
             return;
-        case Otype::o_ltf:
+        case o_ltf:
             reg_int.write_int(this->inst.op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
-            ++op_type_count[Otype::o_ltf];
+            ++op_type_count[o_ltf];
             return;
-        case Otype::o_flw:
+        case o_flw:
             reg_fp.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
-            ++op_type_count[Otype::o_flw];
+            ++op_type_count[o_flw];
             return;
         default: return;
     }
@@ -880,46 +885,46 @@ inline bool Configuration::EX_stage::EX_ma::available(){
 inline void Configuration::EX_stage::EX_mfp::exec(){
     switch(this->inst.op.type){
         // op_fp
-        case Otype::o_fdiv:
+        case o_fdiv:
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, this->inst.rs1_v.f / this->inst.rs2_v.f);
             }else{
                 reg_fp.write_32(this->inst.op.rd, fpu.fdiv(this->inst.rs1_v, this->inst.rs2_v));
             }
-            ++op_type_count[Otype::o_fdiv];
+            ++op_type_count[o_fdiv];
             return;
-        case Otype::o_fsqrt:
+        case o_fsqrt:
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, std::sqrt(this->inst.rs1_v.f));
             }else{
                 reg_fp.write_32(this->inst.op.rd, fpu.fsqrt(this->inst.rs1_v));
             }
-            ++op_type_count[Otype::o_fsqrt];
+            ++op_type_count[o_fsqrt];
             return;
-        case Otype::o_fcvtif:
+        case o_fcvtif:
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, static_cast<float>(this->inst.rs1_v.i));
             }else{
                 reg_fp.write_32(this->inst.op.rd, fpu.itof(this->inst.rs1_v));
             }
-            ++op_type_count[Otype::o_fcvtif];
+            ++op_type_count[o_fcvtif];
             return;
-        case Otype::o_fcvtfi:
+        case o_fcvtfi:
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, static_cast<int>(std::nearbyint(this->inst.rs1_v.f)));
             }else{
                 reg_fp.write_32(this->inst.op.rd, fpu.ftoi(this->inst.rs1_v));
             }
-            ++op_type_count[Otype::o_fcvtfi];
+            ++op_type_count[o_fcvtfi];
             return;
-        case Otype::o_fmvff:
+        case o_fmvff:
             reg_fp.write_32(this->inst.op.rd, this->inst.rs1_v);
-            ++op_type_count[Otype::o_fmvff];
+            ++op_type_count[o_fmvff];
             return;
         // itof
-        case Otype::o_fmvif:
+        case o_fmvif:
             reg_fp.write_32(this->inst.op.rd, this->inst.rs1_v);
-            ++op_type_count[Otype::o_fmvif];
+            ++op_type_count[o_fmvif];
             return;
         default: return;
     }
@@ -936,29 +941,29 @@ inline bool Configuration::EX_stage::EX_mfp::available(){
 inline void Configuration::EX_stage::EX_pfp::exec(){
     Instruction inst = this->inst[pipelined_fpu_stage_num-1];
     switch(inst.op.type){
-        case Otype::o_fadd:
+        case o_fadd:
             if(is_ieee){
                 reg_fp.write_float(inst.op.rd, inst.rs1_v.f + inst.rs2_v.f);
             }else{
                 reg_fp.write_32(inst.op.rd, fpu.fadd(inst.rs1_v, inst.rs2_v));
             }
-            ++op_type_count[Otype::o_fadd];
+            ++op_type_count[o_fadd];
             return;
-        case Otype::o_fsub:
+        case o_fsub:
             if(is_ieee){
                 reg_fp.write_float(inst.op.rd, inst.rs1_v.f - inst.rs2_v.f);
             }else{
                 reg_fp.write_32(inst.op.rd, fpu.fsub(inst.rs1_v, inst.rs2_v));
             }
-            ++op_type_count[Otype::o_fsub];
+            ++op_type_count[o_fsub];
             return;
-        case Otype::o_fmul:
+        case o_fmul:
             if(is_ieee){
                 reg_fp.write_float(inst.op.rd, inst.rs1_v.f * inst.rs2_v.f);
             }else{
                 reg_fp.write_32(inst.op.rd, fpu.fmul(inst.rs1_v, inst.rs2_v));
             }
-            ++op_type_count[Otype::o_fmul];
+            ++op_type_count[o_fmul];
             return;
         default: return;
     }

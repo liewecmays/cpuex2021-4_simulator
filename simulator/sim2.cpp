@@ -21,6 +21,8 @@
 #include <nameof.hpp>
 
 namespace po = boost::program_options;
+using enum Otype;
+using enum Stype;
 
 /* グローバル変数 */
 // 内部処理関係
@@ -402,7 +404,7 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
         if(sim_state != sim_state_end){
-            if(config.EX.br.inst.op.type == Otype::o_jalr || config.EX.br.inst.op.type == Otype::o_jal){
+            if(config.EX.br.inst.op.type == o_jalr || config.EX.br.inst.op.type == o_jal){
                 int old_pc = config.EX.br.inst.pc;
                 no_info = true;
                 exec_command("do");
@@ -535,14 +537,14 @@ bool exec_command(std::string cmd){
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
         unsigned int reg_no;
-        Stype st = Stype::t_default;
+        Stype st = t_default;
         char option = match[4].str().front();
         switch(option){
-            case 'd': st = Stype::t_dec; break;
-            case 'b': st = Stype::t_bin; break;
-            case 'h': st = Stype::t_hex; break;
-            case 'f': st = Stype::t_float; break;
-            case 'o': st = Stype::t_op; break;
+            case 'd': st = t_dec; break;
+            case 'b': st = t_bin; break;
+            case 'h': st = t_hex; break;
+            case 'f': st = t_float; break;
+            case 'o': st = t_op; break;
             default: break;
         }
 
@@ -551,7 +553,7 @@ bool exec_command(std::string cmd){
             if(match[1].str() == "x"){ // int
                 std::cout << "\x1b[1m%x" << reg_no << "\x1b[0m: " << reg_int.read_32(reg_no).to_string(st) << std::endl;
             }else{ // float
-                if(st == Stype::t_default) st = Stype::t_float; // デフォルトはfloat
+                if(st == t_default) st = t_float; // デフォルトはfloat
                 std::cout << "\x1b[1m%f" << reg_no << "\x1b[0m: " << reg_fp.read_32(reg_no).to_string(st) << std::endl;
             }
             cmd = match.suffix();
@@ -695,7 +697,7 @@ bool exec_command(std::string cmd){
                 }
             }else{
                 while(send_buffer.pop(b32)){
-                    output << b32.to_string(Stype::t_hex) << std::endl;
+                    output << b32.to_string(t_hex) << std::endl;
                 }
             }
             output_file << output.str();
