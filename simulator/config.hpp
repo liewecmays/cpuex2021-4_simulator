@@ -7,14 +7,48 @@
 #include <optional>
 #include <nameof.hpp>
 
-// pcと命令(レジスタや即値の値を本当に持っている)
+// pc・命令
+class Fetched_inst{
+    public:
+        Operation op;
+        int pc;
+        Fetched_inst(){
+            this->op = Operation();
+            this->pc = -1;
+        }
+        std::string to_string(){
+            return std::to_string(pc) + ", " + op.to_string();
+        }
+};
+
+// pc・命令・レジスタの値
 class Instruction{
     public:
         Operation op;
         Bit32 rs1_v;
         Bit32 rs2_v;
         int pc;
-        constexpr Instruction();
+};
+
+// mod4で演算するだけのunsigned int
+class m4ui{
+    private:
+        unsigned int i;
+    public:
+        constexpr m4ui(){ this->i = 0; }
+        constexpr m4ui(const unsigned int x){ this->i = x % 4; };
+        constexpr m4ui operator+=(const unsigned int x){
+            this->i = (this->i + x) % 4;
+            return *this;
+        };
+        constexpr m4ui operator+(const unsigned int x){
+            return m4ui(*this) += x;
+        };
+        constexpr unsigned int val(){ return this->i; }
+        constexpr unsigned int nxt(){ return (*this + 1).val(); }
+        void print(){
+            std::cout << this->i << std::endl;
+        }
 };
 
 // 各時点の状態
@@ -41,18 +75,26 @@ class Configuration{
         // instruction fetch
         class IF_stage{
             public:
-                std::array<int, 2> pc;
+                class IF_queue{
+                    public:
+                        m4ui head;
+                        m4ui tail;
+                        unsigned int num;
+                        std::array<Fetched_inst, 4> array;
+                };
+            public:
+                int fetch_addr; // 先頭のみ保持
+                IF_queue queue;
         };
 
         // instruction decode
-        class ID_stage{
-            public:
-                std::array<int, 2> pc;
-                std::array<Operation, 2> op;
-                std::array<Hazard_type, 2> hazard_type;
-                constexpr ID_stage();
-                constexpr bool is_not_dispatched(unsigned int);
-        };
+        // class ID_stage{
+        //     public:
+        //         std::array<Instruction, 2> inst;
+        //         std::array<Hazard_type, 2> hazard_type;
+        //         constexpr ID_stage();
+        //         constexpr bool is_not_dispatched(unsigned int);
+        // };
 
         // execution
         class EX_stage{
@@ -138,13 +180,13 @@ class Configuration{
     public:
         unsigned long long clk = 0;
         IF_stage IF;
-        ID_stage ID;
+        // ID_stage ID;
         EX_stage EX;
         WB_stage WB;
         int advance_clock(bool, std::string); // クロックを1つ分先に進める
-        constexpr Hazard_type intra_hazard_detector(); // 同時発行される命令の間のハザード検出
-        constexpr Hazard_type inter_hazard_detector(unsigned int); // 同時発行されない命令間のハザード検出
-        constexpr Hazard_type iwp_hazard_detector(unsigned int); // 書き込みポート数が不十分な場合のハザード検出
+        constexpr Hazard_type intra_hazard_detector(std::array<Fetched_inst, 2>&); // 同時発行される命令の間のハザード検出
+        constexpr Hazard_type inter_hazard_detector(std::array<Fetched_inst, 2>&, unsigned int); // 同時発行されない命令間のハザード検出
+        constexpr Hazard_type iwp_hazard_detector(std::array<Fetched_inst, 2>&, unsigned int); // 書き込みポート数が不十分な場合のハザード検出
         constexpr void wb_req_int(Instruction&); // WBステージに命令を渡す
         constexpr void wb_req_fp(Instruction&); // WBステージに命令を渡す
 };
@@ -159,19 +201,6 @@ using enum Otype;
 using enum Stype;
 using enum Configuration::Hazard_type;
 
-/* class Instruction */
-inline constexpr Instruction::Instruction(){
-    this->op = Operation();
-    this->rs1_v = 0;
-    this->rs2_v = 0;
-    this->pc = 0;
-}
-
-/* class Configuration */
-inline constexpr Configuration::ID_stage::ID_stage(){ // pcの初期値に注意
-    this->pc[0] = -2;
-    this->pc[1] = -1;
-}
 
 // クロックを1つ分先に進める
 inline int Configuration::advance_clock(bool verbose, std::string bp){
@@ -250,17 +279,17 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     }
 
     // MA (hazard info)
-    this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd;
-    this->EX.ma.info.is_willing_but_not_ready_int =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_lw)
-        || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int && !this->EX.ma.available());
-    this->EX.ma.info.is_willing_but_not_ready_fp =
-        (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_flw)
-        || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !this->EX.ma.available());
-    this->EX.ma.info.cannot_accept =
-        this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle ?
-            ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw
-            : !this->EX.ma.available();
+    // this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd;
+    // this->EX.ma.info.is_willing_but_not_ready_int =
+    //     (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_lw)
+    //     || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int && !this->EX.ma.available());
+    // this->EX.ma.info.is_willing_but_not_ready_fp =
+    //     (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_flw)
+    //     || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !this->EX.ma.available());
+    // this->EX.ma.info.cannot_accept =
+    //     this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle ?
+    //         ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw
+    //         : !this->EX.ma.available();
 
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
@@ -306,43 +335,145 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     }
 
 
-    /* instruction decode->fetch */
-    // dispatch?
-    if(this->ID.op[0].is_nop() && this->ID.op[1].is_nop() && this->clk != 0){
-        this->ID.hazard_type[0] = End;
-        this->ID.hazard_type[1] = End;
+    /* instruction fetch + decode */
+    std::array<Fetched_inst, 2> fetched_inst;
+    fetched_inst[0] = this->IF.queue.array[this->IF.queue.head.val()];
+    fetched_inst[1] = this->IF.queue.array[this->IF.queue.head.nxt()];
+    
+    std::cout << "fetch_addr: " << this->IF.fetch_addr << std::endl;
+    std::cout << "num: " << this->IF.queue.num << std::endl;
+    std::cout << "head: " << this->IF.queue.head.val() << ", " << this->IF.queue.head.nxt() << std::endl;
+    std::cout << "tail: " << this->IF.queue.tail.val() << ", " << this->IF.queue.tail.nxt() << std::endl;
+    for(int i=0; i<4; ++i){
+        std::cout << "[" << i << "]: " << this->IF.queue.array[i].to_string() << std::endl;
+    }
+
+    // dispatch ?
+    std::array<Hazard_type, 2> hazard_type;
+    std::array<bool, 2> is_not_dispatched;
+    if(fetched_inst[0].op.is_nop() && fetched_inst[1].op.is_nop() && this->clk != 0){
+        hazard_type[0] = hazard_type[1] = End;
+        is_not_dispatched[0] = is_not_dispatched[1] = true;
     }else{
-        this->ID.hazard_type[0] = this->inter_hazard_detector(0) || this->iwp_hazard_detector(0);
-        if(this->ID.is_not_dispatched(0)){
-            this->ID.hazard_type[1] = Trivial;
+        hazard_type[0] = this->inter_hazard_detector(fetched_inst, 0) || this->iwp_hazard_detector(fetched_inst, 0);
+        if(hazard_type[0] != No_hazard){
+            hazard_type[1] = Trivial;
+            is_not_dispatched[0] = is_not_dispatched[1] = true;
         }else{
-            this->ID.hazard_type[1] = this->intra_hazard_detector() || this->inter_hazard_detector(1) || this->iwp_hazard_detector(1);
+            hazard_type[1] = this->intra_hazard_detector(fetched_inst) || this->inter_hazard_detector(fetched_inst, 1) || this->iwp_hazard_detector(fetched_inst, 1);
+            is_not_dispatched[0] = false;
+            is_not_dispatched[1] = (hazard_type[1] != No_hazard);
         }
     }
 
-    // pc manager
-    if(this->EX.br.branch_addr.has_value()){
-        this->IF.pc[0] = this->EX.br.branch_addr.value();
-        this->IF.pc[1] = this->EX.br.branch_addr.value() + 1;
-    }else if(this->ID.is_not_dispatched(0)){
-        this->IF.pc = this->ID.pc;
-    }else if(this->ID.is_not_dispatched(1)){
-        this->IF.pc[0] = this->ID.pc[0] + 1;
-        this->IF.pc[1] = this->ID.pc[1] + 1;
+    // update `head`
+    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+        config_next.IF.queue.head = 0;
     }else{
-        this->IF.pc[0] = this->ID.pc[0] + 2;
-        this->IF.pc[1] = this->ID.pc[1] + 2;
+        if(is_not_dispatched[0]){
+            config_next.IF.queue.head = this->IF.queue.head;
+        }else if(is_not_dispatched[1]){
+            config_next.IF.queue.head = (this->IF.queue.num == 0) ? this->IF.queue.head : (this->IF.queue.head + 1);
+        }else{
+            config_next.IF.queue.head = (this->IF.queue.num == 0) ? this->IF.queue.head : (this->IF.queue.head + 2);
+        }
     }
 
-    // instruction fetch
-    config_next.ID.pc = this->IF.pc;
-    config_next.ID.op[0] = op_list[this->IF.pc[0]];
-    config_next.ID.op[1] = op_list[this->IF.pc[1]];
+    // update `tail`
+    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+        config_next.IF.queue.head = 0;
+    }else{
+        switch(this->IF.queue.num){
+            case 0:
+            case 2:
+                config_next.IF.queue.tail = (this->IF.queue.tail + 2);
+                break;
+            case 3:
+                config_next.IF.queue.tail = (this->IF.queue.tail + 1);
+                break;
+            case 4:
+                config_next.IF.queue.tail = this->IF.queue.tail;
+                break;
+            default: break;
+        }
+    }
+
+    // update `num`
+    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+        config_next.IF.queue.num = 0;
+    }else{
+        if(is_not_dispatched[0]){
+            switch(this->IF.queue.num){
+                case 0: config_next.IF.queue.num = 2; break;
+                case 2: config_next.IF.queue.num = 4; break;
+                case 3: config_next.IF.queue.num = 4; break;
+                case 4: config_next.IF.queue.num = 4; break;
+                default: break;
+            }
+        }else if(is_not_dispatched[1]){
+            switch(this->IF.queue.num){
+                case 0: config_next.IF.queue.num = 2; break;
+                case 2: config_next.IF.queue.num = 3; break;
+                case 3: config_next.IF.queue.num = 3; break;
+                case 4: config_next.IF.queue.num = 3; break;
+                default: break;
+            }
+        }else{
+            switch(this->IF.queue.num){
+                case 0: config_next.IF.queue.num = 2; break;
+                case 2: config_next.IF.queue.num = 2; break;
+                case 3: config_next.IF.queue.num = 2; break;
+                case 4: config_next.IF.queue.num = 2; break;
+                default: break;
+            }
+        }
+    }
+
+    // update `fetch_addr`
+    if(this->EX.br.branch_addr.has_value()){
+        config_next.IF.fetch_addr = this->EX.br.branch_addr.value();
+    }else if(fetched_inst[0].op.is_jal()){
+        config_next.IF.fetch_addr = fetched_inst[0].pc + fetched_inst[0].op.imm;
+    }else{
+        switch(this->IF.queue.num){
+            case 0:
+            case 2:
+                config_next.IF.fetch_addr = this->IF.fetch_addr + 2;
+                break;
+            case 3:
+                config_next.IF.fetch_addr = this->IF.fetch_addr + 1;
+                break;
+            case 4:
+                config_next.IF.fetch_addr = this->IF.fetch_addr;
+                break;
+        }
+    }
+
+    // update queue
+    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+        //
+    }else{
+        config_next.IF.queue.array = this->IF.queue.array;
+
+        Fetched_inst tmp;
+        if(this->IF.queue.num < 4){
+            std::cout << "fetch to " << this->IF.queue.tail.val() << std::endl;
+            tmp.pc = this->IF.fetch_addr;
+            tmp.op = op_list[tmp.pc];
+            config_next.IF.queue.array[this->IF.queue.tail.val()] = tmp;
+        }
+        if(this->IF.queue.num < 3){
+            std::cout << "fetch to " << this->IF.queue.tail.nxt() << std::endl;
+            tmp.pc = this->IF.fetch_addr + 1;
+            tmp.op = op_list[tmp.pc];
+            config_next.IF.queue.array[this->IF.queue.tail.nxt()] = tmp;
+        }
+    }
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
-        if(this->EX.br.branch_addr.has_value() || this->ID.is_not_dispatched(i)) continue; // rst from br/id
-        switch(this->ID.op[i].type){
+        if(this->EX.br.branch_addr.has_value() || is_not_dispatched[i]) continue; // rst from br/id
+        switch(fetched_inst[i].op.type){
             // AL
             case o_add:
             case o_sub:
@@ -356,41 +487,41 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
             case o_srai:
             case o_andi:
             case o_lui:
-                config_next.EX.als[i].inst.op = this->ID.op[i];
-                config_next.EX.als[i].inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.als[i].inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
-                config_next.EX.als[i].inst.pc = this->ID.pc[i];
+                config_next.EX.als[i].inst.op = fetched_inst[i].op;
+                config_next.EX.als[i].inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.als[i].inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.als[i].inst.pc = fetched_inst[i].pc;
                 break;
             case o_fmvfi:
-                config_next.EX.als[i].inst.op = this->ID.op[i];
-                config_next.EX.als[i].inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
-                config_next.EX.als[i].inst.pc = this->ID.pc[i];
+                config_next.EX.als[i].inst.op = fetched_inst[i].op;
+                config_next.EX.als[i].inst.rs1_v = reg_fp.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.als[i].inst.pc = fetched_inst[i].pc;
                 break;
             // BR (conditional)
             case o_beq:
             case o_blt:
-                config_next.EX.br.inst.op = this->ID.op[i];
-                config_next.EX.br.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.br.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
-                config_next.EX.br.inst.pc = this->ID.pc[i];
+                config_next.EX.br.inst.op = fetched_inst[i].op;
+                config_next.EX.br.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.br.inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.br.inst.pc = fetched_inst[i].pc;
                 break;
             case o_fbeq:
             case o_fblt:
-                config_next.EX.br.inst.op = this->ID.op[i];
-                config_next.EX.br.inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
-                config_next.EX.br.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
-                config_next.EX.br.inst.pc = this->ID.pc[i];
+                config_next.EX.br.inst.op = fetched_inst[i].op;
+                config_next.EX.br.inst.rs1_v = reg_fp.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.br.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.br.inst.pc = fetched_inst[i].pc;
                 break;
             // BR (unconditional)
             case o_jal:
             case o_jalr:
                 // ALとBRの両方にdistribute
-                config_next.EX.als[i].inst.op = this->ID.op[i];
-                config_next.EX.als[i].inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.als[i].inst.pc = this->ID.pc[i];
-                config_next.EX.br.inst.op = this->ID.op[i];
-                config_next.EX.br.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.br.inst.pc = this->ID.pc[i];
+                config_next.EX.als[i].inst.op = fetched_inst[i].op;
+                config_next.EX.als[i].inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.als[i].inst.pc = fetched_inst[i].pc;
+                config_next.EX.br.inst.op = fetched_inst[i].op;
+                config_next.EX.br.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.br.inst.pc = fetched_inst[i].pc;
                 break;
             // MA
             case o_sw:
@@ -401,16 +532,16 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
             case o_lrd:
             case o_ltf:
             case o_flw:
-                config_next.EX.ma.inst.op = this->ID.op[i];
-                config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.ma.inst.rs2_v = reg_int.read_32(this->ID.op[i].rs2);
-                config_next.EX.ma.inst.pc = this->ID.pc[i];
+                config_next.EX.ma.inst.op = fetched_inst[i].op;
+                config_next.EX.ma.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.ma.inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.ma.inst.pc = fetched_inst[i].pc;
                 break;
             case o_fsw:
-                config_next.EX.ma.inst.op = this->ID.op[i];
-                config_next.EX.ma.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.ma.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
-                config_next.EX.ma.inst.pc = this->ID.pc[i];
+                config_next.EX.ma.inst.op = fetched_inst[i].op;
+                config_next.EX.ma.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.ma.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.ma.inst.pc = fetched_inst[i].pc;
                 break;
             // mFP
             case o_fdiv:
@@ -418,24 +549,24 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
             case o_fcvtif:
             case o_fcvtfi:
             case o_fmvff:
-                config_next.EX.mfp.inst.op = this->ID.op[i];
-                config_next.EX.mfp.inst.rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
-                config_next.EX.mfp.inst.rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
-                config_next.EX.mfp.inst.pc = this->ID.pc[i];
+                config_next.EX.mfp.inst.op = fetched_inst[i].op;
+                config_next.EX.mfp.inst.rs1_v = reg_fp.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.mfp.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.mfp.inst.pc = fetched_inst[i].pc;
                 break;
             case o_fmvif:
-                config_next.EX.mfp.inst.op = this->ID.op[i];
-                config_next.EX.mfp.inst.rs1_v = reg_int.read_32(this->ID.op[i].rs1);
-                config_next.EX.mfp.inst.pc = this->ID.pc[i];
+                config_next.EX.mfp.inst.op = fetched_inst[i].op;
+                config_next.EX.mfp.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.mfp.inst.pc = fetched_inst[i].pc;
                 break;
             // pFP
             case o_fadd:
             case o_fsub:
             case o_fmul:
-                config_next.EX.pfp.inst[0].op = this->ID.op[i];
-                config_next.EX.pfp.inst[0].rs1_v = reg_fp.read_32(this->ID.op[i].rs1);
-                config_next.EX.pfp.inst[0].rs2_v = reg_fp.read_32(this->ID.op[i].rs2);
-                config_next.EX.pfp.inst[0].pc = this->ID.pc[i];
+                config_next.EX.pfp.inst[0].op = fetched_inst[i].op;
+                config_next.EX.pfp.inst[0].rs1_v = reg_fp.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.pfp.inst[0].rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.pfp.inst[0].pc = fetched_inst[i].pc;
                 break;
             case o_nop: break;
             default: std::exit(EXIT_FAILURE);
@@ -443,24 +574,24 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     }
 
     /* 返り値の決定 */
-    if(this->IF.pc[0] == static_cast<int>(code_size) && this->EX.is_clear()){ // 終了
+    if(this->IF.fetch_addr == static_cast<int>(code_size) && this->EX.is_clear()){ // 終了
         res = sim_state_end;
     }else if(is_debug && bp != "" && !this->EX.br.branch_addr.has_value()){
         if(bp == "__continue"){ // continue, 名前指定なし
-            if(!this->ID.is_not_dispatched(0) && bp_to_id.right.find(this->ID.pc[0]) != bp_to_id.right.end()){
-                res = this->ID.pc[0];
+            if(!is_not_dispatched[0] && bp_to_id.right.find(fetched_inst[0].pc) != bp_to_id.right.end()){
+                res = fetched_inst[0].pc;
                 verbose = true;
-            }else if(!this->ID.is_not_dispatched(1) && bp_to_id.right.find(this->ID.pc[1]) != bp_to_id.right.end()){
-                res = this->ID.pc[1];
+            }else if(!is_not_dispatched[1] && bp_to_id.right.find(fetched_inst[1].pc) != bp_to_id.right.end()){
+                res = fetched_inst[1].pc;
                 verbose = true;
             }
         }else{ // continue, 名前指定あり
             int bp_id = static_cast<int>(bp_to_id.left.at(bp));
-            if(!this->ID.is_not_dispatched(0) && this->ID.pc[0] == bp_id){
-                res = this->ID.pc[0];
+            if(!is_not_dispatched[0] && fetched_inst[0].pc == bp_id){
+                res = fetched_inst[0].pc;
                 verbose = true;
-            }else if(!this->ID.is_not_dispatched(1) && this->ID.pc[1] == bp_id){
-                res = this->ID.pc[1];
+            }else if(!is_not_dispatched[1] && fetched_inst[1].pc == bp_id){
+                res = fetched_inst[1].pc;
                 verbose = true;
             }
         }
@@ -473,13 +604,13 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         // IF
         std::cout << "\x1b[1m[IF]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << this->IF.pc[i] << ((is_debug && this->IF.pc[i] < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->IF.pc[i]))) : "") << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << (this->IF.fetch_addr + i) << ((is_debug && (this->IF.fetch_addr + i) < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->IF.fetch_addr + i))) : "") << std::endl;
         }
 
         // ID
         std::cout << "\x1b[1m[ID]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << this->ID.op[i].to_string() << " (pc=" << this->ID.pc[i] << ((is_debug && 0 <= this->ID.pc[i] && this->ID.pc[i] < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->ID.pc[i]))) : "") << ")" << (this->ID.is_not_dispatched(i) ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(this->ID.hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
+            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << fetched_inst[i].op.to_string() << " (pc=" << fetched_inst[i].pc << ((is_debug && 0 <= fetched_inst[i].pc && fetched_inst[i].pc < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(fetched_inst[i].pc))) : "") << ")" << (is_not_dispatched[i] ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
         }
 
         // EX
@@ -550,48 +681,44 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
 
 // Hazard_type間のOR
 inline constexpr Configuration::Hazard_type operator||(Configuration::Hazard_type t1, Configuration::Hazard_type t2){
-    if(t1 == No_hazard){
-        return t2;
-    }else{
-        return t1;
-    }
+    return (t1 == No_hazard) ? t2 : t1;
 }
 
 // 同時発行される命令の間のハザード検出
-inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector(){
+inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst){
     // RAW hazards
     if(
-        ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs1_int())
-        || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs1_fp()))
-        && this->ID.op[0].rd == this->ID.op[1].rs1
+        ((fetched_inst[0].op.use_rd_int() && fetched_inst[1].op.use_rs1_int())
+        || (fetched_inst[0].op.use_rd_fp() && fetched_inst[1].op.use_rs1_fp()))
+        && fetched_inst[0].op.rd == fetched_inst[1].op.rs1
     ) return Intra_RAW_rd_to_rs1;
     if(
-        ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rs2_int())
-        || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rs2_fp()))
-        && this->ID.op[0].rd == this->ID.op[1].rs2
+        ((fetched_inst[0].op.use_rd_int() && fetched_inst[1].op.use_rs2_int())
+        || (fetched_inst[0].op.use_rd_fp() && fetched_inst[1].op.use_rs2_fp()))
+        && fetched_inst[0].op.rd == fetched_inst[1].op.rs2
     ) return Intra_RAW_rd_to_rs2;
 
     // WAW hazards
     if(
-        ((this->ID.op[0].use_rd_int() && this->ID.op[1].use_rd_int())
-        || (this->ID.op[0].use_rd_fp() && this->ID.op[1].use_rd_fp()))
-        && this->ID.op[0].rd == this->ID.op[1].rd
+        ((fetched_inst[0].op.use_rd_int() && fetched_inst[1].op.use_rd_int())
+        || (fetched_inst[0].op.use_rd_fp() && fetched_inst[1].op.use_rd_fp()))
+        && fetched_inst[0].op.rd == fetched_inst[1].op.rd
     ) return Intra_WAW_rd_to_rd;
 
     // control hazards
     if(
-        this->ID.op[0].branch_conditionally_or_unconditionally()
+        fetched_inst[0].op.branch_conditionally_or_unconditionally()
     ) return Intra_control;
 
     // structural hazards
     if(
-        this->ID.op[0].use_mem() && this->ID.op[1].use_mem()
+        fetched_inst[0].op.use_mem() && fetched_inst[1].op.use_mem()
     ) return Intra_structural_mem;
     if(
-        this->ID.op[0].use_multicycle_fpu() && this->ID.op[1].use_multicycle_fpu()
+        fetched_inst[0].op.use_multicycle_fpu() && fetched_inst[1].op.use_multicycle_fpu()
     ) return Intra_structural_mfp;
     if(
-        this->ID.op[0].use_pipelined_fpu() && this->ID.op[1].use_pipelined_fpu()
+        fetched_inst[0].op.use_pipelined_fpu() && fetched_inst[1].op.use_pipelined_fpu()
     ) return Intra_structural_pfp;
 
     // no hazard detected
@@ -599,35 +726,35 @@ inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector
 }
 
 // 同時発行されない命令間のハザード検出
-inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(unsigned int i){ // i = 0,1
+inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){ // i = 0,1
     // RAW hazards
     for(unsigned int j=0; j<3; ++i){
         if(
-            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && this->ID.op[i].use_rs1_int())
-            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && this->ID.op[i].use_rs1_fp()))
-            && this->EX.ma.info.wb_addr == this->ID.op[j].rs1
+            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs1_int())
+            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs1_fp()))
+            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
         ) return Inter_RAW_ma_to_rs1;
     }
     for(unsigned int j=0; j<3; ++i){
         if(
-            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && this->ID.op[i].use_rs2_int())
-            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && this->ID.op[i].use_rs2_fp()))
-            && this->EX.ma.info.wb_addr == this->ID.op[j].rs1
+            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs2_int())
+            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs2_fp()))
+            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
         ) return Inter_RAW_ma_to_rs2;
     }
     if(
-        this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs1_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs1)
+        this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rs1_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rs1)
     ) return Inter_RAW_mfp_to_rs1;
     if(
-        this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rs2_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rs2)
+        this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rs2_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rs2)
     ) return Inter_RAW_mfp_to_rs2;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs1_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs1)){
+        if(this->EX.pfp.info.wb_en[j] && fetched_inst[i].op.use_rs1_fp() && (this->EX.pfp.info.wb_addr[j] == fetched_inst[i].op.rs1)){
             return Inter_RAW_pfp_to_rs1;
         }
     }
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rs2_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rs2)){
+        if(this->EX.pfp.info.wb_en[j] && fetched_inst[i].op.use_rs2_fp() && (this->EX.pfp.info.wb_addr[j] == fetched_inst[i].op.rs2)){
             return Inter_RAW_pfp_to_rs2;
         }
     }
@@ -635,26 +762,26 @@ inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector
     // WAW hazards
     for(unsigned int j=0; j<3; ++i){
         if(
-            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && this->ID.op[i].use_rd_int())
-            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && this->ID.op[i].use_rd_fp()))
-            && this->EX.ma.info.wb_addr == this->ID.op[i].rd
+            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rd_int())
+            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rd_fp()))
+            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rd
         ) return Inter_WAW_ma_to_rd;
     }
     if(
-        this->EX.mfp.info.is_willing_but_not_ready && this->ID.op[i].use_rd_fp() && (this->EX.mfp.info.wb_addr == this->ID.op[i].rd)
+        this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rd_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rd)
     ) return Inter_WAW_mfp_to_rd;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(this->EX.pfp.info.wb_en[j] && this->ID.op[i].use_rd_fp() && (this->EX.pfp.info.wb_addr[j] == this->ID.op[i].rd)){
+        if(this->EX.pfp.info.wb_en[j] && fetched_inst[i].op.use_rd_fp() && (this->EX.pfp.info.wb_addr[j] == fetched_inst[i].op.rd)){
             return Inter_WAW_pfp_to_rd;
         }
     }
 
     // structural hazards
     if(
-        this->EX.ma.info.cannot_accept && this->ID.op[i].use_mem()
+        this->EX.ma.info.cannot_accept && fetched_inst[i].op.use_mem()
     ) return Inter_structural_mem;
     if(
-        this->EX.mfp.info.cannot_accept && this->ID.op[i].use_multicycle_fpu()
+        this->EX.mfp.info.cannot_accept && fetched_inst[i].op.use_multicycle_fpu()
     ) return Inter_structural_mfp;
 
     // no hazard detected
@@ -662,7 +789,7 @@ inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector
 }
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
-inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(unsigned int i){
+inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){
     bool ma_wb_int_instantly = this->EX.ma.info.is_willing_but_not_ready_int[1] || this->EX.ma.info.is_willing_but_not_ready_int[2];
     bool ma_wb_fp = false;
     for(unsigned int j=0; j<3; ++j){
@@ -682,8 +809,8 @@ inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(u
 
     if(i == 0){
         if(
-            (mfp_wb_fp && ((this->ID.op[0].is_load_fp() && pfp_wb_fp) || (this->ID.op[0].use_pipelined_fpu() && ma_wb_fp)))
-            || (this->ID.op[0].use_multicycle_fpu() && pfp_wb_fp && ma_wb_fp)
+            (mfp_wb_fp && ((fetched_inst[0].op.is_load_fp() && pfp_wb_fp) || (fetched_inst[0].op.use_pipelined_fpu() && ma_wb_fp)))
+            || (fetched_inst[0].op.use_multicycle_fpu() && pfp_wb_fp && ma_wb_fp)
         ){
             return Insufficient_write_port;
         }else{
@@ -691,8 +818,8 @@ inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(u
         }
     }else if(i == 1){
         if(
-            (this->ID.op[0].use_alu() && this->ID.op[1].use_alu() && ma_wb_int_instantly)
-            || (this->ID.op[1].use_rd_fp() && (this->ID.op[0].use_multicycle_fpu() || this->ID.op[1].use_multicycle_fpu() || mfp_wb_fp))
+            (fetched_inst[0].op.use_alu() && fetched_inst[1].op.use_alu() && ma_wb_int_instantly)
+            || (fetched_inst[1].op.use_rd_fp() && (fetched_inst[0].op.use_multicycle_fpu() || fetched_inst[1].op.use_multicycle_fpu() || mfp_wb_fp))
         ){
             return Insufficient_write_port;
         }else{
@@ -725,9 +852,9 @@ inline constexpr void Configuration::wb_req_fp(Instruction& inst){
     }
 }
 
-inline constexpr bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
-    return this->hazard_type[i] != No_hazard;
-}
+// inline constexpr bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
+//     return this->hazard_type[i] != No_hazard;
+// }
 
 inline void Configuration::EX_stage::EX_al::exec(){
     switch(this->inst.op.type){

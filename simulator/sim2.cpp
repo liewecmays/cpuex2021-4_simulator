@@ -138,8 +138,8 @@ int main(int argc, char *argv[]){
     // ブートローダ処理をスキップする場合の処理
     if(is_skip){
         op_list.resize(100);
-        config.IF.pc[0] = 392;
-        config.IF.pc[0] = 396;
+        // config.IF.pc[0] = 392;
+        // config.IF.pc[0] = 396;
     }
 
     // レイトレを処理する場合は予めreserve
