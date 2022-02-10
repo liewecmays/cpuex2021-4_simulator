@@ -21,12 +21,6 @@ class Cancel_flag{
         bool operator!() {return !signaled_;}
 };
 
-// キャッシュのライン
-struct Cache_line{
-    bool is_valid : 1;
-    unsigned int tag : 31;
-};
-
 /* プロトタイプ宣言 */
 void simulate(); // シミュレーションの本体処理
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行

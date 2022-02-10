@@ -8,7 +8,7 @@
 #include <string_view>
 
 /* 命令の種類 */
-inline constexpr int op_type_num = 38;
+inline constexpr int op_type_num = 37;
 enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
     o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt, o_fcvtif, o_fcvtfi, o_fmvff,
@@ -51,19 +51,6 @@ union Bit32{
     constexpr Bit32(float f);
     std::string to_string();
     std::string to_string(Stype t);
-};
-
-/* レジスタのクラス */
-class Reg{
-    private:
-        Bit32 val[32];
-    public:
-        constexpr Bit32 read_32(unsigned int);
-        constexpr int read_int(unsigned int);
-        constexpr float read_float(unsigned int);
-        constexpr void write_32(unsigned int, Bit32);
-        constexpr void write_int(unsigned int, int);
-        constexpr void write_float(unsigned int, float);
 };
 
 /* 命令のクラス */
@@ -303,30 +290,6 @@ inline std::string Bit32::to_string(Stype t){
     }
 
     return res;
-}
-
-
-/* class Reg */
-// read
-inline constexpr Bit32 Reg::read_32(unsigned int i){
-    return i == 0 ? Bit32(0) : this->val[i];
-}
-inline constexpr int Reg::read_int(unsigned int i){
-    return i == 0 ? 0 : this->val[i].i;
-}
-inline constexpr float Reg::read_float(unsigned int i){
-    return i == 0 ? 0.0f : this->val[i].f;
-}
-
-// write
-inline constexpr void Reg::write_32(unsigned int i, Bit32 v){
-    if(i != 0) this->val[i] = v;
-}
-inline constexpr void Reg::write_int(unsigned int i, int v){
-    if(i != 0) this->val[i] = Bit32(v);
-}
-inline constexpr void Reg::write_float(unsigned int i, float v){
-    if(i != 0) this->val[i] = Bit32(v);
 }
 
 

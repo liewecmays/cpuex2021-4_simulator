@@ -1,5 +1,6 @@
 #include <sim2.hpp>
 #include <common.hpp>
+#include <unit.hpp>
 #include <fpu.hpp>
 #include <config.hpp>
 #include <string>

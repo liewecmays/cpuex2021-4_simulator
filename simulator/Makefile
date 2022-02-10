@@ -5,16 +5,16 @@ default: sim sim2
 
 all: clean sim sim2 server fpu_test
 
-sim: common.hpp fpu.hpp sim.hpp sim.cpp
+sim: common.hpp unit.hpp fpu.hpp sim.hpp sim.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim.cpp -lboost_program_options
 
-sim2: common.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
+sim2: common.hpp unit.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim2.cpp -lboost_program_options
 
-prof: common.hpp fpu.hpp sim.hpp sim.cpp
+prof: common.hpp unit.hpp fpu.hpp sim.hpp sim.cpp
 	$(CC) $(OUTPUT_OPTION) -pg -o $@ sim.cpp -lboost_program_options
 
-prof2: common.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
+prof2: common.hpp unit.hpp fpu.hpp config.hpp sim2.hpp sim2.cpp
 	$(CC) $(OUTPUT_OPTION) -pg -o $@ sim2.cpp -lboost_program_options
 
 server: common.hpp server.hpp server.cpp

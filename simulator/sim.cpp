@@ -1,5 +1,6 @@
 #include <sim.hpp>
 #include <common.hpp>
+#include <unit.hpp>
 #include <fpu.hpp>
 #include <string>
 #include <iostream>
@@ -28,6 +29,7 @@ Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
 Fpu fpu; // FPU
+Cache cache; // キャッシュ
 
 unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
@@ -36,15 +38,13 @@ int mem_size = 100; // メモリサイズ
 // constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
 // bool memory_exceeding_flag = false;
 
+unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
+unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
+
 int port = 20214; // 通信に使うポート番号
 std::queue<Bit32> receive_buffer; // 外部通信での受信バッファ
 boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バッファ
 
-Cache_line *cache; // キャッシュ本体
-unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
-unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
-unsigned long long cache_read_times = 0; // キャッシュへのアクセス回数(読み込み)
-unsigned long long cache_hit_times = 0; // キャッシュのヒット率
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
@@ -202,15 +202,13 @@ int main(int argc, char *argv[]){
     // メモリ領域の確保
     memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
 
+    // キャッシュの初期化
+    cache = Cache(index_width, offset_width);
+
     // 統計データの初期化
     if(is_detailed_debug){
         mem_accessed_read = (unsigned long long*) calloc(mem_size, sizeof(unsigned long long));
         mem_accessed_write = (unsigned long long*) calloc(mem_size, sizeof(unsigned long long));
-    }
-
-    // キャッシュの初期化
-    if(is_debug){
-        cache = (Cache_line*) calloc(1 << index_width, sizeof(Cache_line));
     }
     
     // バッファのデータのプリロード
@@ -1160,14 +1158,16 @@ void output_info(){
     ss << "# execution stat" << std::endl;
     ss << "- execution time(s): " << exec_time << std::endl;
     ss << "- operations per second: " << op_per_sec << std::endl;
+    ss << std::endl;
+
     ss << "# basic stat" << std::endl;
     ss << "- operation count: " << op_count << std::endl;
     if(is_debug && is_cache_enabled){
         ss << "- cache:" << std::endl;
         ss << "\t- line num: " << std::pow(2, index_width) << std::endl;
         ss << "\t- block size: " << std::pow(2, offset_width) << std::endl;
-        ss << "\t- accessed: " << cache_read_times << std::endl;
-        ss << "\t- hit rate: " << static_cast<double>(cache_hit_times) / cache_read_times << std::endl;
+        ss << "\t- accessed: " << cache.read_times << std::endl;
+        ss << "\t- hit rate: " << static_cast<double>(cache.hit_times) / cache.read_times << std::endl;
     }
     if(is_raytracing){
         ss << "- stack:" << std::endl;
@@ -1228,27 +1228,12 @@ inline Bit32 read_memory(int w){
     //     memory_exceeding_flag = true;
     //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     // }
-    if(is_detailed_debug && is_cache_enabled){
+    if(is_detailed_debug){
         ++mem_accessed_read[w];
         w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
-
-        // キャッシュ関連の処理
-        ++cache_read_times;
-        unsigned int tag = ((w * 4) >> (index_width + offset_width)) & ((1 << (32 - (index_width + offset_width))) - 1);
-        unsigned int index = ((w * 4) >> offset_width) & ((1 << index_width) - 1);
-        Cache_line line = cache[index];
-        if(line.tag == tag){
-            if(line.is_valid){
-                ++cache_hit_times;
-            }else{
-                line.is_valid = true;
-                cache[index] = line;
-            }
-        }else{
-            line.is_valid = true;
-            line.tag = tag;
-            cache[index] = line;
-        }
+    }
+    if(is_cache_enabled){
+        cache.read(w);
     }
     return memory[w];
 }
@@ -1258,17 +1243,12 @@ inline void write_memory(int w, Bit32 v){
     //     memory_exceeding_flag = true;
     //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     // }
-    if(is_detailed_debug && is_cache_enabled){
+    if(is_detailed_debug){
         ++mem_accessed_write[w];
         w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
-
-        // キャッシュ関連の処理
-        unsigned int tag = ((w * 4) >> (index_width + offset_width)) & ((1 << (32 - (index_width + offset_width))) - 1);
-        unsigned int index = ((w * 4) >> offset_width) & ((1 << index_width) - 1);
-        Cache_line line = cache[index];
-        line.is_valid = true;
-        line.tag = tag;
-        cache[index] = line;
+    }
+    if(is_cache_enabled){
+        cache.write(w);
     }
     memory[w] = v;
 }
