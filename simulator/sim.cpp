@@ -1162,14 +1162,15 @@ void output_info(){
 
     ss << "# basic stat" << std::endl;
     ss << "- operation count: " << op_count << std::endl;
-    if(is_debug && is_cache_enabled){
+    if(is_cache_enabled){
         ss << "- cache:" << std::endl;
         ss << "\t- line num: " << std::pow(2, index_width) << std::endl;
         ss << "\t- block size: " << std::pow(2, offset_width) << std::endl;
         ss << "\t- accessed: " << cache.read_times << std::endl;
+        ss << "\t- hit: " << cache.hit_times << std::endl;
         ss << "\t- hit rate: " << static_cast<double>(cache.hit_times) / cache.read_times << std::endl;
     }
-    if(is_raytracing){
+    if(is_detailed_debug && is_raytracing){
         ss << "- stack:" << std::endl;
         ss << "\t- size: " << max_x2 << std::endl;
         ss << "\t- read: " << stack_accessed_read_count << std::endl;
@@ -1230,11 +1231,9 @@ inline Bit32 read_memory(int w){
     // }
     if(is_detailed_debug){
         ++mem_accessed_read[w];
-        w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
+        if(is_raytracing) w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
     }
-    if(is_cache_enabled){
-        cache.read(w);
-    }
+    if(is_cache_enabled) cache.read(w);
     return memory[w];
 }
 
@@ -1245,11 +1244,9 @@ inline void write_memory(int w, Bit32 v){
     // }
     if(is_detailed_debug){
         ++mem_accessed_write[w];
-        w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
+        if(is_raytracing) w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
     }
-    if(is_cache_enabled){
-        cache.write(w);
-    }
+    if(is_cache_enabled) cache.write(w);
     memory[w] = v;
 }
 
