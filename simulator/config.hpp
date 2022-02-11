@@ -611,6 +611,8 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
                 config_next.EX.ma.ma1.inst.pc = fetched_inst[i].pc;
                 break;
             // mFP
+            case o_fabs:
+            case o_fneg:
             case o_fdiv:
             case o_fsqrt:
             case o_fcvtif:
@@ -1098,6 +1100,22 @@ inline void Configuration::EX_stage::EX_ma::exec(){
 inline void Configuration::EX_stage::EX_mfp::exec(){
     switch(this->inst.op.type){
         // op_fp
+        case o_fabs:
+            if(is_ieee){
+                reg_fp.write_float(this->inst.op.rd, std::abs(reg_fp.read_float(this->inst.op.rs1)));
+            }else{
+                reg_fp.write_32(this->inst.op.rd, fpu.fabs(reg_fp.read_32(this->inst.op.rs1)));
+            }
+            ++op_type_count[o_fabs];
+            return;
+        case o_fneg:
+            if(is_ieee){
+                reg_fp.write_float(this->inst.op.rd, - reg_fp.read_float(this->inst.op.rs1));
+            }else{
+                reg_fp.write_32(this->inst.op.rd, fpu.fneg(reg_fp.read_32(this->inst.op.rs1)));
+            }
+            ++op_type_count[o_fneg];
+            return;
         case o_fdiv:
             if(is_ieee){
                 reg_fp.write_float(this->inst.op.rd, this->inst.rs1_v.f / this->inst.rs2_v.f);
