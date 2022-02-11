@@ -7,6 +7,9 @@
 #include <optional>
 #include <nameof.hpp>
 
+// パラメータ
+inline constexpr unsigned int pipelined_fpu_stage_num = 3;
+
 // pc・命令
 class Fetched_inst{
     public:

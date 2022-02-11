@@ -103,7 +103,6 @@ class Operation{
         constexpr bool is_nop();
         constexpr bool is_exit();
 };
-inline constexpr unsigned int pipelined_fpu_stage_num = 4;
 
 /* プロトタイプ宣言 */
 int int_of_binary(std::string);
