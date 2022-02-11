@@ -39,42 +39,6 @@ class Fpu{
 
 
 /* 補助関数 */
-// x[n]
-constexpr inline ui take_bit(ui x, int n){
-    return n >= 0 ? (x >> n) & 1 : 0;
-}
-
-// x[to:from]
-constexpr inline ui take_bits(ui x, int from, int to){
-    if(to >= 0){
-        if(from >= 0){
-            return (x >> from) & ((1 << (to - from + 1)) - 1);
-        }else{
-            return (x & ((1 << (to + 1)) - 1)) << (-from); // x[to:0] << (-from)
-        }
-    }else{
-        return 0;
-    }
-}
-
-// x[to:from]
-constexpr inline ull take_bits(ull x, int from, int to){
-    if(to >= 0){
-        if(from >= 0){
-            return (x >> from) & ((1 << (to - from + 1)) - 1);
-        }else{
-            return (x & ((1 << (to + 1)) - 1)) << (-from); // x[to:0] << (-from)
-        }
-    }else{
-        return 0;
-    }
-}
-
-// x[n] == 1
-constexpr inline ui isset_bit(ui x, ui n){
-    return ((x >> n) & 1) == 1;
-}
-
 constexpr inline ui count_bit(ui x){
     x = (x & 0x55555555) + (x >> 1 & 0x55555555);
     x = (x & 0x33333333) + (x >> 2 & 0x33333333);
