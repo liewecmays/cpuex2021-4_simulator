@@ -28,17 +28,22 @@ class Reg{
 
 /* キャッシュ */
 constexpr unsigned int addr_width = 25;
+struct Cache_line{
+    public:
+        unsigned int dirty : 1;
+        unsigned int tag : 31;
+};
 class Cache{
     private:
-        unsigned int* tags; // cache lineのうちタグの情報しか見ていない
+        Cache_line* lines;
         unsigned int index_width;
         unsigned int offset_width;
     public:
         unsigned long long read_times;
         unsigned long long hit_times;
-        constexpr Cache(){ this->tags = {}; } // 宣言するとき用
+        constexpr Cache(){ this->lines = {}; } // 宣言するとき用
         constexpr Cache(unsigned int index_width, unsigned int offset_width){
-            this->tags = (unsigned int*) calloc(1 << index_width, sizeof(unsigned int));
+            this->lines = (Cache_line*) calloc(1 << index_width, sizeof(Cache_line));
             this->index_width = index_width;
             this->offset_width = offset_width;
         }
@@ -53,16 +58,18 @@ inline constexpr void Cache::read(unsigned int addr){
 
     unsigned int index = take_bits(addr, this->offset_width, this->index_width);
     unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
-    
-    if(this->tags[index] == tag){
+
+    if(this->lines[index].tag == tag){
         ++this->hit_times;
     }else{
-        this->tags[index] = tag;
+        this->lines[index].tag = tag;
     }
 }
 
 inline constexpr void Cache::write(unsigned int addr){
     unsigned int index = take_bits(addr, this->offset_width, this->index_width);
     unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
-    this->tags[index] = tag;
+    
+    this->lines[index].dirty = 1; // todo
+    this->lines[index].tag = tag;
 }

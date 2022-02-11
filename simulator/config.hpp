@@ -28,6 +28,9 @@ class Instruction{
         Bit32 rs1_v;
         Bit32 rs2_v;
         int pc;
+        constexpr unsigned int ma_addr(){
+            return this->rs1_v.i + this->op.imm;
+        };
 };
 
 // mod4で演算するだけのunsigned int
@@ -87,15 +90,6 @@ class Configuration{
                 IF_queue queue;
         };
 
-        // instruction decode
-        // class ID_stage{
-        //     public:
-        //         std::array<Instruction, 2> inst;
-        //         std::array<Hazard_type, 2> hazard_type;
-        //         constexpr ID_stage();
-        //         constexpr bool is_not_dispatched(unsigned int);
-        // };
-
         // execution
         class EX_stage{
             public:
@@ -113,7 +107,40 @@ class Configuration{
                 class EX_ma{
                     public:
                         enum class State_ma{
-                            Idle, Store_data_mem, Load_data_mem_int, Load_data_mem_fp
+                            MA_idle, MA_send_write, MA_send_read, MA_recv_read
+                        };
+                        class MA1{
+                            public:
+                                Instruction inst;
+                        };
+                        class MA2{
+                            public:
+                                Instruction inst;
+                                Instruction prev_inst;
+                                bool prev_dirty_we;
+                                bool prev_dirty_din;
+                                bool prev_tag_we;
+                                unsigned int prev_tag_din;
+                        };
+                        class MA3{
+                            public:
+                                Instruction inst;
+                                State_ma state;
+                                std::optional<bool> hit;
+                                bool tag_dout;
+                                bool dirty_dout;
+                                constexpr bool is_hit(){
+                                    return (this->hit.has_value()) ? this->hit.value() : false;
+                                }
+                                constexpr bool miss(){
+                                    return (this->hit.has_value()) ? !this->hit.value() : false;
+                                }
+                                // todo: ma2からの情報
+                        };
+                        class Fifo{
+                            public:
+                                bool req_rdy(){ return true; } // fifoは一杯にならないと仮定
+                                bool rsp_en(){ return true; } // todo
                         };
                         class Hazard_info_ma{
                             public:
@@ -123,12 +150,12 @@ class Configuration{
                                 bool cannot_accept;
                         };
                     public:
-                        Instruction inst;
-                        unsigned int cycle_count;
-                        State_ma state;
+                        MA1 ma1;
+                        MA2 ma2;
+                        MA3 ma3;
+                        Fifo fifo;
                         Hazard_info_ma info;
                         void exec();
-                        constexpr bool available();
                 };
                 class EX_mfp{
                     public:
@@ -180,7 +207,6 @@ class Configuration{
     public:
         unsigned long long clk = 0;
         IF_stage IF;
-        // ID_stage ID;
         EX_stage EX;
         WB_stage WB;
         int advance_clock(bool, std::string); // クロックを1つ分先に進める
@@ -200,6 +226,7 @@ inline constexpr int sim_state_end = -2;
 using enum Otype;
 using enum Stype;
 using enum Configuration::Hazard_type;
+using enum Configuration::EX_stage::EX_ma::State_ma;
 
 
 // クロックを1つ分先に進める
@@ -213,84 +240,134 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     // AL
     for(unsigned int i=0; i<2; ++i){
         this->EX.als[i].exec();
-        if(!this->EX.als[i].inst.op.is_nop()){
-            config_next.wb_req_int(this->EX.als[i].inst);
-        }
+        config_next.wb_req_int(this->EX.als[i].inst);
     }
 
     // BR
     this->EX.br.exec();
 
     // MA
-    // if(!this->EX.ma.inst.op.is_nop()){
-    //     if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
-    //         switch(this->EX.ma.inst.op.type){
-    //             case o_sw:
-    //             case o_fsw:
-    //                 if(this->EX.ma.available()){
-    //                     this->EX.ma.exec();
-    //                     config_next.EX.ma.state = this->EX.ma.state;
-    //                 }else{
-    //                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
-    //                     config_next.EX.ma.inst = this->EX.ma.inst;
-    //                     config_next.EX.ma.cycle_count = 1;
-    //                 }
-    //                 break;
-    //             case o_lw:
-    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
-    //                 config_next.EX.ma.inst = this->EX.ma.inst;
-    //                 config_next.EX.ma.cycle_count = 1;
-    //                 break;
-    //             case o_flw:
-    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
-    //                 config_next.EX.ma.inst = this->EX.ma.inst;
-    //                 config_next.EX.ma.cycle_count = 1;
-    //                 break;
-    //             // 以下は状態遷移しない命令
-    //             case o_si:
-    //             case o_std:
-    //                 this->EX.ma.exec();
-    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
-    //                 break;
-    //             case o_lre:
-    //             case o_lrd:
-    //             case o_ltf:
-    //                 this->EX.ma.exec();
-    //                 config_next.wb_req_int(this->EX.ma.inst);
-    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
-    //                 break;
-    //             default: std::exit(EXIT_FAILURE);
-    //         }
-    //     }else{
-    //         if(this->EX.ma.available()){
-    //             this->EX.ma.exec();
-    //             if(this->EX.ma.inst.op.type == o_lw){
-    //                 config_next.wb_req_int(this->EX.ma.inst);
-    //             }else if(this->EX.ma.inst.op.type == o_flw){
-    //                 config_next.wb_req_fp(this->EX.ma.inst);
-    //             }
-    //             config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
-    //         }else{
-    //             config_next.EX.ma.state = this->EX.ma.state;
-    //             config_next.EX.ma.inst = this->EX.ma.inst;
-    //             config_next.EX.ma.cycle_count = this->EX.ma.cycle_count + 1;
-    //         }
-    //     }
-    // }
+    // 状態遷移 (MA3)
+    switch(this->EX.ma.ma3.state){
+        case MA_idle:
+            if(this->EX.ma.ma3.inst.op.is_lw_flw_sw_fsw() && this->EX.ma.ma3.miss()){
+                if(this->EX.ma.ma3.dirty_dout == this->EX.ma.fifo.req_rdy()){ // 00 or 11
+                    config_next.EX.ma.ma3.state = MA_send_read;
+                }else{
+                    if(this->EX.ma.ma3.dirty_dout){ // 10
+                        config_next.EX.ma.ma3.state = MA_send_write;
+                    }else{ // 01
+                        config_next.EX.ma.ma3.state = MA_recv_read;
+                    }
+                }
+            }
+            break;
+        case MA_send_write:
+            config_next.EX.ma.ma3.state = this->EX.ma.fifo.req_rdy() ? MA_send_read : MA_send_write;
+            break;
+        case MA_send_read:
+            config_next.EX.ma.ma3.state = this->EX.ma.fifo.req_rdy() ? MA_recv_read : MA_send_read;
+            break;
+        case MA_recv_read:
+            config_next.EX.ma.ma3.state = this->EX.ma.fifo.rsp_en() ? MA_idle : MA_recv_read;
+            break;
+        default: break;
+    }
+
+    // シミュレータの内部的な命令実行 (MA3)
+    if(!this->EX.ma.ma3.inst.op.is_nop()){
+        if(this->EX.ma.ma3.inst.op.type == o_si || this->EX.ma.ma3.inst.op.type == o_std){
+            this->EX.ma.exec();
+        }else if(
+            this->EX.ma.ma3.inst.op.type == o_lre || this->EX.ma.ma3.inst.op.type == o_ltf || this->EX.ma.ma3.inst.op.type == o_lrd ||
+            (this->EX.ma.ma3.inst.op.type == o_lw && ((this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.is_hit()) || (this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en())))
+        ){
+            this->EX.ma.exec();
+            config_next.wb_req_int(this->EX.ma.ma3.inst);
+        }else if(this->EX.ma.ma3.inst.op.type == o_flw && ((this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.is_hit()) || (this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en()))){
+            this->EX.ma.exec();
+            config_next.wb_req_fp(this->EX.ma.ma3.inst);
+        }else{ // todo: sw/fsw
+            this->EX.ma.exec();
+        }
+    }
+
+    // BRAMの制御 (?)
+    bool dirty_we, dirty_din, tag_we;
+    unsigned int tag_din;
+    if(this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.is_hit() && (this->EX.ma.ma3.inst.op.type == o_sw || this->EX.ma.ma3.inst.op.type == o_fsw)){ // hit + store
+        dirty_we = true;
+        dirty_din = true;
+        tag_we = false;
+        tag_din = 0;
+    }else if(this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en()){ // miss
+        dirty_we = true;
+        dirty_din = true;
+        tag_we = true;
+        tag_din = this->EX.ma.ma3.inst.ma_addr(); // todo
+    }else{
+        dirty_we = false;
+        dirty_din = false;
+        tag_we = false;
+        tag_din = 0;
+    }
+    
+    
+    // パイプラインの更新 (MA2)
+    const bool ce = (this->EX.ma.ma3.state == MA_idle && (!this->EX.ma.ma3.inst.op.is_lw_flw_sw_fsw() || this->EX.ma.ma3.is_hit())) || (this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en());
+    if(ce){
+        config_next.EX.ma.ma2.inst = this->EX.ma.ma1.inst;
+        config_next.EX.ma.ma3.inst = this->EX.ma.ma2.inst;
+
+        // prevの保存
+        config_next.EX.ma.ma2.prev_inst = this->EX.ma.ma2.inst;
+        config_next.EX.ma.ma2.prev_dirty_we = dirty_we;
+        config_next.EX.ma.ma2.prev_dirty_din = dirty_din;
+        config_next.EX.ma.ma2.prev_tag_we = tag_we;
+        config_next.EX.ma.ma2.prev_tag_din = tag_din;
+    }else{
+        config_next.EX.ma.ma2 = this->EX.ma.ma2;
+        config_next.EX.ma.ma3.inst = this->EX.ma.ma3.inst;
+    }
+
+    // キャッシュへのアクセス (MA2)
+    if(ce){
+        if(dirty_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma3.inst.ma_addr()){
+            config_next.EX.ma.ma3.dirty_dout = dirty_din;
+        }else if(this->EX.ma.ma2.prev_dirty_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma2.prev_inst.ma_addr()){
+            config_next.EX.ma.ma3.dirty_dout = this->EX.ma.ma2.prev_dirty_din;
+        }else{
+            config_next.EX.ma.ma3.dirty_dout = false;
+        }
+        if(tag_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma3.inst.ma_addr()){
+            config_next.EX.ma.ma3.tag_dout = tag_din;
+            config_next.EX.ma.ma3.hit = true; // temp
+        }else if(this->EX.ma.ma2.prev_tag_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma2.prev_inst.ma_addr()){
+            config_next.EX.ma.ma3.tag_dout = this->EX.ma.ma2.prev_tag_din;
+            config_next.EX.ma.ma3.hit = true; // temp
+        }else{
+            config_next.EX.ma.ma3.tag_dout = false;
+            config_next.EX.ma.ma3.hit = true; // temp
+        }
+    }else{
+        config_next.EX.ma.ma3.dirty_dout = this->EX.ma.ma3.dirty_dout;
+        config_next.EX.ma.ma3.tag_dout = this->EX.ma.ma3.dirty_dout;
+        config_next.EX.ma.ma3.hit = this->EX.ma.ma3.hit;
+    }
 
     // MA (hazard info)
-    // this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd;
-    // this->EX.ma.info.is_willing_but_not_ready_int =
-    //     (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_lw)
-    //     || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int && !this->EX.ma.available());
-    // this->EX.ma.info.is_willing_but_not_ready_fp =
-    //     (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle && this->EX.ma.inst.op.type == o_flw)
-    //     || (this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp && !this->EX.ma.available());
-    // this->EX.ma.info.cannot_accept =
-    //     this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle ?
-    //         ((this->EX.ma.inst.op.type == o_sw || this->EX.ma.inst.op.type == o_fsw) && !this->EX.ma.available()) || this->EX.ma.inst.op.type == o_lw || this->EX.ma.inst.op.type == o_flw
-    //         : !this->EX.ma.available();
-
+    this->EX.ma.info.wb_addr[0] = this->EX.ma.ma1.inst.op.rd;
+    this->EX.ma.info.wb_addr[1] = this->EX.ma.ma2.inst.op.rd;
+    this->EX.ma.info.wb_addr[2] = this->EX.ma.ma3.inst.op.rd;
+    this->EX.ma.info.is_willing_but_not_ready_int[0] = this->EX.ma.ma1.inst.op.is_load();
+    this->EX.ma.info.is_willing_but_not_ready_fp[0] = this->EX.ma.ma1.inst.op.is_load_fp();
+    this->EX.ma.info.is_willing_but_not_ready_int[1] = this->EX.ma.ma2.inst.op.is_load();
+    this->EX.ma.info.is_willing_but_not_ready_fp[1] = this->EX.ma.ma2.inst.op.is_load_fp();
+    bool is_willing_but_not_ready = (this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.miss()) || this->EX.ma.ma3.state == MA_send_write || this->EX.ma.ma3.state == MA_send_read || (this->EX.ma.ma3.state == MA_recv_read && !this->EX.ma.fifo.rsp_en());
+    this->EX.ma.info.is_willing_but_not_ready_int[2] = (this->EX.ma.ma3.inst.op.type == o_lw) && is_willing_but_not_ready;
+    this->EX.ma.info.is_willing_but_not_ready_fp[2] = (this->EX.ma.ma3.inst.op.type == o_flw) && is_willing_but_not_ready;
+    this->EX.ma.info.cannot_accept = (this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.inst.op.is_lw_flw_sw_fsw() && this->EX.ma.ma3.miss()) || this->EX.ma.ma3.state == MA_send_write || this->EX.ma.ma3.state == MA_send_read || (this->EX.ma.ma3.state == MA_recv_read && !this->EX.ma.fifo.rsp_en()); // stall
+    
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
         if(this->EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Waiting){
@@ -522,16 +599,16 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
             case o_lrd:
             case o_ltf:
             case o_flw:
-                config_next.EX.ma.inst.op = fetched_inst[i].op;
-                config_next.EX.ma.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
-                config_next.EX.ma.inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
-                config_next.EX.ma.inst.pc = fetched_inst[i].pc;
+                config_next.EX.ma.ma1.inst.op = fetched_inst[i].op;
+                config_next.EX.ma.ma1.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.ma.ma1.inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.ma.ma1.inst.pc = fetched_inst[i].pc;
                 break;
             case o_fsw:
-                config_next.EX.ma.inst.op = fetched_inst[i].op;
-                config_next.EX.ma.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
-                config_next.EX.ma.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
-                config_next.EX.ma.inst.pc = fetched_inst[i].pc;
+                config_next.EX.ma.ma1.inst.op = fetched_inst[i].op;
+                config_next.EX.ma.ma1.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.ma.ma1.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.ma.ma1.inst.pc = fetched_inst[i].pc;
                 break;
             // mFP
             case o_fdiv:
@@ -623,10 +700,25 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
         }
 
         // EX_ma
-        if(!this->EX.ma.inst.op.is_nop()){
-            std::cout << "     ma    : " << this->EX.ma.inst.op.to_string() << " (pc=" << this->EX.ma.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.ma.state) << (this->EX.ma.state != Configuration::EX_stage::EX_ma::State_ma::Idle ? (", cycle: " + std::to_string(this->EX.ma.cycle_count)) : "") << "]" << (this->EX.ma.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+        // ma1
+        if(!this->EX.ma.ma1.inst.op.is_nop()){
+            std::cout << "     ma1   : " << this->EX.ma.ma1.inst.op.to_string() << " (pc=" << this->EX.ma.ma1.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma1.inst.pc))) : "") << ")" << std::endl;
         }else{
-            std::cout << "     ma    :" << std::endl;
+            std::cout << "     ma1   :" << std::endl;
+        }
+
+        // ma2
+        if(!this->EX.ma.ma2.inst.op.is_nop()){
+            std::cout << "     ma2   : " << this->EX.ma.ma2.inst.op.to_string() << " (pc=" << this->EX.ma.ma2.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma2.inst.pc))) : "") << ") " << (config_next.EX.ma.ma3.is_hit() ? "[hit]" : "[miss]") << std::endl;
+        }else{
+            std::cout << "     ma2   :" << std::endl;
+        }
+
+        // ma3
+        if(!this->EX.ma.ma3.inst.op.is_nop()){
+            std::cout << "     ma3   : " << this->EX.ma.ma3.inst.op.to_string() << " (pc=" << this->EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma3.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.ma.ma3.state) << "]" << std::endl;
+        }else{
+            std::cout << "     ma3   :" << std::endl;
         }
 
         // EX_mfp
@@ -718,20 +810,20 @@ inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector
 // 同時発行されない命令間のハザード検出
 inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){ // i = 0,1
     // RAW hazards
-    // for(unsigned int j=0; j<3; ++i){
-    //     if(
-    //         ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs1_int())
-    //         || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs1_fp()))
-    //         && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
-    //     ) return Inter_RAW_ma_to_rs1;
-    // }
-    // for(unsigned int j=0; j<3; ++i){
-    //     if(
-    //         ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs2_int())
-    //         || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs2_fp()))
-    //         && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
-    //     ) return Inter_RAW_ma_to_rs2;
-    // }
+    for(unsigned int j=0; j<3; ++j){
+        if(
+            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs1_int())
+            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs1_fp()))
+            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
+        ) return Inter_RAW_ma_to_rs1;
+    }
+    for(unsigned int j=0; j<3; ++j){
+        if(
+            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs2_int())
+            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs2_fp()))
+            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs2
+        ) return Inter_RAW_ma_to_rs2;
+    }
     if(
         this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rs1_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rs1)
     ) return Inter_RAW_mfp_to_rs1;
@@ -750,13 +842,13 @@ inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector
     }
 
     // WAW hazards
-    // for(unsigned int j=0; j<3; ++i){
-    //     if(
-    //         ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rd_int())
-    //         || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rd_fp()))
-    //         && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rd
-    //     ) return Inter_WAW_ma_to_rd;
-    // }
+    for(unsigned int j=0; j<3; ++j){
+        if(
+            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rd_int())
+            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rd_fp()))
+            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rd
+        ) return Inter_WAW_ma_to_rd;
+    }
     if(
         this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rd_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rd)
     ) return Inter_WAW_mfp_to_rd;
@@ -843,10 +935,6 @@ inline constexpr void Configuration::wb_req_fp(Instruction& inst){
         // インライン展開のため省略
     }
 }
-
-// inline constexpr bool Configuration::ID_stage::is_not_dispatched(unsigned int i){
-//     return this->hazard_type[i] != No_hazard;
-// }
 
 inline void Configuration::EX_stage::EX_al::exec(){
     switch(this->inst.op.type){
@@ -961,55 +1049,50 @@ inline void Configuration::EX_stage::EX_br::exec(){
 }
 
 inline void Configuration::EX_stage::EX_ma::exec(){
-    switch(this->inst.op.type){
+    switch(this->ma3.inst.op.type){
         case o_sw:
-            write_memory(this->inst.rs1_v.i + this->inst.op.imm, this->inst.rs2_v);
+            write_memory(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
             ++op_type_count[o_sw];
             return;
         case o_si:
-            op_list[this->inst.rs1_v.i + this->inst.op.imm] = Operation(this->inst.rs2_v.i);
+            op_list[this->ma3.inst.rs1_v.i + this->ma3.inst.op.imm] = Operation(this->ma3.inst.rs2_v.i);
             ++op_type_count[o_si];
             return;
         case o_std:
-            send_buffer.push(inst.rs2_v);
+            send_buffer.push(this->ma3.inst.rs2_v);
             ++op_type_count[o_std];
             return;
         case o_fsw:
-            write_memory(this->inst.rs1_v.i + this->inst.op.imm, this->inst.rs2_v);
+            write_memory(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
             ++op_type_count[o_fsw];
             return;
         case o_lw:
-            reg_int.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
+            reg_int.write_32(this->ma3.inst.op.rd, read_memory(this->ma3.inst.ma_addr()));
             ++op_type_count[o_lw];
             return;
         case o_lre:
-            reg_int.write_int(this->inst.op.rd, receive_buffer.empty() ? 1 : 0);
+            reg_int.write_int(this->ma3.inst.op.rd, receive_buffer.empty() ? 1 : 0);
             ++op_type_count[o_lre];
             return;
         case o_lrd:
             if(!receive_buffer.empty()){
-                reg_int.write_32(this->inst.op.rd, receive_buffer.front());
+                reg_int.write_32(this->ma3.inst.op.rd, receive_buffer.front());
                 receive_buffer.pop();
             }else{
-                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst.pc))) : "") + ")");
+                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->ma3.inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->ma3.inst.pc))) : "") + ")");
             }
             ++op_type_count[o_lrd];
             return;
         case o_ltf:
-            reg_int.write_int(this->inst.op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+            reg_int.write_int(this->ma3.inst.op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
             ++op_type_count[o_ltf];
             return;
         case o_flw:
-            reg_fp.write_32(this->inst.op.rd, read_memory(this->inst.rs1_v.i + this->inst.op.imm));
+            reg_fp.write_32(this->ma3.inst.op.rd, read_memory(this->ma3.inst.ma_addr()));
             ++op_type_count[o_flw];
             return;
         default: return;
     }
-}
-
-inline constexpr bool Configuration::EX_stage::EX_ma::available(){
-    return this->cycle_count == 2; // 仮の値
-    // return true;
 }
 
 inline void Configuration::EX_stage::EX_mfp::exec(){
@@ -1098,6 +1181,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
 
 // EXステージに命令がないかどうかの判定
 inline constexpr bool Configuration::EX_stage::is_clear(){
+    bool ma_clear = this->ma.ma1.inst.op.is_nop() && this->ma.ma2.inst.op.is_nop() && this->ma.ma3.inst.op.is_nop();
     bool pfp_clear = true;
     for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
         if(!this->pfp.inst[i].op.is_nop()){
@@ -1105,5 +1189,5 @@ inline constexpr bool Configuration::EX_stage::is_clear(){
             break;
         }
     }
-    return (this->als[0].inst.op.is_nop() && this->als[1].inst.op.is_nop() && this->br.inst.op.is_nop() && this->ma.inst.op.is_nop() && this->mfp.inst.op.is_nop() && pfp_clear);
+    return (this->als[0].inst.op.is_nop() && this->als[1].inst.op.is_nop() && this->br.inst.op.is_nop() && ma_clear && this->mfp.inst.op.is_nop() && pfp_clear);
 }

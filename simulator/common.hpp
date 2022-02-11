@@ -83,6 +83,7 @@ class Operation{
         constexpr bool is_op_imm();
         constexpr bool is_load();
         constexpr bool is_load_fp();
+        constexpr bool is_lw_flw_sw_fsw();
         constexpr bool is_jalr();
         constexpr bool is_jal();
         constexpr bool is_lui();
@@ -495,6 +496,9 @@ inline constexpr bool Operation::is_load(){
 }
 inline constexpr bool Operation::is_load_fp(){
     return this->type == Otype::o_flw;
+}
+inline constexpr bool Operation::is_lw_flw_sw_fsw(){
+    return this->type == Otype::o_lw || this->type == Otype::o_flw || this->type == Otype::o_sw || this->type == Otype::o_fsw;
 }
 inline constexpr bool Operation::is_jalr(){
     return this->type == Otype::o_jalr;
