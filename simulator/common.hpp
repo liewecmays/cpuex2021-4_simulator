@@ -8,10 +8,11 @@
 #include <string_view>
 
 /* 命令の種類 */
-inline constexpr int op_type_num = 37;
+inline constexpr int op_type_num = 39;
 enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
-    o_fadd, o_fsub, o_fmul, o_fdiv, o_fsqrt, o_fcvtif, o_fcvtfi, o_fmvff,
+    o_fabs, o_fneg, o_fdiv, o_fsqrt, o_fcvtif, o_fcvtfi, o_fmvff,
+    o_fadd, o_fsub, o_fmul,
     o_beq, o_blt,
     o_fbeq, o_fblt,
     o_sw, o_si, o_std,
@@ -195,14 +196,16 @@ inline std::string string_of_otype(Otype t){
         case Otype::o_srl: return "srl";
         case Otype::o_sra: return "sra";
         case Otype::o_and: return "and";
-        case Otype::o_fadd: return "fadd";
-        case Otype::o_fsub: return "fsub";
-        case Otype::o_fmul: return "fmul";
+        case Otype::o_fabs: return "fabs";
+        case Otype::o_fneg: return "fneg";
         case Otype::o_fdiv: return "fdiv";
         case Otype::o_fsqrt: return "fsqrt";
         case Otype::o_fcvtif: return "fcvt.i.f";
         case Otype::o_fcvtfi: return "fcvt.f.i";
         case Otype::o_fmvff: return "fmv.f.f";
+        case Otype::o_fadd: return "fadd";
+        case Otype::o_fsub: return "fsub";
+        case Otype::o_fmul: return "fmul";
         case Otype::o_beq: return "beq";
         case Otype::o_blt: return "blt";
         case Otype::o_fbeq: return "fbeq";
@@ -342,16 +345,13 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 1: // op_fp
+        case 1: // op_mfp
             switch(funct){
-                case 0: // fadd
-                    this->type = Otype::o_fadd;
+                case 0: // fabs
+                    this->type = Otype::o_fabs;
                     return;
-                case 1: // fsub
-                    this->type = Otype::o_fsub;
-                    return;
-                case 2: // fmul
-                    this->type = Otype::o_fmul;
+                case 1: // fneg
+                    this->type = Otype::o_fneg;
                     return;
                 case 3: // fdiv
                     this->type = Otype::o_fdiv;
@@ -371,7 +371,21 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 2: // branch
+        case 2: // op_pfp
+            switch(funct){
+                case 0: // fadd
+                    this->type = Otype::o_fadd;
+                    return;
+                case 1: // fsub
+                    this->type = Otype::o_fsub;
+                    return;
+                case 2: // fmul
+                    this->type = Otype::o_fmul;
+                    return;
+                default: break;
+            }
+            break;
+        case 3: // branch
             this->imm = int_of_binary(code.substr(17, 15));
             switch(funct){
                 case 0: // beq
@@ -383,7 +397,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 3: // branch_fp
+        case 4: // branch_fp
             this->imm = int_of_binary(code.substr(17, 15));
             switch(funct){
                 case 2: // fbeq
@@ -395,7 +409,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 4: // store
+        case 5: // store
             switch(funct){
                 case 0: // sw
                     this->type = Otype::o_sw;
@@ -413,7 +427,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 5: // store_fp
+        case 6: // store_fp
             this->imm = int_of_binary(code.substr(17, 15));
             switch(funct){
                 case 0: // fsw
@@ -422,7 +436,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 6: // op_imm
+        case 7: // op_imm
             this->imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
             switch(funct){
                 case 0: // addi
@@ -443,7 +457,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 7: // load
+        case 8: // load
             switch(funct){
                 case 0: // lw
                     this->type = Otype::o_lw;
@@ -461,7 +475,8 @@ inline Operation::Operation(std::string code){
                     return;
                 default: break;
             }
-        case 8: // load_fp
+            break;
+        case 9: // load_fp
             this->imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
             switch(funct){
                 case 0: // flw
@@ -470,14 +485,24 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 9: // jalr
-            this->type = Otype::o_jalr;
-            return;
-        case 10: // jal
-            this->type = Otype::o_jal;
-            this->imm = int_of_binary(code.substr(4, 13) + code.substr(22, 10));
-            return;
-        case 11: // lui
+        case 10: // jalr
+            switch(funct){
+                case 0: // jalr
+                    this->type = Otype::o_jalr;
+                    return;
+                default: break;
+            }
+            break;
+        case 11: // jal
+            this->imm = int_of_binary(code.substr(12, 5) + code.substr(22, 10));
+            switch(funct){
+                case 0: // jal
+                    this->type = Otype::o_jal;
+                    return;
+                default: break;
+            }
+            break;
+        case 12: // lui
             this->imm = int_of_binary("0" + code.substr(7, 10) + code.substr(22, 10));
             switch(funct){
                 case 0: // lui
@@ -486,7 +511,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 12: // itof
+        case 13: // itof
             switch(funct){
                 case 0: // itof
                     this->type = Otype::o_fmvif;
@@ -494,7 +519,7 @@ inline Operation::Operation(std::string code){
                 default: break;
             }
             break;
-        case 13: // ftoi
+        case 14: // ftoi
             switch(funct){
                 case 0: // ftoi
                     this->type = Otype::o_fmvfi;

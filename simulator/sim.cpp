@@ -824,31 +824,22 @@ void exec_op(){
             ++op_type_count[o_and];
             ++pc;
             return;
-        case o_fadd:
+        case o_fabs:
             if(is_ieee){
-                reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) + reg_fp.read_float(op.rs2));
+                reg_fp.write_float(op.rd, std::abs(reg_fp.read_float(op.rs1)));
             }else{
-                reg_fp.write_32(op.rd, fpu.fadd(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
+                reg_fp.write_32(op.rd, fpu.fabs(reg_fp.read_32(op.rs1)));
             }
-            ++op_type_count[o_fadd];
+            ++op_type_count[Otype::o_fabs];
             ++pc;
             return;
-        case o_fsub:
+        case o_fneg:
             if(is_ieee){
-                reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) - reg_fp.read_float(op.rs2));
+                reg_fp.write_float(op.rd, - reg_fp.read_float(op.rs1));
             }else{
-                reg_fp.write_32(op.rd, fpu.fsub(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
+                reg_fp.write_32(op.rd, fpu.fneg(reg_fp.read_32(op.rs1)));
             }
-            ++op_type_count[o_fsub];
-            ++pc;
-            return;
-        case o_fmul:
-            if(is_ieee){
-                reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) * reg_fp.read_float(op.rs2));
-            }else{
-                reg_fp.write_32(op.rd, fpu.fmul(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
-            }
-            ++op_type_count[o_fmul];
+            ++op_type_count[Otype::o_fneg];
             ++pc;
             return;
         case o_fdiv:
@@ -890,6 +881,33 @@ void exec_op(){
         case o_fmvff:
             reg_fp.write_32(op.rd, reg_fp.read_32(op.rs1));
             ++op_type_count[o_fmvff];
+            ++pc;
+            return;
+        case o_fadd:
+            if(is_ieee){
+                reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) + reg_fp.read_float(op.rs2));
+            }else{
+                reg_fp.write_32(op.rd, fpu.fadd(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
+            }
+            ++op_type_count[o_fadd];
+            ++pc;
+            return;
+        case o_fsub:
+            if(is_ieee){
+                reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) - reg_fp.read_float(op.rs2));
+            }else{
+                reg_fp.write_32(op.rd, fpu.fsub(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
+            }
+            ++op_type_count[o_fsub];
+            ++pc;
+            return;
+        case o_fmul:
+            if(is_ieee){
+                reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) * reg_fp.read_float(op.rs2));
+            }else{
+                reg_fp.write_32(op.rd, fpu.fmul(reg_fp.read_32(op.rs1), reg_fp.read_32(op.rs2)));
+            }
+            ++op_type_count[o_fmul];
             ++pc;
             return;
         case o_beq:
