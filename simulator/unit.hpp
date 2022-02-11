@@ -27,52 +27,42 @@ class Reg{
 };
 
 /* キャッシュ */
-struct Cache_line{
-    bool is_valid : 1;
-    unsigned int tag : 31;
-};
+constexpr unsigned int addr_width = 25;
 class Cache{
     private:
-        Cache_line* lines;
+        unsigned int* tags; // cache lineのうちタグの情報しか見ていない
         unsigned int index_width;
         unsigned int offset_width;
     public:
         unsigned long long read_times;
         unsigned long long hit_times;
-        constexpr Cache(){ this->lines = {}; } // 宣言するとき用
+        constexpr Cache(){ this->tags = {}; } // 宣言するとき用
         constexpr Cache(unsigned int index_width, unsigned int offset_width){
-            this->lines = (Cache_line*) calloc(1 << index_width, sizeof(Cache_line));
+            this->tags = (unsigned int*) calloc(1 << index_width, sizeof(unsigned int));
             this->index_width = index_width;
             this->offset_width = offset_width;
         }
+        constexpr unsigned int tag_width(){ return addr_width - (this->index_width + this->offset_width); }
         constexpr void read(unsigned int);
         constexpr void write(unsigned int);
 };
 
+
 inline constexpr void Cache::read(unsigned int addr){
     ++this->read_times;
 
-    unsigned int tag = ((addr) >> (this->index_width + this->offset_width)) & ((1 << (32 - (this->index_width + this->offset_width))) - 1);
-    unsigned int index = ((addr) >> this->offset_width) & ((1 << this->index_width) - 1);
-
-    Cache_line line = this->lines[index];
-    if(line.tag == tag){
-        if(line.is_valid){
-            ++this->hit_times;
-        }else{
-            line.is_valid = true;
-            this->lines[index] = line;
-        }
+    unsigned int index = take_bits(addr, this->offset_width, this->index_width);
+    unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
+    
+    if(this->tags[index] == tag){
+        ++this->hit_times;
     }else{
-        line.is_valid = true;
-        line.tag = tag;
-        this->lines[index] = line;
+        this->tags[index] = tag;
     }
 }
 
 inline constexpr void Cache::write(unsigned int addr){
-    unsigned int tag = ((addr) >> (this->index_width + this->offset_width)) & ((1 << (32 - (this->index_width + this->offset_width))) - 1);
-    unsigned int index = ((addr) >> this->offset_width) & ((1 << this->index_width) - 1);
-    this->lines[index].is_valid = true;
-    this->lines[index].tag = tag;
+    unsigned int index = take_bits(addr, this->offset_width, this->index_width);
+    unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
+    this->tags[index] = tag;
 }
