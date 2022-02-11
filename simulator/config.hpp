@@ -222,61 +222,61 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     this->EX.br.exec();
 
     // MA
-    if(!this->EX.ma.inst.op.is_nop()){
-        if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
-            switch(this->EX.ma.inst.op.type){
-                case o_sw:
-                case o_fsw:
-                    if(this->EX.ma.available()){
-                        this->EX.ma.exec();
-                        config_next.EX.ma.state = this->EX.ma.state;
-                    }else{
-                        config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
-                        config_next.EX.ma.inst = this->EX.ma.inst;
-                        config_next.EX.ma.cycle_count = 1;
-                    }
-                    break;
-                case o_lw:
-                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
-                    config_next.EX.ma.inst = this->EX.ma.inst;
-                    config_next.EX.ma.cycle_count = 1;
-                    break;
-                case o_flw:
-                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
-                    config_next.EX.ma.inst = this->EX.ma.inst;
-                    config_next.EX.ma.cycle_count = 1;
-                    break;
-                // 以下は状態遷移しない命令
-                case o_si:
-                case o_std:
-                    this->EX.ma.exec();
-                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
-                    break;
-                case o_lre:
-                case o_lrd:
-                case o_ltf:
-                    this->EX.ma.exec();
-                    config_next.wb_req_int(this->EX.ma.inst);
-                    config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
-                    break;
-                default: std::exit(EXIT_FAILURE);
-            }
-        }else{
-            if(this->EX.ma.available()){
-                this->EX.ma.exec();
-                if(this->EX.ma.inst.op.type == o_lw){
-                    config_next.wb_req_int(this->EX.ma.inst);
-                }else if(this->EX.ma.inst.op.type == o_flw){
-                    config_next.wb_req_fp(this->EX.ma.inst);
-                }
-                config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
-            }else{
-                config_next.EX.ma.state = this->EX.ma.state;
-                config_next.EX.ma.inst = this->EX.ma.inst;
-                config_next.EX.ma.cycle_count = this->EX.ma.cycle_count + 1;
-            }
-        }
-    }
+    // if(!this->EX.ma.inst.op.is_nop()){
+    //     if(this->EX.ma.state == Configuration::EX_stage::EX_ma::State_ma::Idle){
+    //         switch(this->EX.ma.inst.op.type){
+    //             case o_sw:
+    //             case o_fsw:
+    //                 if(this->EX.ma.available()){
+    //                     this->EX.ma.exec();
+    //                     config_next.EX.ma.state = this->EX.ma.state;
+    //                 }else{
+    //                     config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Store_data_mem;
+    //                     config_next.EX.ma.inst = this->EX.ma.inst;
+    //                     config_next.EX.ma.cycle_count = 1;
+    //                 }
+    //                 break;
+    //             case o_lw:
+    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_int;
+    //                 config_next.EX.ma.inst = this->EX.ma.inst;
+    //                 config_next.EX.ma.cycle_count = 1;
+    //                 break;
+    //             case o_flw:
+    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Load_data_mem_fp;
+    //                 config_next.EX.ma.inst = this->EX.ma.inst;
+    //                 config_next.EX.ma.cycle_count = 1;
+    //                 break;
+    //             // 以下は状態遷移しない命令
+    //             case o_si:
+    //             case o_std:
+    //                 this->EX.ma.exec();
+    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+    //                 break;
+    //             case o_lre:
+    //             case o_lrd:
+    //             case o_ltf:
+    //                 this->EX.ma.exec();
+    //                 config_next.wb_req_int(this->EX.ma.inst);
+    //                 config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+    //                 break;
+    //             default: std::exit(EXIT_FAILURE);
+    //         }
+    //     }else{
+    //         if(this->EX.ma.available()){
+    //             this->EX.ma.exec();
+    //             if(this->EX.ma.inst.op.type == o_lw){
+    //                 config_next.wb_req_int(this->EX.ma.inst);
+    //             }else if(this->EX.ma.inst.op.type == o_flw){
+    //                 config_next.wb_req_fp(this->EX.ma.inst);
+    //             }
+    //             config_next.EX.ma.state = Configuration::EX_stage::EX_ma::State_ma::Idle;
+    //         }else{
+    //             config_next.EX.ma.state = this->EX.ma.state;
+    //             config_next.EX.ma.inst = this->EX.ma.inst;
+    //             config_next.EX.ma.cycle_count = this->EX.ma.cycle_count + 1;
+    //         }
+    //     }
+    // }
 
     // MA (hazard info)
     // this->EX.ma.info.wb_addr = this->EX.ma.inst.op.rd;
@@ -339,14 +339,6 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     std::array<Fetched_inst, 2> fetched_inst;
     fetched_inst[0] = this->IF.queue.array[this->IF.queue.head.val()];
     fetched_inst[1] = this->IF.queue.array[this->IF.queue.head.nxt()];
-    
-    std::cout << "fetch_addr: " << this->IF.fetch_addr << std::endl;
-    std::cout << "num: " << this->IF.queue.num << std::endl;
-    std::cout << "head: " << this->IF.queue.head.val() << ", " << this->IF.queue.head.nxt() << std::endl;
-    std::cout << "tail: " << this->IF.queue.tail.val() << ", " << this->IF.queue.tail.nxt() << std::endl;
-    for(int i=0; i<4; ++i){
-        std::cout << "[" << i << "]: " << this->IF.queue.array[i].to_string() << std::endl;
-    }
 
     // dispatch ?
     std::array<Hazard_type, 2> hazard_type;
@@ -457,13 +449,11 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
 
         Fetched_inst tmp;
         if(this->IF.queue.num < 4){
-            std::cout << "fetch to " << this->IF.queue.tail.val() << std::endl;
             tmp.pc = this->IF.fetch_addr;
             tmp.op = op_list[tmp.pc];
             config_next.IF.queue.array[this->IF.queue.tail.val()] = tmp;
         }
         if(this->IF.queue.num < 3){
-            std::cout << "fetch to " << this->IF.queue.tail.nxt() << std::endl;
             tmp.pc = this->IF.fetch_addr + 1;
             tmp.op = op_list[tmp.pc];
             config_next.IF.queue.array[this->IF.queue.tail.nxt()] = tmp;
@@ -574,7 +564,7 @@ inline int Configuration::advance_clock(bool verbose, std::string bp){
     }
 
     /* 返り値の決定 */
-    if(this->IF.fetch_addr == static_cast<int>(code_size) && this->EX.is_clear()){ // 終了
+    if(this->IF.fetch_addr >= static_cast<int>(code_size) && this->EX.is_clear()){ // 終了
         res = sim_state_end;
     }else if(is_debug && bp != "" && !this->EX.br.branch_addr.has_value()){
         if(bp == "__continue"){ // continue, 名前指定なし
@@ -728,20 +718,20 @@ inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector
 // 同時発行されない命令間のハザード検出
 inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){ // i = 0,1
     // RAW hazards
-    for(unsigned int j=0; j<3; ++i){
-        if(
-            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs1_int())
-            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs1_fp()))
-            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
-        ) return Inter_RAW_ma_to_rs1;
-    }
-    for(unsigned int j=0; j<3; ++i){
-        if(
-            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs2_int())
-            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs2_fp()))
-            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
-        ) return Inter_RAW_ma_to_rs2;
-    }
+    // for(unsigned int j=0; j<3; ++i){
+    //     if(
+    //         ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs1_int())
+    //         || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs1_fp()))
+    //         && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
+    //     ) return Inter_RAW_ma_to_rs1;
+    // }
+    // for(unsigned int j=0; j<3; ++i){
+    //     if(
+    //         ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs2_int())
+    //         || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs2_fp()))
+    //         && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rs1
+    //     ) return Inter_RAW_ma_to_rs2;
+    // }
     if(
         this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rs1_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rs1)
     ) return Inter_RAW_mfp_to_rs1;
@@ -760,13 +750,13 @@ inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector
     }
 
     // WAW hazards
-    for(unsigned int j=0; j<3; ++i){
-        if(
-            ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rd_int())
-            || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rd_fp()))
-            && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rd
-        ) return Inter_WAW_ma_to_rd;
-    }
+    // for(unsigned int j=0; j<3; ++i){
+    //     if(
+    //         ((this->EX.ma.info.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rd_int())
+    //         || (this->EX.ma.info.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rd_fp()))
+    //         && this->EX.ma.info.wb_addr[j] == fetched_inst[i].op.rd
+    //     ) return Inter_WAW_ma_to_rd;
+    // }
     if(
         this->EX.mfp.info.is_willing_but_not_ready && fetched_inst[i].op.use_rd_fp() && (this->EX.mfp.info.wb_addr == fetched_inst[i].op.rd)
     ) return Inter_WAW_mfp_to_rd;
@@ -832,6 +822,7 @@ inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(s
 
 // WBステージに命令を渡す
 inline constexpr void Configuration::wb_req_int(Instruction& inst){
+    if(inst.op.is_nop()) return;
     if(!this->WB.inst_int[0].has_value()){
         this->WB.inst_int[0] = inst;
     }else if(!this->WB.inst_int[1].has_value()){
@@ -842,6 +833,7 @@ inline constexpr void Configuration::wb_req_int(Instruction& inst){
     }
 }
 inline constexpr void Configuration::wb_req_fp(Instruction& inst){
+    if(inst.op.is_nop()) return;
     if(!this->WB.inst_fp[0].has_value()){
         this->WB.inst_fp[0] = inst;
     }else if(!this->WB.inst_fp[1].has_value()){
