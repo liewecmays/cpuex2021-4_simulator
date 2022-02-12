@@ -473,7 +473,7 @@ inline constexpr bool Operation::is_op(){
     return this->type == Otype::o_add || this->type == Otype::o_sub || this->type == Otype::o_sll || this->type == Otype::o_srl || this->type == Otype::o_sra || this->type == Otype::o_and;
 }
 inline constexpr bool Operation::is_op_fp(){
-    return this->type == Otype::o_fadd || this->type == Otype::o_fsub || this->type == Otype::o_fmul || this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff;
+    return this->type == Otype::o_fadd || this->type == Otype::o_fsub || this->type == Otype::o_fabs || this->type == Otype::o_fneg || this->type == Otype::o_fmul || this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff;
 }
 inline constexpr bool Operation::is_branch(){
     return this->type == Otype::o_beq || this->type == Otype::o_blt;
@@ -521,7 +521,7 @@ inline constexpr bool Operation::use_alu(){
     return this->is_op() || this->is_op_imm() || this->is_lui() || this->is_jal() || this->is_jalr() || this->is_itof();
 }
 inline constexpr bool Operation::use_multicycle_fpu(){
-    return this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff || this->type == Otype::o_fmvif;
+    return this->type == Otype::o_fabs || this->type == Otype::o_fneg || this->type == Otype::o_fdiv || this->type == Otype::o_fsqrt || this->type == Otype::o_fcvtif || this->type == Otype::o_fcvtfi || this->type == Otype::o_fmvff || this->type == Otype::o_fmvif;
 }
 inline constexpr bool Operation::use_pipelined_fpu(){
     return this->type == Otype::o_fadd || this->type == Otype::o_fsub || this->type == Otype::o_fmul;
@@ -569,6 +569,8 @@ inline std::string Operation::to_string(){
         case Otype::o_fmul:
         case Otype::o_fdiv:
             return string_of_otype(this->type) + " f" + std::to_string(this->rd) + ", f" + std::to_string(this->rs1) + ", f" + std::to_string(this->rs2);
+        case Otype::o_fabs:
+        case Otype::o_fneg:
         case Otype::o_fsqrt:
         case Otype::o_fcvtif:
         case Otype::o_fcvtfi:
