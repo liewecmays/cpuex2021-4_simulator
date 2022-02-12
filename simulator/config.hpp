@@ -1057,7 +1057,7 @@ inline void Configuration::EX_stage::EX_br::exec(){
 inline void Configuration::EX_stage::EX_ma::exec(){
     switch(this->ma3.inst.op.type){
         case o_sw:
-            write_memory(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
+            memory.write(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
             ++op_type_count[o_sw];
             return;
         case o_si:
@@ -1069,11 +1069,11 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             ++op_type_count[o_std];
             return;
         case o_fsw:
-            write_memory(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
+            memory.write(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
             ++op_type_count[o_fsw];
             return;
         case o_lw:
-            reg_int.write_32(this->ma3.inst.op.rd, read_memory(this->ma3.inst.ma_addr()));
+            reg_int.write_32(this->ma3.inst.op.rd, memory.read(this->ma3.inst.ma_addr()));
             ++op_type_count[o_lw];
             return;
         case o_lre:
@@ -1094,7 +1094,7 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             ++op_type_count[o_ltf];
             return;
         case o_flw:
-            reg_fp.write_32(this->ma3.inst.op.rd, read_memory(this->ma3.inst.ma_addr()));
+            reg_fp.write_32(this->ma3.inst.op.rd, memory.read(this->ma3.inst.ma_addr()));
             ++op_type_count[o_flw];
             return;
         default: return;

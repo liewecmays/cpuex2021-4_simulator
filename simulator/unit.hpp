@@ -1,5 +1,6 @@
 #pragma once
 #include <common.hpp>
+#include <iostream>
 
 /* レジスタ */
 class Reg{
@@ -73,3 +74,18 @@ inline constexpr void Cache::write(unsigned int addr){
     this->lines[index].dirty = 1; // todo
     this->lines[index].tag = tag;
 }
+
+class Memory{
+    private:
+        Bit32* data;
+    public:
+        constexpr Memory(){ this->data = {}; }; // 宣言するとき用
+        constexpr Memory(unsigned int size){ this->data = (Bit32*) calloc(size, sizeof(Bit32)); };
+        constexpr Bit32 read(int w){ return this->data[w]; };
+        constexpr void write(int w, Bit32 v){ this->data[w] = v; };
+        void print(int start, int width){
+            for(int i=start; i<start+width; ++i){
+                std::cout << "mem[" << i << "]: " << this->data[i].to_string() << std::endl;
+            }
+        };
+};

@@ -31,7 +31,7 @@ Configuration config; // 各時点の状態
 std::vector<Operation> op_list; // 命令のリスト(PC順)
 Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
-Bit32 *memory; // メモリ領域
+Memory memory; // メモリ
 Fpu fpu; // FPU
 unsigned int code_size = 0; // コードサイズ
 
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]){
     }
 
     // メモリ領域の確保
-    memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
+    memory = Memory(mem_size);
 
     // バッファのデータのプリロード
     if(is_preloading){
@@ -453,9 +453,7 @@ bool exec_command(std::string cmd){
         }
         reg_int = Reg();
         reg_fp = Reg();
-        for(int i=0; i<mem_size; ++i){
-            memory[i] = Bit32(0);
-        }
+        memory = Memory(mem_size);
         std::cout << head_info << "simulation environment is now initialized" << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(ir|(init run))\\s*$"))){ // init run
         exec_command("init");
@@ -565,7 +563,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(-w))?\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
         int start = std::stoi(match[6].str());
         int width = std::stoi(match[7].str());
-        print_memory(start, width);
+        memory.print(start, width);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         unsigned int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
@@ -716,22 +714,6 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-
-Bit32 read_memory(int w){
-    return memory[w];
-}
-
-void write_memory(int w, Bit32 v){
-    memory[w] = v;
-}
-
-// startからwidthぶん、4byte単位でメモリの内容を出力
-void print_memory(int start, int width){
-    for(int i=start; i<start+width; ++i){
-        std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
-    }
-    return;
-}
 
 // キューの表示
 void print_queue(std::queue<Bit32> q, int n){
