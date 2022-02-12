@@ -68,6 +68,7 @@ bimap_t2 id_to_line_loaded;
 
 // ターミナルへの出力用
 std::string head = "\x1b[1m[sim2]\x1b[0m ";
+std::string head_space = "       ";
 
 
 int main(int argc, char *argv[]){
@@ -437,7 +438,9 @@ bool exec_command(std::string cmd){
                 double op_per_sec = static_cast<double>(cnt) / exec_time;
                 std::cout << head << "operations per second: " << op_per_sec << std::endl;
                 std::cout << head << "clock count: " << config.clk << std::endl;
-                std::cout << head << "operations per clock: " << static_cast<double>(cnt) / config.clk << std::endl;
+                std::cout << head << "prediction: " << std::endl;
+                std::cout << head_space << "- execution time: " << static_cast<double>(config.clk) / static_cast<double>(frequency) << std::endl;
+                std::cout << head_space << "- clocks per instruction: " << static_cast<double>(config.clk) / static_cast<double>(cnt) << std::endl;
             }
         }else{
             std::cout << head_info << "no operation is left to be simulated" << std::endl;

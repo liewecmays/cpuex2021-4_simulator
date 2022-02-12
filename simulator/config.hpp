@@ -9,6 +9,7 @@
 
 // パラメータ
 inline constexpr unsigned int pipelined_fpu_stage_num = 3;
+inline constexpr unsigned int frequency = 117500000;
 
 // pc・命令
 class Fetched_inst{
