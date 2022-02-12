@@ -1255,7 +1255,7 @@ inline Bit32 read_memory(int w){
     return memory[w];
 }
 
-inline void write_memory(int w, Bit32 v){
+inline void write_memory(int w, const Bit32& v){
     // if(!memory_exceeding_flag && w >= max_mem_size){
     //     memory_exceeding_flag = true;
     //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
@@ -1318,7 +1318,7 @@ void print_queue(std::queue<Bit32> q, int n){
 }
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-inline constexpr bool is_end(Operation op){
+inline constexpr bool is_end(const Operation& op){
     return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
 }
 

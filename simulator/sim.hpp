@@ -29,11 +29,11 @@ void send_data(Cancel_flag&); // データの送信
 void output_info(); // 情報の出力
 void exec_op(); // 命令を実行し、PCを変化させる
 Bit32 read_memory(int);
-void write_memory(int, Bit32);
+void write_memory(int, const Bit32&);
 bool check_cache(int);
 void print_reg(); // 整数レジスタの内容を表示
 void print_reg_fp(); // 浮動小数点数レジスタの内容を表示
 void print_memory(int, int); // 4byte単位でメモリの内容を出力
 void print_queue(std::queue<Bit32>, int); // キューの表示
-bool constexpr is_end(Operation); // 終了時の命令かどうかを判定
+bool constexpr is_end(const Operation&); // 終了時の命令かどうかを判定
 void exit_with_output(std::string); // 実効情報を表示したうえで異常終了

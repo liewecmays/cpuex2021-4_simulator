@@ -16,7 +16,7 @@ class Reg{
         constexpr float read_float(unsigned int i){
             return i == 0 ? 0.0f : this->val[i].f;
         };
-        constexpr void write_32(unsigned int i, Bit32 v){
+        constexpr void write_32(unsigned int i, const Bit32& v){
             if(i != 0) this->val[i] = v;
         }
         constexpr void write_int(unsigned int i, int v){
@@ -82,7 +82,7 @@ class Memory{
         constexpr Memory(){ this->data = {}; }; // 宣言するとき用
         constexpr Memory(unsigned int size){ this->data = (Bit32*) calloc(size, sizeof(Bit32)); };
         constexpr Bit32 read(int w){ return this->data[w]; };
-        constexpr void write(int w, Bit32 v){ this->data[w] = v; };
+        constexpr void write(int w, const Bit32& v){ this->data[w] = v; };
         void print(int start, int width){
             for(int i=start; i<start+width; ++i){
                 std::cout << "mem[" << i << "]: " << this->data[i].to_string() << std::endl;
