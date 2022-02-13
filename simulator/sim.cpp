@@ -48,9 +48,9 @@ boost::lockfree::queue<Bit32> send_buffer(3*1e6); // 外部通信での受信バ
 
 // シミュレーションの制御
 bool is_debug = false; // デバッグモード
-bool is_detailed_debug = false; // 詳細なデバッグモード
 bool is_info_output = false; // 出力モード
 bool is_bin = false; // バイナリファイルモード
+bool is_stat = false; // 統計モード
 bool is_cache_enabled = false; // キャッシュを考慮するモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
@@ -96,8 +96,11 @@ bool is_loading_codes = false; // 命令ロード中のフラグ
 int loading_id = 100; // 読み込んでいる命令のid
 
 // ターミナルへの出力用
+#ifdef DETAILED
+std::string head = "\x1b[1m[sim(d)]\x1b[0m ";
+#else
 std::string head = "\x1b[1m[sim]\x1b[0m ";
-
+#endif
 
 int main(int argc, char *argv[]){
     // コマンドライン引数をパース
@@ -105,18 +108,21 @@ int main(int argc, char *argv[]){
 	opt.add_options()
         ("help,h", "show help")
         ("file,f", po::value<std::string>(), "filename")
-        ("debug,d", "debug mode")
-        ("detailed", "detailed-debug mode")
-        ("info,i", "information-output mode")
         ("bin,b", "binary-input mode")
-        ("port,p", po::value<int>(), "port number")
+        ("debug,d", "debug mode")
+        ("info,i", "information-output mode")
         ("mem,m", po::value<int>(), "memory size")
-        ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
-        ("raytracing,r", "specialized for ray-tracing program")
+        ("ieee", "IEEE754 mode")
         ("skip,s", "skipping bootloading")
-        ("boot", "bootloading mode")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload")
-        ("ieee", "IEEE754 mode");
+        ("raytracing,r", "specialized for ray-tracing program")
+        #ifdef DETAILED
+        ("port,p", po::value<int>(), "port number")
+        ("boot", "bootloading mode")
+        ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
+        ("stat", "statistics mode")
+        #endif
+        ;
 	po::variables_map vm;
     try{
         po::store(po::parse_command_line(argc, argv, opt), vm);
@@ -137,15 +143,20 @@ int main(int argc, char *argv[]){
         std::cout << head_error << "filename is required (use -f option)" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if(vm.count("debug")) is_debug = true;
-    if(vm.count("detailed")){
-        is_debug = true;
-        is_detailed_debug = true;
-    }
-    if(vm.count("info")) is_info_output = true;
     if(vm.count("bin")) is_bin = true;
-    if(vm.count("port")) port = vm["port"].as<int>();
+    if(vm.count("debug")) is_debug = true;
+    if(vm.count("info")) is_info_output = true;
     if(vm.count("mem")) mem_size = vm["mem"].as<int>();
+    if(vm.count("ieee")) is_ieee = true;
+    if(vm.count("skip")) is_skip = true;
+    if(vm.count("preload")){
+        is_preloading = true;
+        preload_filename = vm["preload"].as<std::string>();
+    };
+    if(vm.count("raytracing")) is_raytracing = true;
+    #ifdef DETAILED
+    if(vm.count("port")) port = vm["port"].as<int>();
+    if(vm.count("boot")) is_bootloading = true;
     if(vm.count("cache")){
         is_cache_enabled = true;
         std::vector<unsigned int> cache_setting = vm["cache"].as<std::vector<unsigned int>>();
@@ -161,14 +172,10 @@ int main(int argc, char *argv[]){
             std::exit(EXIT_FAILURE);
         }
     }
-    if(vm.count("raytracing")) is_raytracing = true;
-    if(vm.count("skip")) is_skip = true;
-    if(vm.count("boot")) is_bootloading = true;
-    if(vm.count("preload")){
-        is_preloading = true;
-        preload_filename = vm["preload"].as<std::string>();
-    };
-    if(vm.count("ieee")) is_ieee = true;
+    if(vm.count("stat")){
+        is_stat = true;
+    }
+    #endif
 
     // タイムスタンプの取得
     time_t t = time(nullptr);
@@ -184,7 +191,7 @@ int main(int argc, char *argv[]){
 
 
     // ここからシミュレータの処理開始
-    std::cout << head << "simulation start" << (is_detailed_debug ? " (in detailed-debug-mode)" : (is_debug ? " (in debug-mode)" : "")) << std::endl;
+    std::cout << head << "simulation start" << std::endl;
     auto start = std::chrono::system_clock::now();
 
     // ブートローダ処理をスキップする場合の処理
@@ -206,7 +213,7 @@ int main(int argc, char *argv[]){
     cache = Cache(index_width, offset_width);
 
     // 統計データの初期化
-    if(is_detailed_debug){
+    if(is_stat){
         mem_accessed_read = (unsigned long long*) calloc(mem_size, sizeof(unsigned long long));
         mem_accessed_write = (unsigned long long*) calloc(mem_size, sizeof(unsigned long long));
     }
@@ -308,7 +315,7 @@ int main(int argc, char *argv[]){
         }
     }
 
-    if(is_detailed_debug){
+    if(is_stat){
         line_exec_count = (unsigned int*) calloc(input_line_num, sizeof(unsigned int));
     }
 
@@ -316,6 +323,7 @@ int main(int argc, char *argv[]){
     auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     std::cout << head << "time elapsed (preparation): " << msec << std::endl;
 
+    #ifdef DETAILED
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
     std::thread t2(receive_data);
@@ -325,9 +333,12 @@ int main(int argc, char *argv[]){
     t2.detach();
     flg.signal();
     t3.join();
+    #else
+    simulate();
+    #endif
 
     // 実行結果の情報を出力
-    if(is_info_output || is_detailed_debug) output_info();
+    if(is_info_output || is_stat) output_info();
     
     // レイトレの場合は画像も出力
     if(is_raytracing){
@@ -752,13 +763,16 @@ bool exec_command(std::string cmd){
 void exec_op(){
     Operation op = op_list[pc];
 
-    // 詳細デバッグモードの場合、行数ごとの実行回数を更新
-    if(is_detailed_debug){
+    // 統計モードの場合、行数ごとの実行回数を更新
+    #ifdef DETAILED
+    if(is_stat){
         int l = id_to_line.left.at(pc);
         if(l > 0) ++line_exec_count[l-1];
     }
+    #endif
 
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
+    #ifdef DETAILED
     if(is_bootloading){
         if(op.type == o_std && op.rs2 == 5){ // std %x5
             int x5 = reg_int.read_int(5);
@@ -787,6 +801,7 @@ void exec_op(){
             op_list.resize(100 + loaded_op_num); // 受け取る命令の数に合わせてop_listを拡大
         }
     }
+    #endif
 
     if(is_raytracing && op_count >= max_op_count){
         exit_with_output("too many operations executed for raytracing program");
@@ -1188,7 +1203,7 @@ void output_info(){
         ss << "\t- hit: " << cache.hit_times << std::endl;
         ss << "\t- hit rate: " << static_cast<double>(cache.hit_times) / cache.read_times << std::endl;
     }
-    if(is_detailed_debug && is_raytracing){
+    if(is_stat && is_raytracing){
         ss << "- stack:" << std::endl;
         ss << "\t- size: " << max_x2 << std::endl;
         ss << "\t- read: " << stack_accessed_read_count << std::endl;
@@ -1206,7 +1221,7 @@ void output_info(){
     output_file << ss.str();
     std::cout << head << "simulation stat: " << output_filename << std::endl;
 
-    if(is_detailed_debug){
+    if(is_stat){
         // メモリの情報
         std::string output_filename_mem = "./info/" + filename + "_mem_" + timestamp + ".csv";
         std::ofstream output_file_mem(output_filename_mem);
@@ -1247,11 +1262,13 @@ inline Bit32 read_memory(int w){
     //     memory_exceeding_flag = true;
     //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     // }
-    if(is_detailed_debug){
+    #ifdef DETAILED
+    if(is_stat){
         ++mem_accessed_read[w];
         if(is_raytracing) w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
     }
     if(is_cache_enabled) cache.read(w);
+    #endif
     return memory[w];
 }
 
@@ -1260,11 +1277,13 @@ inline void write_memory(int w, const Bit32& v){
     //     memory_exceeding_flag = true;
     //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
     // }
-    if(is_detailed_debug){
+    #ifdef DETAILED
+    if(is_stat){
         ++mem_accessed_write[w];
         if(is_raytracing) w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
     }
     if(is_cache_enabled) cache.write(w);
+    #endif
     memory[w] = v;
 }
 
