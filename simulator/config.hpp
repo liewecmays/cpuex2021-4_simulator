@@ -9,7 +9,7 @@
 
 // パラメータ
 inline constexpr unsigned int pipelined_fpu_stage_num = 3;
-inline constexpr unsigned int frequency = 117500000;
+inline constexpr unsigned int frequency = 122500000;
 
 // pc・命令
 class Fetched_inst{
@@ -1165,8 +1165,21 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
 }
 
 inline constexpr bool Configuration::EX_stage::EX_mfp::available(){
-    return this->cycle_count == 2; // 仮の値
-    // return true;
+    switch(this->inst.op.type){
+        case o_fabs:
+        case o_fneg:
+        case o_fmvff:
+        case o_fmvif:
+            return this->cycle_count == 0;
+        case o_fcvtif:
+        case o_fcvtfi:
+            return this->cycle_count == 2;
+        case o_fsqrt:
+            return this->cycle_count == 3;
+        case o_fdiv:
+            return this->cycle_count == 6;
+        default: return false; // error
+    }
 }
 
 inline void Configuration::EX_stage::EX_pfp::exec(){
