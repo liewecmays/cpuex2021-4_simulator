@@ -21,25 +21,25 @@ class Fpu{
         unsigned int ram_finv_a[ram_size];
         unsigned int ram_finv_b[ram_size];
         constexpr Fpu();
-        constexpr Bit32 fabs(const Bit32&);
-        constexpr Bit32 fneg(const Bit32&);
-        constexpr Bit32 fdiv(const Bit32&, const Bit32&);
-        constexpr Bit32 fsqrt(const Bit32&);
-        constexpr Bit32 itof(const Bit32&);
-        constexpr Bit32 ftoi(const Bit32&);
-        constexpr Bit32 fadd(const Bit32&, const Bit32&);
-        constexpr Bit32 fsub(const Bit32&, const Bit32&);
-        constexpr Bit32 fmul(const Bit32&, const Bit32&);
+        constexpr Bit32 fabs(const Bit32&) const;
+        constexpr Bit32 fneg(const Bit32&) const;
+        constexpr Bit32 fdiv(const Bit32&, const Bit32&) const;
+        constexpr Bit32 fsqrt(const Bit32&) const;
+        constexpr Bit32 itof(const Bit32&) const;
+        constexpr Bit32 ftoi(const Bit32&) const;
+        constexpr Bit32 fadd(const Bit32&, const Bit32&) const;
+        constexpr Bit32 fsub(const Bit32&, const Bit32&) const;
+        constexpr Bit32 fmul(const Bit32&, const Bit32&) const;
     private:
-        constexpr Bit32 finv(const Bit32&);
-        constexpr std::optional<Bit32> close_path(const Bit32&, const Bit32&);
-        constexpr std::optional<Bit32> special_path(const Bit32&, const Bit32&);
-        constexpr Bit32 far_path(const Bit32&, const Bit32&);
+        constexpr Bit32 finv(const Bit32&) const;
+        constexpr std::optional<Bit32> close_path(const Bit32&, const Bit32&) const;
+        constexpr std::optional<Bit32> special_path(const Bit32&, const Bit32&) const;
+        constexpr Bit32 far_path(const Bit32&, const Bit32&) const;
 };
 
 
 /* 補助関数 */
-constexpr inline ui count_bit(ui x){
+constexpr inline ui count_bit(ui x) noexcept {
     x = (x & 0x55555555) + (x >> 1 & 0x55555555);
     x = (x & 0x33333333) + (x >> 2 & 0x33333333);
     x = (x & 0x0f0f0f0f) + (x >> 4 & 0x0f0f0f0f);
@@ -48,22 +48,22 @@ constexpr inline ui count_bit(ui x){
     return x;
 }
 
-constexpr inline bool or_all(ui x){
+constexpr inline bool or_all(ui x) noexcept {
     return count_bit(x) != 0;
 }
 
-constexpr inline bool and_all(ui x, ui len){ // 下lenビットを見る
+constexpr inline bool and_all(ui x, ui len) noexcept { // 下lenビットを見る
     return count_bit(x) == len;
 }
 
-constexpr inline ui shift_mantissa(ui m, ui diff){
+constexpr inline ui shift_mantissa(ui m, ui diff) noexcept {
     return (diff >= 24) ? 0 : (m >> take_bits(diff, 0, 4));
 }
 
 
 /* class Fpu */
 // 初期化
-inline constexpr Fpu::Fpu(){
+inline constexpr Fpu::Fpu() noexcept {
     ull x0, x1;
     for(ui i=0; i<ram_size; ++i){
         x0 = static_cast<ull>(
@@ -83,15 +83,15 @@ inline constexpr Fpu::Fpu(){
 }
 
 // 浮動小数点演算の定義
-inline constexpr Bit32 Fpu::fabs(const Bit32& x){
+inline constexpr Bit32 Fpu::fabs(const Bit32& x) const noexcept {
     return (x.F.e << 23) + x.F.m;
 }
 
-inline constexpr Bit32 Fpu::fneg(const Bit32& x){
+inline constexpr Bit32 Fpu::fneg(const Bit32& x) const noexcept {
     return (((x.F.e == 0 ? 0 : ~x.F.s) << 31) + (x.F.e << 23) + x.F.m);
 }
 
-inline constexpr Bit32 Fpu::fdiv(const Bit32& x1, const Bit32& x2){
+inline constexpr Bit32 Fpu::fdiv(const Bit32& x1, const Bit32& x2) const noexcept {
     ui e_diff = x2.F.e >= 253 ? 4 : 0;
     ui modified_x2 = (x2.F.s << 31) + ((x2.F.e - e_diff) << 23) + x2.F.m;
 
@@ -104,7 +104,7 @@ inline constexpr Bit32 Fpu::fdiv(const Bit32& x1, const Bit32& x2){
     return Bit32(y);
 }
 
-inline constexpr Bit32 Fpu::fsqrt(const Bit32& x){
+inline constexpr Bit32 Fpu::fsqrt(const Bit32& x) const noexcept {
     // stage1
     ui m1 = x.F.m;
     
@@ -139,7 +139,7 @@ inline constexpr Bit32 Fpu::fsqrt(const Bit32& x){
     return Bit32(y);
 }
 
-inline constexpr Bit32 Fpu::itof(const Bit32& x){
+inline constexpr Bit32 Fpu::itof(const Bit32& x) const noexcept {
     // stage1
     ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
 
@@ -172,7 +172,7 @@ inline constexpr Bit32 Fpu::itof(const Bit32& x){
     return Bit32(y);
 }
 
-inline constexpr Bit32 Fpu::ftoi(const Bit32& x){
+inline constexpr Bit32 Fpu::ftoi(const Bit32& x) const noexcept {
     ui m1 = (1 << 23) + x.F.m;
 
     // stage1
@@ -195,7 +195,7 @@ inline constexpr Bit32 Fpu::ftoi(const Bit32& x){
     return Bit32(y);
 }
 
-inline constexpr Bit32 Fpu::fadd(const Bit32& x, const Bit32& y){
+inline constexpr Bit32 Fpu::fadd(const Bit32& x, const Bit32& y) const noexcept {
     std::optional<Bit32> special_z = this->special_path(x, y);
     std::optional<Bit32> close_z = this->close_path(x, y);
     Bit32 far_z = this->far_path(x, y);
@@ -209,11 +209,11 @@ inline constexpr Bit32 Fpu::fadd(const Bit32& x, const Bit32& y){
     }
 }
 
-inline constexpr Bit32 Fpu::fsub(const Bit32& x, const Bit32& y){
+inline constexpr Bit32 Fpu::fsub(const Bit32& x, const Bit32& y) const noexcept {
     return this->fadd(x, Bit32(((~y.F.s) << 31) + (y.F.e << 23) + y.F.m));
 }
 
-inline constexpr Bit32 Fpu::fmul(const Bit32& x1, const Bit32& x2){
+inline constexpr Bit32 Fpu::fmul(const Bit32& x1, const Bit32& x2) const noexcept {
     ui m1h = (1 << 12) + take_bits(x1.F.m, 11, 22);
     ui m2h = (1 << 12) + take_bits(x2.F.m, 11, 22);
     ui m1l = take_bits(x1.F.m, 0, 10);
@@ -241,7 +241,7 @@ inline constexpr Bit32 Fpu::fmul(const Bit32& x1, const Bit32& x2){
 
 
 // 以下は内部的に必要な関数たち
-inline constexpr Bit32 Fpu::finv(const Bit32& x){
+inline constexpr Bit32 Fpu::finv(const Bit32& x) const noexcept {
     // stage1
     ui m1 = (1 << 23) + x.F.m;
 
@@ -262,7 +262,7 @@ inline constexpr Bit32 Fpu::finv(const Bit32& x){
     return Bit32(y);
 }
 
-inline constexpr std::optional<Bit32> Fpu::special_path(const Bit32& x, const Bit32& y){
+inline constexpr std::optional<Bit32> Fpu::special_path(const Bit32& x, const Bit32& y) const noexcept {
     if(x.F.e == 0){
         return y;
     }else if(y.F.e == 0){
@@ -274,7 +274,7 @@ inline constexpr std::optional<Bit32> Fpu::special_path(const Bit32& x, const Bi
     }
 }
 
-inline constexpr std::optional<Bit32> Fpu::close_path(const Bit32& x, const Bit32& y){
+inline constexpr std::optional<Bit32> Fpu::close_path(const Bit32& x, const Bit32& y) const noexcept {
     // difference
     ui m_diff;
     if(x.F.e == y.F.e){
@@ -320,7 +320,7 @@ inline constexpr std::optional<Bit32> Fpu::close_path(const Bit32& x, const Bit3
     }
 }
 
-inline constexpr Bit32 Fpu::far_path(const Bit32& x, const Bit32& y){
+inline constexpr Bit32 Fpu::far_path(const Bit32& x, const Bit32& y) const noexcept {
     Bit32 z;
 
     // calculate the sign

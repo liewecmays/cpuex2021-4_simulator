@@ -75,34 +75,34 @@ class Operation{
         Operation(std::string code);
         Operation(int i);
         std::string to_string();
-        constexpr bool is_op();
-        constexpr bool is_op_fp();
-        constexpr bool is_branch();
-        constexpr bool is_branch_fp();
-        constexpr bool is_store();
-        constexpr bool is_store_fp();
-        constexpr bool is_op_imm();
-        constexpr bool is_load();
-        constexpr bool is_load_fp();
-        constexpr bool is_lw_flw_sw_fsw();
-        constexpr bool is_jalr();
-        constexpr bool is_jal();
-        constexpr bool is_lui();
-        constexpr bool is_itof();
-        constexpr bool is_ftoi();
-        constexpr bool use_mem();
-        constexpr bool use_alu();
-        constexpr bool use_multicycle_fpu();
-        constexpr bool use_pipelined_fpu();
-        constexpr bool use_rd_int();
-        constexpr bool use_rd_fp();
-        constexpr bool use_rs1_int();
-        constexpr bool use_rs1_fp();
-        constexpr bool use_rs2_int();
-        constexpr bool use_rs2_fp();
-        constexpr bool branch_conditionally_or_unconditionally();
-        constexpr bool is_nop();
-        constexpr bool is_exit();
+        constexpr bool is_op() const;
+        constexpr bool is_op_fp() const;
+        constexpr bool is_branch() const;
+        constexpr bool is_branch_fp() const;
+        constexpr bool is_store() const;
+        constexpr bool is_store_fp() const;
+        constexpr bool is_op_imm() const;
+        constexpr bool is_load() const;
+        constexpr bool is_load_fp() const;
+        constexpr bool is_lw_flw_sw_fsw() const;
+        constexpr bool is_jalr() const;
+        constexpr bool is_jal() const;
+        constexpr bool is_lui() const;
+        constexpr bool is_itof() const;
+        constexpr bool is_ftoi() const;
+        constexpr bool use_mem() const;
+        constexpr bool use_alu() const;
+        constexpr bool use_multicycle_fpu() const;
+        constexpr bool use_pipelined_fpu() const;
+        constexpr bool use_rd_int() const;
+        constexpr bool use_rd_fp() const;
+        constexpr bool use_rs1_int() const;
+        constexpr bool use_rs1_fp() const;
+        constexpr bool use_rs2_int() const;
+        constexpr bool use_rs2_fp() const;
+        constexpr bool branch_conditionally_or_unconditionally() const;
+        constexpr bool is_nop() const;
+        constexpr bool is_exit() const;
 };
 
 /* プロトタイプ宣言 */
@@ -170,22 +170,22 @@ inline std::string string_of_otype(Otype t){
 
 
 /* class Bit32 */
-inline constexpr Bit32::Bit32(){
+inline constexpr Bit32::Bit32() noexcept {
     this->i = 0;
 }
 
 // intを引数に取るコンストラクタ
-inline constexpr Bit32::Bit32(int i){
+inline constexpr Bit32::Bit32(int i) noexcept {
     this->i = i;
 }
 
 // unsigned intを引数に取るコンストラクタ
-inline constexpr Bit32::Bit32(unsigned int i){
+inline constexpr Bit32::Bit32(unsigned int i) noexcept {
     this->ui = i;
 }
 
 // floatを引数に取るコンストラクタ
-inline constexpr Bit32::Bit32(float f){
+inline constexpr Bit32::Bit32(float f) noexcept {
     this->f = f;
 }
 
@@ -233,7 +233,7 @@ inline std::string Bit32::to_string(Stype t){
 
 /* class Operation */
 // デフォルトコンストラクタではnopを指定
-inline constexpr Operation::Operation(){
+inline constexpr Operation::Operation() noexcept {
     this->type = o_nop;
     this->rs1 = 0;
     this->rs2 = 0;
@@ -241,7 +241,7 @@ inline constexpr Operation::Operation(){
 }
 
 // intをもとにするコンストラクタ
-inline Operation::Operation(int i){
+inline Operation::Operation(int i) noexcept {
     std::stringstream code;
     code << std::bitset<32>(i);
     (*this) = Operation(code.str());
@@ -472,88 +472,88 @@ inline Operation::Operation(std::string code){
 }
 
 // opの属性に関する判定
-inline constexpr bool Operation::is_op(){
+inline constexpr bool Operation::is_op() const noexcept {
     return this->type == o_add || this->type == o_sub || this->type == o_sll || this->type == o_srl || this->type == o_sra || this->type == o_and;
 }
-inline constexpr bool Operation::is_op_fp(){
+inline constexpr bool Operation::is_op_fp() const noexcept {
     return this->type == o_fadd || this->type == o_fsub || this->type == o_fabs || this->type == o_fneg || this->type == o_fmul || this->type == o_fdiv || this->type == o_fsqrt || this->type == o_fcvtif || this->type == o_fcvtfi || this->type == o_fmvff;
 }
-inline constexpr bool Operation::is_branch(){
+inline constexpr bool Operation::is_branch() const noexcept {
     return this->type == o_beq || this->type == o_blt;
 }
-inline constexpr bool Operation::is_branch_fp(){
+inline constexpr bool Operation::is_branch_fp() const noexcept {
     return this->type == o_fbeq || this->type == o_fblt;
 }
-inline constexpr bool Operation::is_store(){
+inline constexpr bool Operation::is_store() const noexcept {
     return this->type == o_sw || this->type == o_si || this->type == o_std;
 }
-inline constexpr bool Operation::is_store_fp(){
+inline constexpr bool Operation::is_store_fp() const noexcept {
     return this->type == o_fsw;
 }
-inline constexpr bool Operation::is_op_imm(){
+inline constexpr bool Operation::is_op_imm() const noexcept {
     return this->type == o_addi || this->type == o_slli || this->type == o_srli || this->type == o_srai || this->type == o_andi;
 }
-inline constexpr bool Operation::is_load(){
+inline constexpr bool Operation::is_load() const noexcept {
     return this->type == o_lw || this->type == o_lre || this->type == o_lrd || this->type == o_ltf;
 }
-inline constexpr bool Operation::is_load_fp(){
+inline constexpr bool Operation::is_load_fp() const noexcept {
     return this->type == o_flw;
 }
-inline constexpr bool Operation::is_lw_flw_sw_fsw(){
+inline constexpr bool Operation::is_lw_flw_sw_fsw() const noexcept {
     return this->type == o_lw || this->type == o_flw || this->type == o_sw || this->type == o_fsw;
 }
-inline constexpr bool Operation::is_jalr(){
+inline constexpr bool Operation::is_jalr() const noexcept {
     return this->type == o_jalr;
 }
-inline constexpr bool Operation::is_jal(){
+inline constexpr bool Operation::is_jal() const noexcept {
     return this->type == o_jal;
 }
-inline constexpr bool Operation::is_lui(){
+inline constexpr bool Operation::is_lui() const noexcept {
     return this->type == o_lui;
 }
-inline constexpr bool Operation::is_itof(){
+inline constexpr bool Operation::is_itof() const noexcept {
     return this->type == o_fmvif;
 }
-inline constexpr bool Operation::is_ftoi(){
+inline constexpr bool Operation::is_ftoi() const noexcept {
     return this->type == o_fmvfi;
 }
-inline constexpr bool Operation::use_mem(){
+inline constexpr bool Operation::use_mem() const noexcept {
     return this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp();
 }
-inline constexpr bool Operation::use_alu(){
+inline constexpr bool Operation::use_alu() const noexcept {
     return this->is_op() || this->is_op_imm() || this->is_lui() || this->is_jal() || this->is_jalr() || this->is_itof();
 }
-inline constexpr bool Operation::use_multicycle_fpu(){
+inline constexpr bool Operation::use_multicycle_fpu() const noexcept {
     return this->type == o_fabs || this->type == o_fneg || this->type == o_fdiv || this->type == o_fsqrt || this->type == o_fcvtif || this->type == o_fcvtfi || this->type == o_fmvff || this->type == o_fmvif;
 }
-inline constexpr bool Operation::use_pipelined_fpu(){
+inline constexpr bool Operation::use_pipelined_fpu() const noexcept {
     return this->type == o_fadd || this->type == o_fsub || this->type == o_fmul;
 }
-inline constexpr bool Operation::use_rd_int(){
+inline constexpr bool Operation::use_rd_int() const noexcept {
     return this->is_op() || this->is_op_imm() || this->is_lui() || this->is_load() || this->is_jal() || this->is_jalr() || this->is_ftoi();
 }
-inline constexpr bool Operation::use_rd_fp(){
+inline constexpr bool Operation::use_rd_fp() const noexcept {
     return this->is_op_fp() || this->is_load_fp() || this->is_itof();
 }
-inline constexpr bool Operation::use_rs1_int(){
+inline constexpr bool Operation::use_rs1_int() const noexcept {
     return this->is_op() || this->is_op_imm() || this->is_load() || this->is_load_fp() || this->is_store() || this->is_store_fp() || this->is_branch() || this->is_jalr() || this->is_itof();
 }
-inline constexpr bool Operation::use_rs1_fp(){
+inline constexpr bool Operation::use_rs1_fp() const noexcept {
     return this->is_op_fp() || this->is_branch_fp() || this->is_ftoi();
 }
-inline constexpr bool Operation::use_rs2_int(){
+inline constexpr bool Operation::use_rs2_int() const noexcept {
     return this->is_op() || this->is_store() || this->is_branch();
 }
-inline constexpr bool Operation::use_rs2_fp(){
+inline constexpr bool Operation::use_rs2_fp() const noexcept {
     return this->is_op_fp() || this->is_store_fp() || this->is_branch_fp();
 }
-inline constexpr bool Operation::branch_conditionally_or_unconditionally(){
+inline constexpr bool Operation::branch_conditionally_or_unconditionally() const noexcept {
     return this->is_branch() || this->is_branch_fp() || this->is_jal() || this->is_jalr();
 }
-inline constexpr bool Operation::is_nop(){
+inline constexpr bool Operation::is_nop() const noexcept {
     return this->type == o_nop;
 }
-inline constexpr bool Operation::is_exit(){ // jal x0, 0
+inline constexpr bool Operation::is_exit() const noexcept { // jal x0, 0
     return this->type == o_jal && this->rd == 0 && this->imm == 0;
 }
 
@@ -705,12 +705,12 @@ inline Bit32 bit32_of_data(std::string data){
 }
 
 // x[n]
-constexpr inline unsigned int take_bit(unsigned int x, int n){
+constexpr inline unsigned int take_bit(unsigned int x, int n) noexcept {
     return n >= 0 ? (x >> n) & 1 : 0;
 }
 
 // x[to:from]
-constexpr inline unsigned int take_bits(unsigned int x, int from, int to){
+constexpr inline unsigned int take_bits(unsigned int x, int from, int to) noexcept {
     if(to >= 0){
         if(from >= 0){
             return (x >> from) & ((1 << (to - from + 1)) - 1);
@@ -723,7 +723,7 @@ constexpr inline unsigned int take_bits(unsigned int x, int from, int to){
 }
 
 // x[to:from]
-constexpr inline unsigned long long take_bits(unsigned long long x, int from, int to){
+constexpr inline unsigned long long take_bits(unsigned long long x, int from, int to) noexcept {
     if(to >= 0){
         if(from >= 0){
             return (x >> from) & ((1 << (to - from + 1)) - 1);
@@ -736,7 +736,7 @@ constexpr inline unsigned long long take_bits(unsigned long long x, int from, in
 }
 
 // x[n] == 1
-constexpr inline unsigned int isset_bit(unsigned int x, unsigned int n){
+constexpr inline unsigned int isset_bit(unsigned int x, unsigned int n) noexcept {
     return ((x >> n) & 1) == 1;
 }
 

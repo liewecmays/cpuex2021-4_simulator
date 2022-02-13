@@ -213,12 +213,12 @@ class Configuration{
         IF_stage IF;
         EX_stage EX;
         WB_stage WB;
-        int advance_clock(bool, std::string); // クロックを1つ分先に進める
-        constexpr Hazard_type intra_hazard_detector(std::array<Fetched_inst, 2>&); // 同時発行される命令の間のハザード検出
-        constexpr Hazard_type inter_hazard_detector(std::array<Fetched_inst, 2>&, unsigned int); // 同時発行されない命令間のハザード検出
-        constexpr Hazard_type iwp_hazard_detector(std::array<Fetched_inst, 2>&, unsigned int); // 書き込みポート数が不十分な場合のハザード検出
-        constexpr void wb_req_int(Instruction&); // WBステージに命令を渡す
-        constexpr void wb_req_fp(Instruction&); // WBステージに命令を渡す
+        int advance_clock(bool, const std::string&); // クロックを1つ分先に進める
+        constexpr Hazard_type intra_hazard_detector(const std::array<Fetched_inst, 2>&); // 同時発行される命令の間のハザード検出
+        constexpr Hazard_type inter_hazard_detector(const std::array<Fetched_inst, 2>&, unsigned int); // 同時発行されない命令間のハザード検出
+        constexpr Hazard_type iwp_hazard_detector(const std::array<Fetched_inst, 2>&, unsigned int); // 書き込みポート数が不十分な場合のハザード検出
+        constexpr void wb_req_int(const Instruction&); // WBステージに命令を渡す
+        constexpr void wb_req_fp(const Instruction&); // WBステージに命令を渡す
 };
 constexpr Configuration::Hazard_type operator||(Configuration::Hazard_type, Configuration::Hazard_type);
 
@@ -234,7 +234,7 @@ using enum Configuration::EX_stage::EX_ma::State_ma;
 
 
 // クロックを1つ分先に進める
-inline int Configuration::advance_clock(bool verbose, std::string bp){
+inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     Configuration config_next = Configuration(); // *thisを現在の状態として、次の状態
     int res = sim_state_continue;
 
@@ -773,7 +773,7 @@ inline constexpr Configuration::Hazard_type operator||(Configuration::Hazard_typ
 }
 
 // 同時発行される命令の間のハザード検出
-inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst){
+inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst){
     // RAW hazards
     if(
         ((fetched_inst[0].op.use_rd_int() && fetched_inst[1].op.use_rs1_int())
@@ -814,7 +814,7 @@ inline constexpr Configuration::Hazard_type Configuration::intra_hazard_detector
 }
 
 // 同時発行されない命令間のハザード検出
-inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){ // i = 0,1
+inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){ // i = 0,1
     // RAW hazards
     for(unsigned int j=0; j<3; ++j){
         if(
@@ -877,7 +877,7 @@ inline constexpr Configuration::Hazard_type Configuration::inter_hazard_detector
 }
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
-inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){
+inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){
     bool ma_wb_int_instantly = this->EX.ma.info.is_willing_but_not_ready_int[1] || this->EX.ma.info.is_willing_but_not_ready_int[2];
     bool ma_wb_fp = false;
     for(unsigned int j=0; j<3; ++j){
@@ -919,7 +919,7 @@ inline constexpr Configuration::Hazard_type Configuration::iwp_hazard_detector(s
 }
 
 // WBステージに命令を渡す
-inline constexpr void Configuration::wb_req_int(Instruction& inst){
+inline constexpr void Configuration::wb_req_int(const Instruction& inst){
     if(inst.op.is_nop()) return;
     if(!this->WB.inst_int[0].has_value()){
         this->WB.inst_int[0] = inst;
@@ -930,7 +930,7 @@ inline constexpr void Configuration::wb_req_int(Instruction& inst){
         // インライン展開のために省略
     }
 }
-inline constexpr void Configuration::wb_req_fp(Instruction& inst){
+inline constexpr void Configuration::wb_req_fp(const Instruction& inst){
     if(inst.op.is_nop()) return;
     if(!this->WB.inst_fp[0].has_value()){
         this->WB.inst_fp[0] = inst;
