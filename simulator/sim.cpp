@@ -357,7 +357,7 @@ int main(int argc, char *argv[]){
             }
             std::stringstream output;
             while(!send_buffer.empty()){
-                output << (unsigned char) send_buffer.pop().value().i;
+                output << (unsigned char) send_buffer.pop().i;
             }
             output_file << output.str();
             std::cout << head << "output image written in " << output_filename << std::endl;
@@ -750,17 +750,17 @@ bool exec_command(std::string cmd){
             TransmissionQueue copy = send_buffer;
             if(is_ppm){
                 while(!copy.empty()){
-                    output << (unsigned char) copy.pop().value().i;
+                    output << (unsigned char) copy.pop().i;
                 }
             }else if(is_bin){
                 unsigned int i;
                 while(!copy.empty()){
-                    i = copy.pop().value().i;
+                    i = copy.pop().i;
                     output.write((char*) &i, sizeof(char)); // 8bitだけ書き込む
                 }
             }else{
                 while(!copy.empty()){
-                    output << copy.pop().value().to_string(t_hex) << std::endl;
+                    output << copy.pop().to_string(t_hex) << std::endl;
                 }
             }
             output_file << output.str();
@@ -1015,7 +1015,7 @@ void exec_op(){
             return;
         case o_lrd:
             if(!receive_buffer.empty()){
-                reg_int.write_32(op.rd, receive_buffer.pop().value());
+                reg_int.write_32(op.rd, receive_buffer.pop());
             }else{
                 exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }

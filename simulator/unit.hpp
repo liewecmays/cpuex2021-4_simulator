@@ -3,7 +3,7 @@
 #include <iostream>
 #include <queue>
 #include <mutex>
-#include <optional>
+// #include <optional>
 
 /* レジスタ */
 class Reg{
@@ -114,10 +114,10 @@ class TransmissionQueue{
             std::lock_guard<std::mutex> lock(this->mutex);
             return this->q.empty();
         }
-        std::optional<Bit32> pop(){
+        Bit32 pop(){
             std::lock_guard<std::mutex> lock(this->mutex);
             if(this->q.empty()){
-                return std::nullopt;
+                std::exit(EXIT_FAILURE);
             }else{
                 Bit32 v = this->q.front();
                 this->q.pop();

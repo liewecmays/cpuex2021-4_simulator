@@ -1082,7 +1082,7 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             return;
         case o_lrd:
             if(!receive_buffer.empty()){
-                reg_int.write_32(this->ma3.inst.op.rd, receive_buffer.pop().value());
+                reg_int.write_32(this->ma3.inst.op.rd, receive_buffer.pop());
             }else{
                 exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->ma3.inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->ma3.inst.pc))) : "") + ")");
             }
