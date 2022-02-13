@@ -19,13 +19,13 @@ using ull = unsigned long long;
 Fpu fpu;
 
 // 定数の設定
-Bit32 e127_32 = {0x7f000000};
-Bit32 e31_32 = {0x4f000000};
-Bit64 e_23 = {0x3e80000000000000};
-Bit64 e_22 = {0x3e90000000000000};
-Bit64 e_20 = {0x3eb0000000000000};
-Bit64 e_126 = {0x3810000000000000};
-Bit64 e127 = {0x47e0000000000000};
+inline constexpr Bit32 e127_32 = {0x7f000000};
+inline constexpr Bit32 e31_32 = {0x4f000000};
+inline constexpr Bit64 e_23 = {0x3e80000000000000};
+inline constexpr Bit64 e_22 = {0x3e90000000000000};
+inline constexpr Bit64 e_20 = {0x3eb0000000000000};
+inline constexpr Bit64 e_126 = {0x3810000000000000};
+inline constexpr Bit64 e127 = {0x47e0000000000000};
 
 // 制御用の変数
 std::vector<std::string> types; // 検証対象の命令
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]){
                         }
                     }
                     x1.ui = i;
-                    if(t != o_itof && is_invalid(x1)) continue;
+                    if(t != f_itof && is_invalid(x1)) continue;
                     y = calc_fpu(x1, x2, t);
                     if(verify(x1, x2, y, t)){
                         ++error_count;
@@ -176,10 +176,10 @@ int main(int argc, char *argv[]){
             unsigned int i = 0;
             while(i<iteration){     
                 x1.ui = mt();
-                if(t != o_itof && is_invalid(x1)) continue;
+                if(t != f_itof && is_invalid(x1)) continue;
                 if(has_two_args(t)){
                     x2.ui = mt();
-                    if(t != o_itof && is_invalid(x2)) continue;
+                    if(t != f_itof && is_invalid(x2)) continue;
                 }
 
                 y = calc_fpu(x1, x2, t);
@@ -199,27 +199,27 @@ int main(int argc, char *argv[]){
 }
 
 // 実装基準を満たしているかどうかの判定 (満たしていない場合true)
-bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
+bool verify(const Bit32& x1, const Bit32& x2, const Bit32& y, Ftype t){
     double d_x1 = static_cast<double>(x1.f);
     double d_x2 = static_cast<double>(x2.f);
     double d_y = static_cast<double>(y.f);
     double d_std = calc_std(x1, x2, t);
     switch(t){
-        case o_fadd:
+        case f_fadd:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= max_of_4(std::abs(d_x1) * e_23.d, std::abs(d_x2) * e_23.d, std::abs(d_std) * e_23.d, e_126.d));
-        case o_fsub:
+        case f_fsub:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
                 && -e127.d < d_std && d_std < e127.d
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= max_of_4(std::abs(d_x1) * e_23.d, std::abs(d_x2) * e_23.d, std::abs(d_std) * e_23.d, e_126.d));
-        case o_fmul:
+        case f_fmul:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
@@ -227,7 +227,7 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 && !(std::abs(d_y) == e_126.d && d_y * d_std > 0.0 && std::abs(d_y - d_std) == e_126.d) // yが2^-126のときの情報落ちに対応
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_22.d, e_126.d));
-        case o_fdiv:
+        case f_fdiv:
             return
                 -e127_32.f < x1.f && x1.f < e127_32.f
                 && -e127_32.f < x2.f && x2.f < e127_32.f
@@ -236,17 +236,17 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
                 && !(std::abs(d_y) == e_126.d && d_y * d_std > 0.0 && std::abs(d_y - d_std) == e_126.d) // yが2^-126のときの情報落ちに対応
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= std::max(std::abs(d_std) * e_20.d, e_126.d));
-        case o_fsqrt:
+        case f_fsqrt:
             return
                 0.0f <= x1.f && x1.f < e127_32.f
                 && (is_invalid(y)
                 || std::abs(d_y - d_std) >= std::max(d_std * e_20.d, e_126.d));
-        case o_itof:
+        case f_itof:
             return
                 is_invalid(y)
                 || (!check_half(x1) && static_cast<float>(x1.i) != y.f)
                 || (check_half(x1) && Bit32(static_cast<float>(x1.i)).ui != y.ui && Bit32(static_cast<float>(x1.i)).ui != y.ui - 1); // 0.5のとき切り上げるか切り上げないか
-        case o_ftoi:
+        case f_ftoi:
             return
                 -e31_32.f + 1 <= x1.f && x1.f <= e31_32.f - 1
                 && static_cast<int>(std::round(x1.f)) != y.i;
@@ -257,21 +257,21 @@ bool verify(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
 }
 
 // FPUによる計算(1引数の場合x2は無視)
-Bit32 calc_fpu(Bit32 x1, Bit32 x2, Ftype t){
+Bit32 calc_fpu(const Bit32& x1, const Bit32& x2, Ftype t){
     switch(t){
-        case o_fadd:
+        case f_fadd:
             return fpu.fadd(x1, x2);
-        case o_fsub:
+        case f_fsub:
             return fpu.fsub(x1, x2);
-        case o_fmul:
+        case f_fmul:
             return fpu.fmul(x1, x2);
-        case o_fdiv:
+        case f_fdiv:
             return fpu.fdiv(x1, x2);
-        case o_fsqrt:
+        case f_fsqrt:
             return fpu.fsqrt(x1);
-        case o_itof:
+        case f_itof:
             return fpu.itof(x1);
-        case o_ftoi:
+        case f_ftoi:
             return fpu.ftoi(x1);
         default:
             std::cerr << "internal error" << std::endl;
@@ -280,23 +280,23 @@ Bit32 calc_fpu(Bit32 x1, Bit32 x2, Ftype t){
 }
 
 // 比較対象の値を返す
-double calc_std(Bit32 x1, Bit32 x2, Ftype t){
+double calc_std(const Bit32& x1, const Bit32& x2, Ftype t){
     double d_x1 = static_cast<double>(x1.f);
     double d_x2 = static_cast<double>(x2.f);
     switch(t){
-        case o_fadd:
+        case f_fadd:
             return d_x1 + d_x2;
-        case o_fsub:
+        case f_fsub:
             return d_x1 - d_x2;
-        case o_fmul:
+        case f_fmul:
             return d_x1 * d_x2;
-        case o_fdiv:
+        case f_fdiv:
             return d_x1 / d_x2;
-        case o_fsqrt:
+        case f_fsqrt:
             return std::sqrt(d_x1);
-        case o_itof:
+        case f_itof:
             return 0.0; // 使わない
-        case o_ftoi:
+        case f_ftoi:
             return 0.0; // 使わない
         default:
             std::cerr << "internal error" << std::endl;
@@ -305,21 +305,21 @@ double calc_std(Bit32 x1, Bit32 x2, Ftype t){
 }
 
 // IEEE754による計算
-float calc_ieee(Bit32 x1, Bit32 x2, Ftype t){
+float calc_ieee(const Bit32& x1, const Bit32& x2, Ftype t){
     switch(t){
-        case o_fadd:
+        case f_fadd:
             return x1.f + x2.f;
-        case o_fsub:
+        case f_fsub:
             return x1.f - x2.f;
-        case o_fmul:
+        case f_fmul:
             return x1.f * x2.f;
-        case o_fdiv:
+        case f_fdiv:
             return x1.f / x2.f;
-        case o_fsqrt:
+        case f_fsqrt:
             return std::sqrt(x1.f);
-        case o_itof:
+        case f_itof:
             return static_cast<float>(x1.i);
-        case o_ftoi:
+        case f_ftoi:
             return std::round(x1.f);
         default:
             std::cerr << "internal error" << std::endl;
@@ -328,15 +328,15 @@ float calc_ieee(Bit32 x1, Bit32 x2, Ftype t){
 }
 
 // 有効でない浮動小数点数を判定
-inline bool is_invalid(Bit32 b){
+inline constexpr bool is_invalid(const Bit32& b){
     return 
         (b.F.e == 0 && (b.F.e != 0 || b.F.m != 0)) // +0以外の非正規化数を除く
         || (b.F.e == 255); // infを除く
 }
 
 // 引数が2つかどうかを判定
-inline bool has_two_args(Ftype t){
-    if(t == o_fadd || t == o_fsub || t == o_fmul || t == o_fdiv){
+inline constexpr bool has_two_args(Ftype t){
+    if(t == f_fadd || t == f_fsub || t == f_fmul || t == f_fdiv){
         return true;
     }else{
         return false;
@@ -346,13 +346,13 @@ inline bool has_two_args(Ftype t){
 // Ftypeを文字列に変換
 std::string string_of_ftype(Ftype t){
     switch(t){
-        case o_fadd: return "fadd";
-        case o_fsub: return "fsub";
-        case o_fmul: return "fmul";
-        case o_fdiv: return "fdiv";
-        case o_fsqrt: return "fsqrt";
-        case o_itof: return "itof";
-        case o_ftoi: return "ftoi";
+        case f_fadd: return "fadd";
+        case f_fsub: return "fsub";
+        case f_fmul: return "fmul";
+        case f_fdiv: return "fdiv";
+        case f_fsqrt: return "fsqrt";
+        case f_itof: return "itof";
+        case f_ftoi: return "ftoi";
         default:
             std::cerr << "internal error" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -362,19 +362,19 @@ std::string string_of_ftype(Ftype t){
 // 文字列をFtypeに変換
 Ftype ftype_of_string(std::string s){
     if(s == "fadd"){
-        return o_fadd;
+        return f_fadd;
     }else if(s == "fsub"){
-        return o_fsub;
+        return f_fsub;
     }else if(s == "fmul"){
-        return o_fmul;
+        return f_fmul;
     }else if(s == "fdiv"){
-        return o_fdiv;
+        return f_fdiv;
     }else if(s == "fsqrt"){
-        return o_fsqrt;
+        return f_fsqrt;
     }else if(s == "itof"){
-        return o_itof;
+        return f_itof;
     }else if(s == "ftoi"){
-        return o_ftoi;
+        return f_ftoi;
     }else{
         std::cerr << "no such fpu type: " << s << std::endl;
         std::exit(EXIT_FAILURE);
@@ -382,7 +382,7 @@ Ftype ftype_of_string(std::string s){
 }
 
 // itofの際に2つの解がありえるケースかどうかを判定
-bool check_half(Bit32 x){
+inline constexpr bool check_half(const Bit32& x){
     ui abs_x = x.F.s == 1 ? ~x.ui + 1 : x.ui;
     bool res = false;
     if(abs_x != 0){
@@ -417,6 +417,6 @@ void print_result(Bit32 x1, Bit32 x2, Bit32 y, Ftype t){
     std::cout << std::setprecision(10) << "  ieee\t= " << ieee << "\t(" << Bit32(ieee).to_string(t_hex) << ")" << std::endl;
 }
 
-inline double max_of_4(double d1, double d2, double d3, double d4){
+inline constexpr double max_of_4(double d1, double d2, double d3, double d4){
     return std::max(d1, std::max(d2, std::max(d3, d4)));
 }
