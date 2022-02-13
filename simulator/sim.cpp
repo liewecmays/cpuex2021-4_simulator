@@ -200,10 +200,17 @@ int main(int argc, char *argv[]){
         pc = 100;
     }
 
-    // レイトレを処理する場合は予めreserve
+    // レイトレを処理する場合の特別対応
     if(is_raytracing){
+        // 命令用のvectorを確保
         op_list.reserve(12000);
+
+        // メモリはこれくらい
         mem_size = 2500000; // 10MB
+
+        // バッファ先読みを有効に
+        is_preloading = true;
+        preload_filename = "contest";
     }
 
     // メモリ領域の確保
