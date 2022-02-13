@@ -1,9 +1,11 @@
 #pragma once
-#include "common.hpp"
+#include <common.hpp>
+#include <unit.hpp>
 #include <string>
 #include <queue>
+#include <boost/lockfree/spsc_queue.hpp>
 #include <boost/bimap/bimap.hpp>
-#include <atomic>
+
 
 /* typedef宣言 */
 // boost::bimaps関連の略記
@@ -12,25 +14,19 @@ typedef bimap_t::value_type bimap_value_t;
 typedef boost::bimaps::bimap<unsigned int, int> bimap_t2;
 typedef bimap_t2::value_type bimap_value_t2;
 
-/* クラスの定義 */
-// スレッドの管理用フラグ
-class Cancel_flag{
-    std::atomic<bool> signaled_{ false };
-    public:
-        void signal(){signaled_ = true;}
-        bool operator!() {return !signaled_;}
-};
+/* extern宣言 */
+extern int port;
+extern TransmissionQueue receive_buffer;
+extern TransmissionQueue send_buffer;
+extern bool is_raytracing;
 
 /* プロトタイプ宣言 */
 void simulate(); // シミュレーションの本体処理
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
-void receive_data(); // データの受信
-void send_data(Cancel_flag&); // データの送信
 void output_info(); // 情報の出力
 void exec_op(); // 命令を実行し、PCを変化させる
 Bit32 read_memory(int);
 void write_memory(int, const Bit32&);
-bool check_cache(int);
 void print_reg(); // 整数レジスタの内容を表示
 void print_reg_fp(); // 浮動小数点数レジスタの内容を表示
 void print_memory(int, int); // 4byte単位でメモリの内容を出力

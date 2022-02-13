@@ -1,6 +1,9 @@
 #pragma once
 #include <common.hpp>
 #include <iostream>
+#include <queue>
+#include <mutex>
+#include <optional>
 
 /* レジスタ */
 class Reg{
@@ -75,6 +78,7 @@ inline constexpr void Cache::write(unsigned int addr){
     this->lines[index].tag = tag;
 }
 
+/* メモリ */
 class Memory{
     private:
         Bit32* data;
@@ -88,4 +92,49 @@ class Memory{
                 std::cout << "mem[" << i << "]: " << this->data[i].to_string() << std::endl;
             }
         };
+};
+
+
+/* 送受信用のキュー */
+class TransmissionQueue{
+    private:
+        std::queue<Bit32> q;
+        mutable std::mutex mutex;
+    public:
+        TransmissionQueue() = default;
+        TransmissionQueue(const TransmissionQueue& original){
+            this->q = original.q;
+        }
+        TransmissionQueue& operator=(const TransmissionQueue& original){
+            TransmissionQueue copy;
+            copy.q = original.q;
+            return copy;
+        }
+        bool empty(){
+            std::lock_guard<std::mutex> lock(this->mutex);
+            return this->q.empty();
+        }
+        std::optional<Bit32> pop(){
+            std::lock_guard<std::mutex> lock(this->mutex);
+            if(this->q.empty()){
+                return std::nullopt;
+            }else{
+                Bit32 v = this->q.front();
+                this->q.pop();
+                return v;
+            }
+        }
+        void push(const Bit32& v){
+            std::lock_guard<std::mutex> lock(this->mutex);
+            this->q.push(v);
+        }
+        void print(unsigned int size){
+            std::queue<Bit32> copy = this->q;
+            while(!copy.empty() && size > 0){
+                std::cout << copy.front().to_string() << "; ";
+                copy.pop();
+                --size;
+            }
+            std::cout << std::endl;
+        }
 };

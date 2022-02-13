@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <bitset>
 #include <algorithm>
+#include <atomic>
 #include <string_view>
 
 
@@ -738,3 +739,12 @@ constexpr inline unsigned long long take_bits(unsigned long long x, int from, in
 constexpr inline unsigned int isset_bit(unsigned int x, unsigned int n){
     return ((x >> n) & 1) == 1;
 }
+
+
+/* スレッドの管理用フラグ */
+class Cancel_flag{
+    std::atomic<bool> signaled_{ false };
+    public:
+        void signal(){signaled_ = true;}
+        bool operator!() {return !signaled_;}
+};
