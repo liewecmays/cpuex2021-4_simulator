@@ -3,7 +3,7 @@ OUTPUT_OPTION := -I./ -std=c++20 -Wall -O3 -mtune=native -march=native -pthread
 
 default: sim sim-d sim2
 
-all: clean sim sim2 server fpu_test
+all: clean sim sim-d sim2 server fpu_test
 
 sim: common.hpp unit.hpp fpu.hpp sim.hpp sim.cpp
 	$(CC) $(OUTPUT_OPTION) -o $@ sim.cpp -lboost_program_options
