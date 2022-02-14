@@ -83,6 +83,8 @@ class Operation{
         constexpr bool is_op_fp() const;
         constexpr bool is_branch() const;
         constexpr bool is_branch_fp() const;
+        constexpr bool is_conditional() const;
+        constexpr bool is_unconditional() const;
         constexpr bool is_store() const;
         constexpr bool is_store_fp() const;
         constexpr bool is_op_imm() const;
@@ -489,6 +491,12 @@ inline constexpr bool Operation::is_branch() const noexcept {
 }
 inline constexpr bool Operation::is_branch_fp() const noexcept {
     return this->type == o_fbeq || this->type == o_fblt;
+}
+inline constexpr bool Operation::is_conditional() const noexcept {
+    return this->is_branch() || this->is_branch_fp();
+}
+inline constexpr bool Operation::is_unconditional() const noexcept {
+    return this->type == o_jalr || this->type == o_jal;
 }
 inline constexpr bool Operation::is_store() const noexcept {
     return this->type == o_sw || this->type == o_si || this->type == o_std;

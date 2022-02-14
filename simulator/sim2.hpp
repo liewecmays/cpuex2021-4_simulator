@@ -23,6 +23,7 @@ extern Fpu fpu;
 extern unsigned int code_size;
 extern TransmissionQueue receive_buffer;
 extern TransmissionQueue send_buffer;
+extern BranchPredictor branch_predictor;
 extern bool is_debug;
 extern bool is_quick;
 extern bool is_ieee;

@@ -206,3 +206,21 @@ inline constexpr void Gshare::update(unsigned int pc, bool taken){
 }
 
 inline constexpr unsigned int gshare_width = 12;
+
+/* 分岐予測 (for sim2) */
+class BranchPredictor{
+    private:
+        unsigned int shreg; // global history (shift register)
+        unsigned int pht[(1 << gshare_width)]; // pattern history table
+    public:
+        BranchPredictor(){
+            this->shreg = 0;
+            for(int i=0; i<(1<<gshare_width); ++i) this->pht[i] = 1;
+        }
+        constexpr unsigned int pht_read_index(int pc){ return (this->shreg ^ pc) & ((1 << gshare_width) - 1); }
+        constexpr unsigned int pht_read_data(unsigned int index){ return this->pht[index]; }
+        constexpr void update(unsigned int index, unsigned int data, bool comp_res){
+            this->shreg = (this->shreg << 1) | (comp_res ? 1 : 0);
+            this->pht[index] = std::clamp(data + (comp_res ? 1 : -1), 0U, 3U);
+        }
+};

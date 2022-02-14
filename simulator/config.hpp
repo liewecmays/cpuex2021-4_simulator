@@ -26,10 +26,8 @@ class Fetched_inst{
     public:
         Operation op;
         int pc;
-        Fetched_inst(){
-            this->op = Operation();
-            this->pc = -1;
-        }
+        unsigned int pht_index;
+        unsigned int pht_data;
         std::string to_string(){
             return std::to_string(pc) + ", " + op.to_string();
         }
@@ -128,7 +126,7 @@ class Configuration{
                         std::array<Fetched_inst, 4> array;
                 };
             public:
-                int fetch_addr; // 先頭のみ保持
+                int fetch_addr = 0; // 先頭のみ保持
                 IF_queue queue;
         };
 
@@ -143,7 +141,11 @@ class Configuration{
                 class EX_br{
                     public:
                         Instruction inst;
-                        std::optional<unsigned int> branch_addr;
+                        bool early_branch_taken;
+                        bool actual_branch_taken;
+                        unsigned int pht_index;
+                        unsigned int pht_data;
+                        std::optional<int> branch_addr;
                         void exec();
                 };
                 class EX_ma{
@@ -339,7 +341,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     fetched_inst[0] = this->IF.queue.array[this->IF.queue.head.val()];
     fetched_inst[1] = this->IF.queue.array[this->IF.queue.head.nxt()];
 
-    // dispatch ?
+    // 命令発行の判定
     std::array<Hazard_type, 2> hazard_type;
     std::array<bool, 2> is_not_dispatched;
     if(fetched_inst[0].op.is_nop() && fetched_inst[1].op.is_nop() && this->clk != 0){
@@ -357,8 +359,11 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         }
     }
 
+    // ID段階での分岐の決定 (予測含む)
+    bool id_branch_taken = fetched_inst[0].op.is_jal() || (fetched_inst[0].op.is_conditional() && !is_not_dispatched[0] && fetched_inst[0].pht_data >= 2); 
+    
     // update `head`
-    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+    if(this->EX.br.branch_addr.has_value() || id_branch_taken){
         config_next.IF.queue.head = 0;
     }else{
         if(is_not_dispatched[0]){
@@ -371,7 +376,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     }
 
     // update `tail`
-    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+    if(this->EX.br.branch_addr.has_value() || id_branch_taken){
         config_next.IF.queue.head = 0;
     }else{
         switch(this->IF.queue.num){
@@ -390,7 +395,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     }
 
     // update `num`
-    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
+    if(this->EX.br.branch_addr.has_value() || id_branch_taken){
         config_next.IF.queue.num = 0;
     }else{
         if(is_not_dispatched[0]){
@@ -423,7 +428,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     // update `fetch_addr`
     if(this->EX.br.branch_addr.has_value()){
         config_next.IF.fetch_addr = this->EX.br.branch_addr.value();
-    }else if(fetched_inst[0].op.is_jal()){
+    }else if(id_branch_taken){
         config_next.IF.fetch_addr = fetched_inst[0].pc + fetched_inst[0].op.imm;
     }else{
         switch(this->IF.queue.num){
@@ -441,8 +446,8 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     }
 
     // update queue
-    if(this->EX.br.branch_addr.has_value() || fetched_inst[0].op.is_jal()){
-        //
+    if(this->EX.br.branch_addr.has_value() || id_branch_taken){
+        // reset
     }else{
         config_next.IF.queue.array = this->IF.queue.array;
 
@@ -450,14 +455,21 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         if(this->IF.queue.num < 4){
             tmp.pc = this->IF.fetch_addr;
             tmp.op = op_list[tmp.pc];
+            tmp.pht_index = branch_predictor.pht_read_index(tmp.pc);
+            tmp.pht_data = branch_predictor.pht_read_data(tmp.pht_index);
             config_next.IF.queue.array[this->IF.queue.tail.val()] = tmp;
         }
         if(this->IF.queue.num < 3){
             tmp.pc = this->IF.fetch_addr + 1;
             tmp.op = op_list[tmp.pc];
+            tmp.pht_index = branch_predictor.pht_read_index(tmp.pc);
+            tmp.pht_data = branch_predictor.pht_read_data(tmp.pht_index);
             config_next.IF.queue.array[this->IF.queue.tail.nxt()] = tmp;
         }
     }
+
+    // 分岐予測の更新 (本来EXでやっているはずだったものを遅らせてここでやっている)
+    if(this->EX.br.inst.op.is_conditional()) branch_predictor.update(this->EX.br.pht_index, this->EX.br.pht_data, this->EX.br.actual_branch_taken);
 
     // distribution + reg fetch
     for(unsigned int i=0; i<2; ++i){
@@ -493,6 +505,9 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
                 config_next.EX.br.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
                 config_next.EX.br.inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
                 config_next.EX.br.inst.pc = fetched_inst[i].pc;
+                config_next.EX.br.early_branch_taken = id_branch_taken;
+                config_next.EX.br.pht_index = fetched_inst[i].pht_index;
+                config_next.EX.br.pht_data = fetched_inst[i].pht_data;
                 break;
             case o_fbeq:
             case o_fblt:
@@ -500,6 +515,9 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
                 config_next.EX.br.inst.rs1_v = reg_fp.read_32(fetched_inst[i].op.rs1);
                 config_next.EX.br.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
                 config_next.EX.br.inst.pc = fetched_inst[i].pc;
+                config_next.EX.br.early_branch_taken = id_branch_taken;
+                config_next.EX.br.pht_index = fetched_inst[i].pht_index;
+                config_next.EX.br.pht_data = fetched_inst[i].pht_data;
                 break;
             // BR (unconditional)
             case o_jal:
@@ -511,6 +529,9 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
                 config_next.EX.br.inst.op = fetched_inst[i].op;
                 config_next.EX.br.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
                 config_next.EX.br.inst.pc = fetched_inst[i].pc;
+                config_next.EX.br.early_branch_taken = id_branch_taken;
+                config_next.EX.br.pht_index = fetched_inst[i].pht_index;
+                config_next.EX.br.pht_data = fetched_inst[i].pht_data;
                 break;
             // MA
             case o_sw:
@@ -920,44 +941,49 @@ inline void Configuration::EX_stage::EX_al::exec(){
 }
 
 inline void Configuration::EX_stage::EX_br::exec(){
+    bool comp_res;
+    int target = this->inst.pc + this->inst.op.imm;
     switch(this->inst.op.type){
         // branch
         case o_beq:
-            if(this->inst.rs1_v.i == this->inst.rs2_v.i){
-                this->branch_addr = this->inst.pc + this->inst.op.imm;
-            }
+            comp_res = (this->inst.rs1_v.i == this->inst.rs2_v.i);
             ++op_type_count[o_beq];
-            return;
+            break;
         case o_blt:
-            if(this->inst.rs1_v.i < this->inst.rs2_v.i){
-                this->branch_addr = this->inst.pc + this->inst.op.imm;
-            }
+            comp_res = (this->inst.rs1_v.i < this->inst.rs2_v.i);
             ++op_type_count[o_blt];
-            return;
+            break;
         // branch_fp
         case o_fbeq:
-            if(this->inst.rs1_v.f == this->inst.rs2_v.f){
-                this->branch_addr = this->inst.pc + this->inst.op.imm;
-            }
+            comp_res = (this->inst.rs1_v.f == this->inst.rs2_v.f);
             ++op_type_count[o_fbeq];
-            return;
+            break;
         case o_fblt:
-            if(this->inst.rs1_v.f < this->inst.rs2_v.f){
-                this->branch_addr = this->inst.pc + this->inst.op.imm;
-            }
+            comp_res = (this->inst.rs1_v.f < this->inst.rs2_v.f);
             ++op_type_count[o_fblt];
-            return;
+            break;
         // jalr
         case o_jalr:
-            this->branch_addr = this->inst.rs1_v.ui;
+            comp_res = true;
+            target = this->inst.rs1_v.ui;
             ++op_type_count[o_jalr];
-            return;
+            break;
         // jal
         case o_jal:
-            this->branch_addr = this->inst.pc + this->inst.op.imm;
+            comp_res = true;
             ++op_type_count[o_jal];
-            return;
+            break;
         default: return;
+    }
+
+    this->actual_branch_taken = comp_res;
+
+    // 外れた場合のみ分岐を有効化
+    if(
+        (this->inst.op.is_conditional() && (this->early_branch_taken != comp_res)) ||
+        (this->inst.op.is_unconditional() && !this->early_branch_taken)
+    ){
+        this->branch_addr = (this->early_branch_taken ? this->inst.pc + 1 : target);
     }
 }
 

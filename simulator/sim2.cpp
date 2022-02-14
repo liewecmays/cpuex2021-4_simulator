@@ -29,6 +29,7 @@ Memory_with_cache memory; // メモリ(キャッシュは内部)
 Fpu fpu; // FPU
 TransmissionQueue receive_buffer; // 外部通信での受信バッファ
 TransmissionQueue send_buffer; // 外部通信での受信バッファ
+BranchPredictor branch_predictor; // 分岐予測器
 
 unsigned int code_size = 0; // コードサイズ
 int mem_size = 100; // メモリサイズ
@@ -140,6 +141,9 @@ int main(int argc, char *argv[]){
 
     // メモリ領域の確保
     memory = Memory_with_cache(mem_size, index_width, offset_width);
+
+    // 分岐予測器
+    branch_predictor = BranchPredictor();
 
     // バッファのデータのプリロード
     if(is_preloading){
