@@ -40,7 +40,6 @@ int sim_state = sim_state_continue; // シミュレータの状態管理
 bool is_debug = false; // デバッグモード
 bool is_bin = false; // バイナリファイルモード
 bool is_raytracing = false; // レイトレ専用モード
-bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_quick = false; // マルチサイクルの処理をすぐに終わったものと見なすモード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
@@ -75,7 +74,6 @@ int main(int argc, char *argv[]){
         ("bin,b", "binary-input mode")
         ("mem,m", po::value<int>(), "memory size")
         ("raytracing,r", "specialized for ray-tracing program")
-        ("skip,s", "skipping bootloading")
         ("ieee", "IEEE754 mode")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
 	po::variables_map vm;
@@ -102,8 +100,6 @@ int main(int argc, char *argv[]){
     if(vm.count("bin")) is_bin = true;
     if(vm.count("mem")) mem_size = vm["mem"].as<int>();
     if(vm.count("raytracing")) is_raytracing = true;
-    if(vm.count("skip")) is_skip = true;
-    if(vm.count("quick")) is_quick = true;
     if(vm.count("ieee")) is_ieee = true;
     if(vm.count("preload")){
         is_preloading = true;
@@ -128,13 +124,6 @@ int main(int argc, char *argv[]){
 
     // ここからシミュレータの処理開始
     std::cout << head << "simulation start" << std::endl;
-
-    // ブートローダ処理をスキップする場合の処理
-    if(is_skip){
-        op_list.resize(100);
-        // config.IF.pc[0] = 392;
-        // config.IF.pc[0] = 396;
-    }
 
     // レイトレを処理する場合は予めreserve
     if(is_raytracing){
@@ -180,7 +169,7 @@ int main(int argc, char *argv[]){
     // ファイルの各行をパースしてop_listに追加
     std::string code;
     std::string code_keep; // 空白でない最後の行を保存
-    unsigned int code_id = 0; // is_skip ? 100 : 0;
+    unsigned int code_id = 0;
     if(!is_bin){
         std::regex regex_empty = std::regex("^\\s*\\r?\\n?$");
         std::regex regex_dbg = std::regex("^\\d{32}@(-?\\d+)$");

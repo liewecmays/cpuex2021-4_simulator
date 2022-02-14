@@ -556,10 +556,6 @@ bool exec_command(std::string cmd){
             std::cout << "  taken rate: " << static_cast<double>(branch_predictor.taken_count) / branch_predictor.total_count << std::endl;
             std::cout << "  correct rate: " << static_cast<double>(branch_predictor.correct_count) / branch_predictor.total_count << std::endl;
         }
-        std::cout << "execution stat:" << std::endl;
-        for(int i=0; i<op_type_num; ++i){
-            std::cout << "  " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
-        }
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
         reg_int.print(true, t_default);
         reg_fp.print(false, t_float);
