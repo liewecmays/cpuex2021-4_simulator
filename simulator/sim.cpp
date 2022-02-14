@@ -1084,9 +1084,9 @@ void output_info(){
         ss << "- cache:" << std::endl;
         ss << "\t- line num: " << std::pow(2, index_width) << std::endl;
         ss << "\t- block size: " << std::pow(2, offset_width) << std::endl;
-        ss << "\t- accessed: " << cache.read_times << std::endl;
+        ss << "\t- accessed: " << cache.accessed_times << std::endl;
         ss << "\t- hit: " << cache.hit_times << std::endl;
-        ss << "\t- hit rate: " << static_cast<double>(cache.hit_times) / cache.read_times << std::endl;
+        ss << "\t- hit rate: " << static_cast<double>(cache.hit_times) / cache.accessed_times << std::endl;
     }
     if(is_stat && is_raytracing){
         ss << "- stack:" << std::endl;

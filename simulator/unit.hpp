@@ -51,7 +51,7 @@ class Cache{
         unsigned int index_width;
         unsigned int offset_width;
     public:
-        unsigned long long read_times;
+        unsigned long long accessed_times;
         unsigned long long hit_times;
         constexpr Cache(){ this->tags = {}; } // 宣言するとき用
         constexpr Cache(unsigned int index_width, unsigned int offset_width){
@@ -62,15 +62,14 @@ class Cache{
         constexpr unsigned int tag_width(){ return addr_width - (this->index_width + this->offset_width); }
         constexpr void read(unsigned int);
         constexpr void write(unsigned int);
-        constexpr unsigned int update(bool, unsigned int, unsigned int);
 };
 
 
 inline constexpr void Cache::read(unsigned int addr){
-    ++this->read_times;
+    ++this->accessed_times;
 
-    unsigned int index = take_bits(addr, this->offset_width, this->index_width);
-    unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
+    unsigned int index = take_bits(addr, this->offset_width, this->offset_width + this->index_width - 1);
+    unsigned int tag = take_bits(addr, this->offset_width + this->index_width, addr_width - 1);
 
     if(this->tags[index] == tag){
         ++this->hit_times;
@@ -80,18 +79,15 @@ inline constexpr void Cache::read(unsigned int addr){
 }
 
 inline constexpr void Cache::write(unsigned int addr){
-    unsigned int index = take_bits(addr, this->offset_width, this->index_width);
-    unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
+    ++this->accessed_times;
+
+    unsigned int index = take_bits(addr, this->offset_width, this->offset_width + this->index_width - 1);
+    unsigned int tag = take_bits(addr, this->offset_width + this->index_width, addr_width - 1);
     
+    if(this->tags[index] == tag) ++this->hit_times;
     this->tags[index] = tag;
 }
 
-inline constexpr unsigned int Cache::update(bool wea, unsigned int addra, unsigned int addrb){
-    unsigned int tag_dout = this->tags[take_bits(addrb, this->offset_width, this->index_width)];
-    if(wea) this->tags[take_bits(addra, this->offset_width, this->index_width)] = take_bits(addra, this->offset_width + this->index_width, this->tag_width());
-
-    return tag_dout;
-}
 
 /* メモリ */
 constexpr int memory_border = 5000000;
