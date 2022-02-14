@@ -606,13 +606,25 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         // IF
         std::cout << "\x1b[1m[IF]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << (this->IF.fetch_addr + i) << ((is_debug && (this->IF.fetch_addr + i) < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->IF.fetch_addr + i))) : "") << std::endl;
+            std::cout
+            << (i==0 ? " " : "     ")
+            << "if[" << i << "] : pc="
+            << (this->IF.fetch_addr + i)
+            << ((is_debug && (this->IF.fetch_addr + i) < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(this->IF.fetch_addr + i))) : "")
+            << std::endl;
         }
 
         // ID
         std::cout << "\x1b[1m[ID]\x1b[0m";
         for(unsigned int i=0; i<2; ++i){
-            std::cout << (i==0 ? " " : "     ") << "id[" << i << "] : " << fetched_inst[i].op.to_string() << " (pc=" << fetched_inst[i].pc << ((is_debug && 0 <= fetched_inst[i].pc && fetched_inst[i].pc < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(fetched_inst[i].pc))) : "") << ")" << (is_not_dispatched[i] ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m") << std::endl;
+            std::cout
+            << (i==0 ? " " : "     ")
+            << "id[" << i << "] : "
+            << fetched_inst[i].op.to_string() << " (pc=" << fetched_inst[i].pc
+            << ((is_debug && 0 <= fetched_inst[i].pc && fetched_inst[i].pc < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(fetched_inst[i].pc))) : "") << ")"
+            << (is_not_dispatched[i] ? ("\x1b[1m\x1b[31m -> not dispatched\x1b[0m [" + std::string(NAMEOF_ENUM(hazard_type[i])) + "]") : "\x1b[1m -> dispatched\x1b[0m")
+            << ((i == 0 && fetched_inst[i].op.is_conditional()) ? (id_branch_taken ? " [prediction: taken]" : " [prediction: untaken]") : "")
+            << std::endl;
         }
 
         // EX
@@ -621,7 +633,12 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         // EX_al
         for(unsigned int i=0; i<2; ++i){
             if(!this->EX.als[i].inst.op.is_nop()){
-                std::cout << (i==0 ? " " : "     ") << "al" << i << "   : " << this->EX.als[i].inst.op.to_string() << " (pc=" << this->EX.als[i].inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.als[i].inst.pc))) : "") << ")" << std::endl;
+                std::cout
+                << (i==0 ? " " : "     ")
+                << "al" << i << "   : "
+                << this->EX.als[i].inst.op.to_string()
+                << " (pc=" << this->EX.als[i].inst.pc
+                << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.als[i].inst.pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << (i==0 ? " " : "     ") << "al" << i << "   :" << std::endl;
             }
@@ -629,7 +646,13 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
 
         // EX_br
         if(!this->EX.br.inst.op.is_nop()){
-            std::cout << "     br    : " << this->EX.br.inst.op.to_string() << " (pc=" << this->EX.br.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.br.inst.pc))) : "") << ")" << (this->EX.br.branch_addr.has_value() ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m") << std::endl;
+            std::cout
+            << "     br    : "
+            << this->EX.br.inst.op.to_string()
+            << " (pc=" << this->EX.br.inst.pc
+            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.br.inst.pc))) : "") << ")"
+            << (this->EX.br.actual_branch_taken ? "\x1b[1m -> taken\x1b[0m" : "\x1b[1m -> untaken\x1b[0m")
+            << (this->EX.br.branch_addr.has_value() ? " [miss]" : " [hit]") << std::endl;
         }else{
             std::cout << "     br    :" << std::endl;
         }
@@ -637,28 +660,45 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         // EX_ma
         // ma1
         if(!this->EX.ma.ma1.inst.op.is_nop()){
-            std::cout << "     ma1   : " << this->EX.ma.ma1.inst.op.to_string() << " (pc=" << this->EX.ma.ma1.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma1.inst.pc))) : "") << ")" << std::endl;
+            std::cout
+            << "     ma1   : "
+            << this->EX.ma.ma1.inst.op.to_string()
+            << " (pc=" << this->EX.ma.ma1.inst.pc
+            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma1.inst.pc))) : "") << ")" << std::endl;
         }else{
             std::cout << "     ma1   :" << std::endl;
         }
 
         // ma2
         if(!this->EX.ma.ma2.inst.op.is_nop()){
-            std::cout << "     ma2   : " << this->EX.ma.ma2.inst.op.to_string() << " (pc=" << this->EX.ma.ma2.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma2.inst.pc))) : "") << ") " << std::endl;
+            std::cout
+            << "     ma2   : "
+            << this->EX.ma.ma2.inst.op.to_string()
+            << " (pc=" << this->EX.ma.ma2.inst.pc
+            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma2.inst.pc))) : "") << ") " << std::endl;
         }else{
             std::cout << "     ma2   :" << std::endl;
         }
 
         // ma3
         if(!this->EX.ma.ma3.inst.op.is_nop()){
-            std::cout << "     ma3   : " << this->EX.ma.ma3.inst.op.to_string() << " (pc=" << this->EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma3.inst.pc))) : "") << ")" << std::endl;
+            std::cout
+            << "     ma3   : "
+            << this->EX.ma.ma3.inst.op.to_string()
+            << " (pc=" << this->EX.ma.ma3.inst.pc
+            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma3.inst.pc))) : "") << ")" << std::endl;
         }else{
             std::cout << "     ma3   :" << std::endl;
         }
 
         // EX_mfp
         if(!this->EX.mfp.inst.op.is_nop()){
-            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.mfp.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state == MFP_busy ? (", remain: " + std::to_string(this->EX.mfp.remaining_cycle)) : "") << "]" << std::endl;
+            std::cout
+            << "     mfp   : "
+            << this->EX.mfp.inst.op.to_string()
+            << " (pc=" << this->EX.mfp.inst.pc
+            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.mfp.inst.pc))) : "")
+            << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state == MFP_busy ? (", remain: " + std::to_string(this->EX.mfp.remaining_cycle)) : "") << "]" << std::endl;
         }else{
             std::cout << "     mfp   :" << std::endl;
         }
@@ -666,7 +706,11 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         // EX_pfp
         for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
             if(!this->EX.pfp.inst[i].op.is_nop()){
-                std::cout << "     pfp[" << i << "]: " << this->EX.pfp.inst[i].op.to_string() << " (pc=" << this->EX.pfp.inst[i].pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.pfp.inst[i].pc))) : "") << ")" << std::endl;
+                std::cout
+                << "     pfp[" << i << "]: "
+                << this->EX.pfp.inst[i].op.to_string()
+                << " (pc=" << this->EX.pfp.inst[i].pc
+                << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.pfp.inst[i].pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << "     pfp[" << i << "]:" << std::endl;
             }
