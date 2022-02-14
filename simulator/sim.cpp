@@ -45,6 +45,7 @@ TransmissionQueue send_buffer; // 外部通信での送信バッファ
 
 
 // シミュレーションの制御
+int sim_state = sim_state_continue; // シミュレータの状態管理
 bool is_debug = false; // デバッグモード
 bool is_info_output = false; // 出力モード
 bool is_bin = false; // バイナリファイルモード
@@ -352,7 +353,7 @@ int main(int argc, char *argv[]){
     if(is_info_output || is_stat) output_info();
     
     // レイトレの場合は画像も出力
-    if(is_raytracing){
+    if(is_raytracing && sim_state == sim_state_end){
         if(!send_buffer.empty()){
             std::string output_filename = "./out/output_" + timestamp + ".ppm";
             std::ofstream output_file(output_filename);
@@ -392,7 +393,6 @@ void simulate(){
 }
 
 // デバッグモードのコマンドを認識して実行
-int sim_state = sim_state_continue; // シミュレータの状態管理
 bool is_in_step = false; // step実行の途中
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue

@@ -249,7 +249,7 @@ int main(int argc, char *argv[]){
     // if(is_info_output || is_detailed_debug) output_info();
 
     // レイトレの場合は画像も出力
-    if(is_raytracing){
+    if(is_raytracing && sim_state == sim_state_end){
         if(!send_buffer.empty()){
             std::string output_filename = "./out/output_" + timestamp + ".ppm";
             std::ofstream output_file(output_filename);
