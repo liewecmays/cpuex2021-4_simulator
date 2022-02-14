@@ -436,8 +436,8 @@ bool exec_command(std::string cmd){
             }
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
-        // print_reg();
-        // print_reg_fp();
+        reg_int.print(true, t_default);
+        reg_fp.print(false, t_float);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+-(d|b|h|f|o))?(\\s+(x|f)(\\d+))+\\s*$"))){ // print (option) reg
         unsigned int reg_no;
         Stype st = t_default;

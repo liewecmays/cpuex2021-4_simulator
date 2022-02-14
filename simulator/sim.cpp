@@ -9,7 +9,6 @@
 #include <vector>
 #include <boost/bimap/bimap.hpp>
 #include <regex>
-#include <iomanip>
 #include <boost/program_options.hpp>
 #include <chrono>
 #ifdef DETAILED
@@ -587,11 +586,9 @@ bool exec_command(std::string cmd){
         for(int i=0; i<op_type_num; ++i){
             std::cout << "  " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
         }
-    // }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s*$"))){ // print
-    //
     }else if(std::regex_match(cmd, std::regex("^\\s*(p|(print))\\s+reg\\s*$"))){ // print reg
-        // print_reg();
-        // print_reg_fp();
+        reg_int.print(true, t_default);
+        reg_fp.print(false, t_float);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))\\s+(rbuf|sbuf)(\\s+(\\d+))?\\s*$"))){ // print rbuf/sbuf N
         unsigned int size;
         if(match[4].str() == ""){
@@ -1174,34 +1171,6 @@ inline void write_memory(int w, const Bit32& v){
     #endif
     memory[w] = v;
 }
-
-// // 整数レジスタの内容を表示
-// void print_reg(){
-//     for(int i=0; i<32; ++i){
-//         std::cout << "\x1b[1mx" << i << "\x1b[0m:" << std::ends;
-//         if(i < 10) std::cout << " " << std::ends;
-//         std::cout.setf(std::ios::hex, std::ios::basefield);
-//         std::cout.fill('0');
-//         std::cout << reg_list[i].to_string() << " " << std::ends;
-//         std::cout.setf(std::ios::dec, std::ios::basefield);
-//         if(i % 4 == 3) std::cout << std::endl;
-//     }
-//     return;
-// }
-
-// // 浮動小数点数レジスタの内容を表示
-// void print_reg_fp(){
-//     for(int i=0; i<32; ++i){
-//         std::cout << "\x1b[1mf" << i << "\x1b[0m:" << std::ends;
-//         if(i < 10) std::cout << " " << std::ends;
-//         std::cout.setf(std::ios::hex, std::ios::basefield);
-//         std::cout.fill('0');
-//         std::cout << std::setw(8) << *((int*)&(reg_fp_list[i])) << " " << std::ends;
-//         std::cout.setf(std::ios::dec, std::ios::basefield);
-//         if(i % 4 == 3) std::cout << std::endl;
-//     }
-//     return;
-// }
 
 // startからwidthぶん、4byte単位でメモリの内容を出力
 void print_memory(int start, int width){

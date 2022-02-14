@@ -6,28 +6,36 @@
 // #include <optional>
 
 /* レジスタ */
+inline constexpr unsigned int reg_size = 32;
 class Reg{
     private:
-        Bit32 val[32];
+        Bit32 data[reg_size];
     public:
         constexpr Bit32 read_32(unsigned int i){
-            return i == 0 ? Bit32(0) : this->val[i];
-        };
+            return i == 0 ? Bit32(0) : this->data[i];
+        }
         constexpr int read_int(unsigned int i){
-            return i == 0 ? 0 : this->val[i].i;
-        };
+            return i == 0 ? 0 : this->data[i].i;
+        }
         constexpr float read_float(unsigned int i){
-            return i == 0 ? 0.0f : this->val[i].f;
-        };
+            return i == 0 ? 0.0f : this->data[i].f;
+        }
         constexpr void write_32(unsigned int i, const Bit32& v){
-            if(i != 0) this->val[i] = v;
+            if(i != 0) this->data[i] = v;
         }
         constexpr void write_int(unsigned int i, int v){
-            if(i != 0) this->val[i] = Bit32(v);
-        };
+            if(i != 0) this->data[i] = Bit32(v);
+        }
         constexpr void write_float(unsigned int i, float v){
-            if(i != 0) this->val[i] = Bit32(v);
-        };
+            if(i != 0) this->data[i] = Bit32(v);
+        }
+        void print(bool is_int, Stype t){
+            std::string reg_type = is_int ? "x" : "f";
+            for(unsigned int i=0; i<reg_size; ++i){
+                std::cout << "\x1b[1m" << reg_type << i << "\x1b[0m:" << this->data[i].to_string(t) << " ";
+                if(i % 4 == 3) std::cout << std::endl;
+            }
+        }
 };
 
 /* キャッシュ */
@@ -83,15 +91,15 @@ class Memory{
     private:
         Bit32* data;
     public:
-        constexpr Memory(){ this->data = {}; }; // 宣言するとき用
-        constexpr Memory(unsigned int size){ this->data = (Bit32*) calloc(size, sizeof(Bit32)); };
-        constexpr Bit32 read(int w){ return this->data[w]; };
-        constexpr void write(int w, const Bit32& v){ this->data[w] = v; };
+        constexpr Memory(){ this->data = {}; } // 宣言するとき用
+        constexpr Memory(unsigned int size){ this->data = (Bit32*) calloc(size, sizeof(Bit32)); }
+        constexpr Bit32 read(int w){ return this->data[w]; }
+        constexpr void write(int w, const Bit32& v){ this->data[w] = v; }
         void print(int start, int width){
             for(int i=start; i<start+width; ++i){
                 std::cout << "mem[" << i << "]: " << this->data[i].to_string() << std::endl;
             }
-        };
+        }
 };
 
 
