@@ -97,42 +97,11 @@ constexpr int memory_border = 5000000;
 class Memory{
     private:
         Bit32* data;
-        #ifdef DETAILED
-        bool is_cautious;
-        #endif
     public:
         constexpr Memory(){ this->data = {}; } // 宣言するとき用
         constexpr Memory(unsigned int size){ this->data = (Bit32*) calloc(size, sizeof(Bit32)); }
-        #ifdef DETAILED
-        Bit32 read(int w){
-        #else
-        constexpr Bit32 read(int w){
-        #endif
-            #ifdef DETAILED
-            if(this->is_cautious){
-                if(w < 0 || w > memory_border){
-                    std::cout << head_error << "invalid memory access" << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-            }
-            #endif
-            return this->data[w];
-        }
-        #ifdef DETAILED
-        void write(int w, const Bit32& v){
-        #else
-        constexpr void write(int w, const Bit32& v){
-        #endif
-            #ifdef DETAILED
-            if(this->is_cautious){
-                if(w < 0 || w > memory_border){
-                    std::cout << head_error << "invalid memory access" << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-            }
-            #endif
-            this->data[w] = v;
-        }
+        constexpr Bit32 read(int w){ return this->data[w]; }
+        constexpr void write(int w, const Bit32& v){ this->data[w] = v; }
         void print(int start, int width){
             for(int i=start; i<start+width; ++i){
                 std::cout << "mem[" << i << "]: " << this->data[i].to_string() << std::endl;

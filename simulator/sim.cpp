@@ -26,7 +26,7 @@ using enum Stype;
 std::vector<Operation> op_list; // 命令のリスト(PC順)
 Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
-Bit32 *memory; // メモリ領域
+Memory memory; // メモリ
 Fpu fpu; // FPU
 Cache cache; // キャッシュ
 Gshare branch_predictor(gshare_width); // 分岐予測器
@@ -35,8 +35,6 @@ unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
 constexpr unsigned long long max_op_count = 1000000000000;
 int mem_size = 100; // メモリサイズ
-// constexpr int max_mem_size = 98304; // FPGAに乗る最大メモリサイズ(393216B)
-// bool memory_exceeding_flag = false;
 
 unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
 unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
@@ -220,7 +218,7 @@ int main(int argc, char *argv[]){
     }
 
     // メモリ領域の確保
-    memory = (Bit32*) calloc(mem_size, sizeof(Bit32));
+    memory = Memory(mem_size);
 
     // キャッシュの初期化
     cache = Cache(index_width, offset_width);
@@ -499,10 +497,7 @@ bool exec_command(std::string cmd){
         op_count = 0; // 総実行命令数を0にする
         reg_int = Reg(); // レジスタをクリア
         reg_fp = Reg();
-        for(int i=0; i<mem_size; ++i){ // メモリをクリア
-            memory[i] = Bit32(0);
-        }
-
+        memory = Memory(mem_size);
         std::cout << head_info << "simulation environment is now initialized" << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(ir|(init run))\\s*$"))){ // init run
         exec_command("init");
@@ -652,7 +647,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(p|(print))(\\s+(-w))?\\s+(m|mem)\\[(\\d+):(\\d+)\\]\\s*$"))){ // print mem[N:M]
         int start = std::stoi(match[6].str());
         int width = std::stoi(match[7].str());
-        print_memory(start, width);
+        memory.print(start, width);
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(s|(set))\\s+(x(\\d+))\\s+(\\d+)\\s*$"))){ // set reg N
         int reg_no = std::stoi(match[4].str());
         int val = std::stoi(match[5].str());
@@ -1149,7 +1144,7 @@ void output_info(){
         int m = is_raytracing ? memory_used : mem_size;
         ss_mem << "address,value,read,write" << std::endl;
         for(int i=0; i<m; ++i){
-            ss_mem << i << "," << memory[i].to_string(t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
+            ss_mem << i << "," << memory.read(i).to_string(t_hex) << "," << mem_accessed_read[i] << "," << mem_accessed_write[i] << std::endl;
         }
         output_file_mem << ss_mem.str();
         std::cout << head << "memory info: " << output_filename_mem << std::endl;
@@ -1178,15 +1173,13 @@ inline Bit32 read_memory(int w){
     if(is_cautious){
         if(w < 0 || w > memory_border) throw std::runtime_error("invalid memory access");
     }
-    #endif
-    #ifdef DETAILED
     if(is_stat){
         ++mem_accessed_read[w];
         if(is_raytracing) w < stack_border ? ++stack_accessed_read_count : ++heap_accessed_read_count;
     }
     if(is_cache_enabled) cache.read(w);
     #endif
-    return memory[w];
+    return memory.read(w);
 }
 
 inline void write_memory(int w, const Bit32& v){
@@ -1194,26 +1187,13 @@ inline void write_memory(int w, const Bit32& v){
     if(is_cautious){
         if(w < 0 || w > memory_border) throw std::runtime_error("invalid memory access");
     }
-    #endif
-    #ifdef DETAILED
     if(is_stat){
         ++mem_accessed_write[w];
         if(is_raytracing) w < stack_border ? ++stack_accessed_write_count : ++heap_accessed_write_count;
     }
     if(is_cache_enabled) cache.write(w);
     #endif
-    memory[w] = v;
-}
-
-// startからwidthぶん、4byte単位でメモリの内容を出力
-void print_memory(int start, int width){
-    for(int i=start; i<start+width; ++i){
-        std::cout.setf(std::ios::hex, std::ios::basefield);
-        std::cout.fill('0');
-        std::cout << "mem[" << i << "]: " << memory[i].to_string() << std::endl;
-        std::cout.setf(std::ios::dec, std::ios::basefield);
-    }
-    return;
+    memory.write(w, v);
 }
 
 // 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
