@@ -28,7 +28,7 @@ Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
 Fpu fpu; // FPU
 Cache cache; // キャッシュ
-Gshare branch_predictor(14); // 分岐予測器
+Gshare branch_predictor(gshare_width); // 分岐予測器
 
 unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント

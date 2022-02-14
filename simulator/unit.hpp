@@ -183,3 +183,5 @@ inline constexpr void Gshare::update(unsigned int pc, bool taken){
     global_history = (global_history << 1) | (taken ? 1 : 0);
     branch_history_table[index] = std::clamp(branch_history_table[index] + (taken ? 1 : -1), 0, 3);
 }
+
+inline constexpr unsigned int gshare_width = 12;
