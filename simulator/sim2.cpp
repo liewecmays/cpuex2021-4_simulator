@@ -27,8 +27,8 @@ Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
 Memory memory; // メモリ
 Fpu fpu; // FPU
-unsigned int code_size = 0; // コードサイズ
 
+unsigned int code_size = 0; // コードサイズ
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
 
@@ -370,9 +370,7 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
         sim_state = sim_state_continue;
         config = Configuration();
-        for(unsigned int i=0; i<op_type_num; ++i){
-            op_type_count[i] = 0;
-        }
+        for(unsigned int i=0; i<op_type_num; ++i) op_type_count[i] = 0;
         reg_int = Reg();
         reg_fp = Reg();
         memory = Memory(mem_size);
@@ -477,7 +475,7 @@ bool exec_command(std::string cmd){
 
             // ma3
             if(!config.EX.ma.ma3.inst.op.is_nop()){
-                std::cout << "     ma3   : " << config.EX.ma.ma3.inst.op.to_string() << " (pc=" << config.EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma3.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(config.EX.ma.ma3.state) << "]" << std::endl;
+                std::cout << "     ma3   : " << config.EX.ma.ma3.inst.op.to_string() << " (pc=" << config.EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma3.inst.pc))) : "") << ")" << std::endl;
             }else{
                 std::cout << "     ma3   :" << std::endl;
             }

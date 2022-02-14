@@ -1,5 +1,6 @@
 #pragma once
 #include <common.hpp>
+#include <unit.hpp>
 #include <fpu.hpp>
 #include <sim2.hpp>
 #include <string>
@@ -15,6 +16,7 @@ inline constexpr unsigned int baud_rate = 12000000;
 inline constexpr unsigned int transmission_speed = baud_rate / 10 * 8;
 inline constexpr unsigned int minrt_filesize = 47468;
 inline constexpr double transmission_time = static_cast<double>(minrt_filesize) / static_cast<double>(baud_rate);
+
 
 // pc・命令
 class Fetched_inst{
@@ -37,9 +39,9 @@ class Instruction{
         Bit32 rs1_v;
         Bit32 rs2_v;
         int pc;
-        constexpr unsigned int ma_addr(){
-            return this->rs1_v.i + this->op.imm;
-        };
+        constexpr unsigned int ma_addr(){ return this->rs1_v.i + this->op.imm; }
+        constexpr unsigned int index(){ return take_bits(this->ma_addr(), offset_width, index_width); }
+        constexpr unsigned int tag(){ return take_bits(this->ma_addr(), offset_width + index_width, tag_width); }
 };
 
 // mod4で演算するだけのunsigned int
@@ -145,9 +147,6 @@ class Configuration{
                 };
                 class EX_ma{
                     public:
-                        enum class State_ma{
-                            MA_idle, MA_send_write, MA_send_read, MA_recv_read
-                        };
                         class MA1{
                             public:
                                 Instruction inst;
@@ -155,36 +154,15 @@ class Configuration{
                         class MA2{
                             public:
                                 Instruction inst;
-                                Instruction prev_inst;
-                                bool prev_dirty_we;
-                                bool prev_dirty_din;
-                                bool prev_tag_we;
-                                unsigned int prev_tag_din;
                         };
                         class MA3{
                             public:
                                 Instruction inst;
-                                State_ma state;
-                                std::optional<bool> hit;
-                                bool tag_dout;
-                                bool dirty_dout;
-                                constexpr bool is_hit(){
-                                    return (this->hit.has_value()) ? this->hit.value() : false;
-                                }
-                                constexpr bool miss(){
-                                    return (this->hit.has_value()) ? !this->hit.value() : false;
-                                }
-                        };
-                        class Fifo{
-                            public:
-                                bool req_rdy(){ return true; } // fifoは一杯にならないと仮定
-                                bool rsp_en(){ return true; } // todo
                         };
                     public:
                         MA1 ma1;
                         MA2 ma2;
                         MA3 ma3;
-                        Fifo fifo;
                         void exec();
                 };
                 class EX_mfp{
@@ -197,6 +175,7 @@ class Configuration{
                         int remaining_cycle;
                         State_mfp state;
                         void exec();
+                        constexpr bool available(){ return this->remaining_cycle == 0; }
                 };
                 class EX_pfp{
                     public:
@@ -237,7 +216,6 @@ class Configuration{
 using enum Otype;
 using enum Stype;
 using enum Hazard_type;
-using enum Configuration::EX_stage::EX_ma::State_ma;
 using enum Configuration::EX_stage::EX_mfp::State_mfp;
 
 
@@ -260,114 +238,28 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     this->EX.br.exec();
 
     // MA
-    // 状態遷移 (MA3)
-    switch(this->EX.ma.ma3.state){
-        case MA_idle:
-            if(this->EX.ma.ma3.inst.op.is_lw_flw_sw_fsw() && this->EX.ma.ma3.miss()){
-                if(this->EX.ma.ma3.dirty_dout == this->EX.ma.fifo.req_rdy()){ // 00 or 11
-                    config_next.EX.ma.ma3.state = MA_send_read;
-                }else{
-                    if(this->EX.ma.ma3.dirty_dout){ // 10
-                        config_next.EX.ma.ma3.state = MA_send_write;
-                    }else{ // 01
-                        config_next.EX.ma.ma3.state = MA_recv_read;
-                    }
-                }
-            }
-            break;
-        case MA_send_write:
-            config_next.EX.ma.ma3.state = this->EX.ma.fifo.req_rdy() ? MA_send_read : MA_send_write;
-            break;
-        case MA_send_read:
-            config_next.EX.ma.ma3.state = this->EX.ma.fifo.req_rdy() ? MA_recv_read : MA_send_read;
-            break;
-        case MA_recv_read:
-            config_next.EX.ma.ma3.state = this->EX.ma.fifo.rsp_en() ? MA_idle : MA_recv_read;
-            break;
-        default: break;
-    }
-
+    /*
+        note: 実際のコアの実装を単純化している、具体的には
+        - 必ずヒットするものと仮定
+        - 書き込み関係の状態管理をしない
+        - req_rdy: fifoは一杯にならないと仮定して無視
+        - rsp_en: 固定サイクル後に返ってくるものと仮定してmFPと同様に処理
+    */
     // シミュレータの内部的な命令実行 (MA3)
     if(!this->EX.ma.ma3.inst.op.is_nop()){
-        if(this->EX.ma.ma3.inst.op.type == o_si || this->EX.ma.ma3.inst.op.type == o_std){
-            this->EX.ma.exec();
-        }else if(
-            this->EX.ma.ma3.inst.op.type == o_lre || this->EX.ma.ma3.inst.op.type == o_ltf || this->EX.ma.ma3.inst.op.type == o_lrd ||
-            (this->EX.ma.ma3.inst.op.type == o_lw && ((this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.is_hit()) || (this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en())))
-        ){
-            this->EX.ma.exec();
+        this->EX.ma.exec();
+        if(this->EX.ma.ma3.inst.op.type == o_lre || this->EX.ma.ma3.inst.op.type == o_ltf || this->EX.ma.ma3.inst.op.type == o_lrd || this->EX.ma.ma3.inst.op.type == o_lw){
             config_next.wb_req_int(this->EX.ma.ma3.inst);
-        }else if(this->EX.ma.ma3.inst.op.type == o_flw && ((this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.is_hit()) || (this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en()))){
-            this->EX.ma.exec();
+        }else if(this->EX.ma.ma3.inst.op.type == o_si){
             config_next.wb_req_fp(this->EX.ma.ma3.inst);
-        }else{ // todo: sw/fsw
-            this->EX.ma.exec();
         }
-    }
-
-    // BRAMの制御 (?)
-    bool dirty_we, dirty_din, tag_we;
-    unsigned int tag_din;
-    if(this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.is_hit() && (this->EX.ma.ma3.inst.op.type == o_sw || this->EX.ma.ma3.inst.op.type == o_fsw)){ // hit + store
-        dirty_we = true;
-        dirty_din = true;
-        tag_we = false;
-        tag_din = 0;
-    }else if(this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en()){ // miss
-        dirty_we = true;
-        dirty_din = true;
-        tag_we = true;
-        tag_din = this->EX.ma.ma3.inst.ma_addr(); // todo
-    }else{
-        dirty_we = false;
-        dirty_din = false;
-        tag_we = false;
-        tag_din = 0;
     }
     
+    // MA3 -> MA2
+    // const bool ce = true;
+    config_next.EX.ma.ma2.inst = this->EX.ma.ma1.inst;
+    config_next.EX.ma.ma3.inst = this->EX.ma.ma2.inst;
     
-    // パイプラインの更新 (MA2)
-    const bool ce = (this->EX.ma.ma3.state == MA_idle && (!this->EX.ma.ma3.inst.op.is_lw_flw_sw_fsw() || this->EX.ma.ma3.is_hit())) || (this->EX.ma.ma3.state == MA_recv_read && this->EX.ma.fifo.rsp_en());
-    if(ce){
-        config_next.EX.ma.ma2.inst = this->EX.ma.ma1.inst;
-        config_next.EX.ma.ma3.inst = this->EX.ma.ma2.inst;
-
-        // prevの保存
-        config_next.EX.ma.ma2.prev_inst = this->EX.ma.ma2.inst;
-        config_next.EX.ma.ma2.prev_dirty_we = dirty_we;
-        config_next.EX.ma.ma2.prev_dirty_din = dirty_din;
-        config_next.EX.ma.ma2.prev_tag_we = tag_we;
-        config_next.EX.ma.ma2.prev_tag_din = tag_din;
-    }else{
-        config_next.EX.ma.ma2 = this->EX.ma.ma2;
-        config_next.EX.ma.ma3.inst = this->EX.ma.ma3.inst;
-    }
-
-    // キャッシュへのアクセス (MA2)
-    if(ce){
-        if(dirty_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma3.inst.ma_addr()){
-            config_next.EX.ma.ma3.dirty_dout = dirty_din;
-        }else if(this->EX.ma.ma2.prev_dirty_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma2.prev_inst.ma_addr()){
-            config_next.EX.ma.ma3.dirty_dout = this->EX.ma.ma2.prev_dirty_din;
-        }else{
-            config_next.EX.ma.ma3.dirty_dout = false;
-        }
-        if(tag_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma3.inst.ma_addr()){
-            config_next.EX.ma.ma3.tag_dout = tag_din;
-            config_next.EX.ma.ma3.hit = true; // temp
-        }else if(this->EX.ma.ma2.prev_tag_we && this->EX.ma.ma2.inst.ma_addr() == this->EX.ma.ma2.prev_inst.ma_addr()){
-            config_next.EX.ma.ma3.tag_dout = this->EX.ma.ma2.prev_tag_din;
-            config_next.EX.ma.ma3.hit = true; // temp
-        }else{
-            config_next.EX.ma.ma3.tag_dout = false;
-            config_next.EX.ma.ma3.hit = true; // temp
-        }
-    }else{
-        config_next.EX.ma.ma3.dirty_dout = this->EX.ma.ma3.dirty_dout;
-        config_next.EX.ma.ma3.tag_dout = this->EX.ma.ma3.dirty_dout;
-        config_next.EX.ma.ma3.hit = this->EX.ma.ma3.hit;
-    }
-
     // MA (hazard info)
     info.ma.wb_addr[0] = this->EX.ma.ma1.inst.op.rd;
     info.ma.wb_addr[1] = this->EX.ma.ma2.inst.op.rd;
@@ -376,10 +268,10 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     info.ma.is_willing_but_not_ready_fp[0] = this->EX.ma.ma1.inst.op.is_load_fp();
     info.ma.is_willing_but_not_ready_int[1] = this->EX.ma.ma2.inst.op.is_load();
     info.ma.is_willing_but_not_ready_fp[1] = this->EX.ma.ma2.inst.op.is_load_fp();
-    bool is_willing_but_not_ready = (this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.miss()) || this->EX.ma.ma3.state == MA_send_write || this->EX.ma.ma3.state == MA_send_read || (this->EX.ma.ma3.state == MA_recv_read && !this->EX.ma.fifo.rsp_en());
-    info.ma.is_willing_but_not_ready_int[2] = (this->EX.ma.ma3.inst.op.type == o_lw) && is_willing_but_not_ready;
-    info.ma.is_willing_but_not_ready_fp[2] = (this->EX.ma.ma3.inst.op.type == o_flw) && is_willing_but_not_ready;
-    info.ma.cannot_accept = (this->EX.ma.ma3.state == MA_idle && this->EX.ma.ma3.inst.op.is_lw_flw_sw_fsw() && this->EX.ma.ma3.miss()) || this->EX.ma.ma3.state == MA_send_write || this->EX.ma.ma3.state == MA_send_read || (this->EX.ma.ma3.state == MA_recv_read && !this->EX.ma.fifo.rsp_en()); // stall
+    // bool is_willing_but_not_ready = false;
+    info.ma.is_willing_but_not_ready_int[2] = false;
+    info.ma.is_willing_but_not_ready_fp[2] = false;
+    info.ma.cannot_accept = false; // stall
     
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
@@ -405,7 +297,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
                 }
                 break;
             case MFP_busy:
-                if(this->EX.mfp.remaining_cycle == 0){
+                if(this->EX.mfp.available()){
                     config_next.EX.mfp.state = MFP_completed;
                     config_next.EX.mfp.inst = this->EX.mfp.inst;
                 }else{
@@ -740,14 +632,14 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
 
         // ma2
         if(!this->EX.ma.ma2.inst.op.is_nop()){
-            std::cout << "     ma2   : " << this->EX.ma.ma2.inst.op.to_string() << " (pc=" << this->EX.ma.ma2.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma2.inst.pc))) : "") << ") " << (config_next.EX.ma.ma3.is_hit() ? "[hit]" : "[miss]") << std::endl;
+            std::cout << "     ma2   : " << this->EX.ma.ma2.inst.op.to_string() << " (pc=" << this->EX.ma.ma2.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma2.inst.pc))) : "") << ") " << std::endl;
         }else{
             std::cout << "     ma2   :" << std::endl;
         }
 
         // ma3
         if(!this->EX.ma.ma3.inst.op.is_nop()){
-            std::cout << "     ma3   : " << this->EX.ma.ma3.inst.op.to_string() << " (pc=" << this->EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma3.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.ma.ma3.state) << "]" << std::endl;
+            std::cout << "     ma3   : " << this->EX.ma.ma3.inst.op.to_string() << " (pc=" << this->EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma3.inst.pc))) : "") << ")" << std::endl;
         }else{
             std::cout << "     ma3   :" << std::endl;
         }

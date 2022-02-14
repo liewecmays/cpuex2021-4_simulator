@@ -45,28 +45,24 @@ class Reg{
 
 /* キャッシュ */
 constexpr unsigned int addr_width = 25;
-struct Cache_line{
-    public:
-        unsigned int dirty : 1;
-        unsigned int tag : 31;
-};
 class Cache{
     private:
-        Cache_line* lines;
+        unsigned int* tags;
         unsigned int index_width;
         unsigned int offset_width;
     public:
         unsigned long long read_times;
         unsigned long long hit_times;
-        constexpr Cache(){ this->lines = {}; } // 宣言するとき用
+        constexpr Cache(){ this->tags = {}; } // 宣言するとき用
         constexpr Cache(unsigned int index_width, unsigned int offset_width){
-            this->lines = (Cache_line*) calloc(1 << index_width, sizeof(Cache_line));
+            this->tags = (unsigned int*) calloc(1 << index_width, sizeof(unsigned int));
             this->index_width = index_width;
             this->offset_width = offset_width;
         }
         constexpr unsigned int tag_width(){ return addr_width - (this->index_width + this->offset_width); }
         constexpr void read(unsigned int);
         constexpr void write(unsigned int);
+        constexpr unsigned int update(bool, unsigned int, unsigned int);
 };
 
 
@@ -76,10 +72,10 @@ inline constexpr void Cache::read(unsigned int addr){
     unsigned int index = take_bits(addr, this->offset_width, this->index_width);
     unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
 
-    if(this->lines[index].tag == tag){
+    if(this->tags[index] == tag){
         ++this->hit_times;
     }else{
-        this->lines[index].tag = tag;
+        this->tags[index] = tag;
     }
 }
 
@@ -87,10 +83,15 @@ inline constexpr void Cache::write(unsigned int addr){
     unsigned int index = take_bits(addr, this->offset_width, this->index_width);
     unsigned int tag = take_bits(addr, this->offset_width + this->index_width, this->tag_width());
     
-    this->lines[index].dirty = 1; // todo
-    this->lines[index].tag = tag;
+    this->tags[index] = tag;
 }
 
+inline constexpr unsigned int Cache::update(bool wea, unsigned int addra, unsigned int addrb){
+    unsigned int tag_dout = this->tags[take_bits(addrb, this->offset_width, this->index_width)];
+    if(wea) this->tags[take_bits(addra, this->offset_width, this->index_width)] = take_bits(addra, this->offset_width + this->index_width, this->tag_width());
+
+    return tag_dout;
+}
 
 /* メモリ */
 constexpr int memory_border = 5000000;
