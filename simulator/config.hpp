@@ -143,7 +143,6 @@ class Configuration{
                                 constexpr bool miss(){
                                     return (this->hit.has_value()) ? !this->hit.value() : false;
                                 }
-                                // todo: ma2からの情報
                         };
                         class Fifo{
                             public:
@@ -168,7 +167,7 @@ class Configuration{
                 class EX_mfp{
                     public:
                         enum class State_mfp{
-                            Waiting, Processing
+                            MFP_idle, MFP_busy, MFP_completed
                         };
                         class Hazard_info_mfp{
                             public:
@@ -178,11 +177,10 @@ class Configuration{
                         };
                     public:
                         Instruction inst;
-                        unsigned int cycle_count;
+                        int remaining_cycle;
                         State_mfp state;
                         Hazard_info_mfp info;
                         void exec();
-                        constexpr bool available();
                 };
                 class EX_pfp{
                     public:
@@ -235,6 +233,7 @@ using enum Otype;
 using enum Stype;
 using enum Configuration::Hazard_type;
 using enum Configuration::EX_stage::EX_ma::State_ma;
+using enum Configuration::EX_stage::EX_mfp::State_mfp;
 
 
 // クロックを1つ分先に進める
@@ -378,33 +377,49 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
-        if(this->EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Waiting){
-            if(this->EX.mfp.available()){
+        switch(this->EX.mfp.state){
+            case MFP_idle:
+                if(this->EX.mfp.inst.op.is_nonzero_latency_mfp()){
+                    config_next.EX.mfp.state = MFP_busy;
+                    config_next.EX.mfp.inst = this->EX.mfp.inst;
+                    switch(this->EX.mfp.inst.op.type){
+                        case o_fdiv:
+                            config_next.EX.mfp.remaining_cycle = 4; break;
+                        case o_fsqrt:
+                            config_next.EX.mfp.remaining_cycle = 1; break;
+                        case o_fcvtif:
+                        case o_fcvtfi:
+                            config_next.EX.mfp.remaining_cycle = 0; break;
+                        default: break;
+                    }
+                }else{
+                    this->EX.mfp.exec();
+                    config_next.wb_req_fp(this->EX.mfp.inst);
+                    config_next.EX.mfp.state = this->EX.mfp.state;
+                }
+                break;
+            case MFP_busy:
+                if(this->EX.mfp.remaining_cycle == 0){
+                    config_next.EX.mfp.state = MFP_completed;
+                    config_next.EX.mfp.inst = this->EX.mfp.inst;
+                }else{
+                    config_next.EX.mfp.state = MFP_busy;
+                    config_next.EX.mfp.remaining_cycle = this->EX.mfp.remaining_cycle - 1;
+                    config_next.EX.mfp.inst = this->EX.mfp.inst;
+                }
+                break;
+            case MFP_completed:
                 this->EX.mfp.exec();
                 config_next.wb_req_fp(this->EX.mfp.inst);
-                config_next.EX.mfp.state = this->EX.mfp.state;
-            }else{
-                config_next.EX.mfp.state = Configuration::EX_stage::EX_mfp::State_mfp::Processing;
-                config_next.EX.mfp.inst = this->EX.mfp.inst;
-                config_next.EX.mfp.cycle_count = 1;
-            }
-        }else{
-            if(this->EX.mfp.available()){
-                this->EX.mfp.exec();
-                config_next.wb_req_fp(this->EX.mfp.inst);
-                config_next.EX.mfp.state = Configuration::EX_stage::EX_mfp::State_mfp::Waiting;
-            }else{
-                config_next.EX.mfp.state = this->EX.mfp.state;
-                config_next.EX.mfp.inst = this->EX.mfp.inst;
-                config_next.EX.mfp.cycle_count = this->EX.mfp.cycle_count + 1;
-            }
+                break;
+            default: break;
         }
     }
 
     // mFP (hazard info)
     this->EX.mfp.info.wb_addr = this->EX.mfp.inst.op.rd;
-    this->EX.mfp.info.is_willing_but_not_ready = (config_next.EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Processing);
-    this->EX.mfp.info.cannot_accept = (config_next.EX.mfp.state == Configuration::EX_stage::EX_mfp::State_mfp::Processing);
+    this->EX.mfp.info.is_willing_but_not_ready = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
+    this->EX.mfp.info.cannot_accept = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
 
     // pFP
     for(unsigned int i=1; i<pipelined_fpu_stage_num; ++i){
@@ -733,7 +748,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
 
         // EX_mfp
         if(!this->EX.mfp.inst.op.is_nop()){
-            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.mfp.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state != Configuration::EX_stage::EX_mfp::State_mfp::Waiting ? (", cycle: " + std::to_string(this->EX.mfp.cycle_count)) : "") << "]" << (this->EX.mfp.available() ? "\x1b[1m\x1b[32m -> available\x1b[0m" : "") << std::endl;
+            std::cout << "     mfp   : " << this->EX.mfp.inst.op.to_string() << " (pc=" << this->EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.mfp.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(this->EX.mfp.state) << (this->EX.mfp.state == MFP_busy ? (", remain: " + std::to_string(this->EX.mfp.remaining_cycle)) : "") << "]" << std::endl;
         }else{
             std::cout << "     mfp   :" << std::endl;
         }
@@ -1165,24 +1180,6 @@ inline void Configuration::EX_stage::EX_mfp::exec(){
             ++op_type_count[o_fmvif];
             return;
         default: return;
-    }
-}
-
-inline constexpr bool Configuration::EX_stage::EX_mfp::available(){
-    switch(this->inst.op.type){
-        case o_fabs:
-        case o_fneg:
-        case o_fmvff:
-        case o_fmvif:
-            return this->cycle_count == 0;
-        case o_fcvtif:
-        case o_fcvtfi:
-            return this->cycle_count == 2;
-        case o_fsqrt:
-            return this->cycle_count == 3;
-        case o_fdiv:
-            return this->cycle_count == 6;
-        default: return false; // error
     }
 }
 

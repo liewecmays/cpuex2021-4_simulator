@@ -101,6 +101,8 @@ class Operation{
         constexpr bool use_rs2_int() const;
         constexpr bool use_rs2_fp() const;
         constexpr bool branch_conditionally_or_unconditionally() const;
+        constexpr bool is_zero_latency_mfp() const;
+        constexpr bool is_nonzero_latency_mfp() const;
         constexpr bool is_nop() const;
         constexpr bool is_exit() const;
 };
@@ -549,6 +551,12 @@ inline constexpr bool Operation::use_rs2_fp() const noexcept {
 }
 inline constexpr bool Operation::branch_conditionally_or_unconditionally() const noexcept {
     return this->is_branch() || this->is_branch_fp() || this->is_jal() || this->is_jalr();
+}
+inline constexpr bool Operation::is_zero_latency_mfp() const noexcept {
+    return this->type == o_fabs || this->type == o_fneg || this->type == o_fmvif || this->type == o_fmvff;
+}
+inline constexpr bool Operation::is_nonzero_latency_mfp() const noexcept {
+    return this->type == o_fdiv || this->type == o_fsqrt || this->type == o_fcvtif || this->type == o_fcvtfi;
 }
 inline constexpr bool Operation::is_nop() const noexcept {
     return this->type == o_nop;
