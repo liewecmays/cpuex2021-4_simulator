@@ -394,6 +394,7 @@ void simulate(){
 
 // デバッグモードのコマンドを認識して実行
 bool is_in_step = false; // step実行の途中
+bool is_in_undo = false; // undoの途中
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue
     std::smatch match;
@@ -479,15 +480,44 @@ bool exec_command(std::string cmd){
         if(is_raytracing){
             memory_used = reg_int.read_int(3);
         }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(un|(undo))\\s+(\\d+)\\s*$"))){ // undo N
+        unsigned int n = std::stoi(match[3].str());
+        unsigned long long cnt = op_count();
+        if(n <= cnt){
+            is_in_undo = true;
+            exec_command("init");
+            exec_command("do " + std::to_string(cnt - n));
+            is_in_undo = false;
+        }else{
+            std::cout << head_error << "invalid argument (too much undo)" << std::endl;
+        }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
-        breakpoint_skip = false;
+        sim_state = sim_state_continue;
         simulation_end = false;
-        pc = is_skip ? 100 : 0; // PCを0にする
+        pc = is_skip ? 100 : 0;
         for(unsigned int i=0; i<op_type_num; ++i) op_type_count[i] = 0;
-        reg_int = Reg(); // レジスタをクリア
+        reg_int = Reg();
         reg_fp = Reg();
         memory = Memory(mem_size);
-        std::cout << head_info << "simulation environment is now initialized" << std::endl;
+        cache = Cache(index_width, offset_width);
+        branch_predictor = Gshare(gshare_width);
+        TransmissionQueue receive_buffer = TransmissionQueue();
+        TransmissionQueue send_buffer = TransmissionQueue();
+        // preload
+        if(is_preloading){
+            std::ifstream preload_file(preload_filename, std::ios::in | std::ios::binary);
+            if(!preload_file){
+                std::cerr << head_error << "could not open " << preload_filename << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            unsigned char c;
+            while(!preload_file.eof()){
+                preload_file.read((char*) &c, sizeof(char)); // 8bit取り出す
+                receive_buffer.push(Bit32(static_cast<int>(c)));
+            }
+        }
+
+        if(!is_in_undo) std::cout << head_info << "simulation environment is now initialized" << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(ir|(init run))\\s*$"))){ // init run
         exec_command("init");
         exec_command("run");
