@@ -642,7 +642,7 @@ bool exec_command(std::string cmd){
     return res;
 }
 
-// 実効命令の総数を返す
+// 実行命令の総数を返す
 unsigned long long op_count(){
     unsigned long long acc = 0;
     for(unsigned int i=0; i<op_type_num; ++i){

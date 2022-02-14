@@ -1165,7 +1165,7 @@ inline void write_memory(int w, const Bit32& v){
     memory.write(w, v);
 }
 
-// 実効命令の総数を返す
+// 実行命令の総数を返す
 unsigned long long op_count(){
     unsigned long long acc = 0;
     for(unsigned int i=0; i<op_type_num; ++i){
@@ -1174,7 +1174,7 @@ unsigned long long op_count(){
     return acc;
 }
 
-// 実効情報を表示したうえで異常終了
+// 実行情報を表示したうえで異常終了
 void exit_with_output(std::exception& e){
     std::cout << head_error << e.what() << std::endl;
     if(is_info_output){

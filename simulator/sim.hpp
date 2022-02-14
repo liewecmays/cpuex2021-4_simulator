@@ -26,5 +26,5 @@ int exec_op(); // 命令を実行し、PCを変化させる
 int exec_op(const std::string&);
 Bit32 read_memory(int); // メモリ読み出し(class Memoryのラッパー関数)
 void write_memory(int, const Bit32&); // メモリ書き込み(class Memoryのラッパー関数)
-unsigned long long op_count(); // 実効命令の総数を返す
-void exit_with_output(std::exception&); // 実効情報を表示したうえで異常終了
+unsigned long long op_count(); // 実行命令の総数を返す
+void exit_with_output(std::exception&); // 実行情報を表示したうえで異常終了

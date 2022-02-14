@@ -35,5 +35,5 @@ extern unsigned long long* op_type_count;
 void simulate(); // シミュレーションの本体処理
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
 // void output_info(); // 情報の出力
-unsigned long long op_count(); // 実効命令の総数を返す
-void exit_with_output(std::exception&); // 実効情報を表示したうえで異常終了
+unsigned long long op_count(); // 実行命令の総数を返す
+void exit_with_output(std::exception&); // 実行情報を表示したうえで異常終了
