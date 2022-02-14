@@ -442,6 +442,7 @@ bool exec_command(std::string cmd){
         if(sim_state == sim_state_end){
             std::cout << "simulation state: (no operation left to be simulated)" << std::endl;
         }else{
+            std::cout << "operations executed: " << op_count() << std::endl;
             std::cout << "clk: " << config.clk << std::endl;
 
             // IF
