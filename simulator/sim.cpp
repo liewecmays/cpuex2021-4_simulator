@@ -425,6 +425,19 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(u|(until))\\s+(\\d+)\\s*$"))){ // until N
+        unsigned int n = std::stoi(match[3].str());
+        if(sim_state != sim_state_end){
+            while(op_count() < n){
+                if((sim_state = exec_op()) == sim_state_end){
+                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }
+            if(sim_state != sim_state_end) std::cout << head_info << "executed " << n << " operations" << std::endl;
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
     }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
         if(sim_state != sim_state_end){
             if(op_list[pc].type == o_jalr || op_list[pc].type == o_jal){

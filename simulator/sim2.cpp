@@ -13,6 +13,7 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <exception>
+#include <nameof.hpp>
 
 namespace po = boost::program_options;
 using enum Otype;
@@ -321,6 +322,19 @@ bool exec_command(std::string cmd){
         }else{
             std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
+    }else if(std::regex_match(cmd, match, std::regex("^\\s*(u|(until))\\s+(\\d+)\\s*$"))){ // until N
+        unsigned int n = std::stoi(match[3].str());
+        if(sim_state != sim_state_end){
+            while(op_count() < n){
+                if((sim_state = config.advance_clock(false, "")) == sim_state_end){
+                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+                    break;
+                }
+            }
+            if(sim_state != sim_state_end) std::cout << head_info << "executed " << n << " operations" << std::endl;
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
     }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
         if(sim_state != sim_state_end){
             if(config.EX.br.inst.op.type == o_jalr || config.EX.br.inst.op.type == o_jal){
@@ -428,7 +442,88 @@ bool exec_command(std::string cmd){
         if(sim_state == sim_state_end){
             std::cout << "simulation state: (no operation left to be simulated)" << std::endl;
         }else{
-            // todo
+            std::cout << "clk: " << config.clk << std::endl;
+
+            // IF
+            std::cout << "\x1b[1m[IF]\x1b[0m";
+            for(unsigned int i=0; i<2; ++i){
+                std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << (config.IF.fetch_addr + i) << ((is_debug && (config.IF.fetch_addr + i) < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(config.IF.fetch_addr + i))) : "") << std::endl;
+            }
+
+
+            // EX
+            std::cout << "\x1b[1m[EX]\x1b[0m";
+            
+            // EX_al
+            for(unsigned int i=0; i<2; ++i){
+                if(!config.EX.als[i].inst.op.is_nop()){
+                    std::cout << (i==0 ? " " : "     ") << "al" << i << "   : " << config.EX.als[i].inst.op.to_string() << " (pc=" << config.EX.als[i].inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.als[i].inst.pc))) : "") << ")" << std::endl;
+                }else{
+                    std::cout << (i==0 ? " " : "     ") << "al" << i << "   :" << std::endl;
+                }
+            }
+
+            // EX_br
+            if(!config.EX.br.inst.op.is_nop()){
+                std::cout << "     br    : " << config.EX.br.inst.op.to_string() << " (pc=" << config.EX.br.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.br.inst.pc))) : "") << ")" << std::endl;
+            }else{
+                std::cout << "     br    :" << std::endl;
+            }
+
+            // EX_ma
+            // ma1
+            if(!config.EX.ma.ma1.inst.op.is_nop()){
+                std::cout << "     ma1   : " << config.EX.ma.ma1.inst.op.to_string() << " (pc=" << config.EX.ma.ma1.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma1.inst.pc))) : "") << ")" << std::endl;
+            }else{
+                std::cout << "     ma1   :" << std::endl;
+            }
+
+            // ma2
+            if(!config.EX.ma.ma2.inst.op.is_nop()){
+                std::cout << "     ma2   : " << config.EX.ma.ma2.inst.op.to_string() << " (pc=" << config.EX.ma.ma2.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma2.inst.pc))) : "") << ") " << std::endl;
+            }else{
+                std::cout << "     ma2   :" << std::endl;
+            }
+
+            // ma3
+            if(!config.EX.ma.ma3.inst.op.is_nop()){
+                std::cout << "     ma3   : " << config.EX.ma.ma3.inst.op.to_string() << " (pc=" << config.EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma3.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(config.EX.ma.ma3.state) << "]" << std::endl;
+            }else{
+                std::cout << "     ma3   :" << std::endl;
+            }
+
+            // EX_mfp
+            if(!config.EX.mfp.inst.op.is_nop()){
+                std::cout << "     mfp   : " << config.EX.mfp.inst.op.to_string() << " (pc=" << config.EX.mfp.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.mfp.inst.pc))) : "") << ") [state: " << NAMEOF_ENUM(config.EX.mfp.state) << (config.EX.mfp.state == MFP_busy ? (", remain: " + std::to_string(config.EX.mfp.remaining_cycle)) : "") << "]" << std::endl;
+            }else{
+                std::cout << "     mfp   :" << std::endl;
+            }
+
+            // EX_pfp
+            for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
+                if(!config.EX.pfp.inst[i].op.is_nop()){
+                    std::cout << "     pfp[" << i << "]: " << config.EX.pfp.inst[i].op.to_string() << " (pc=" << config.EX.pfp.inst[i].pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.pfp.inst[i].pc))) : "") << ")" << std::endl;
+                }else{
+                    std::cout << "     pfp[" << i << "]:" << std::endl;
+                }
+            }
+
+            // WB
+            std::cout << "\x1b[1m[WB]\x1b[0m";
+            for(unsigned int i=0; i<2; ++i){
+                if(config.WB.inst_int[i].has_value()){
+                    std::cout << (i==0 ? " " : "     ") << "int[" << i << "]: " << config.WB.inst_int[i].value().op.to_string() << " (pc=" << config.WB.inst_int[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.WB.inst_int[i].value().pc))) : "") << ")" << std::endl;
+                }else{
+                    std::cout << (i==0 ? " " : "     ") << "int[" << i << "]:" << std::endl;
+                }
+            }
+            for(unsigned int i=0; i<2; ++i){
+                if(config.WB.inst_fp[i].has_value()){
+                    std::cout << "     fp[" << i << "] : " << config.WB.inst_fp[i].value().op.to_string() << " (pc=" << config.WB.inst_fp[i].value().pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.WB.inst_fp[i].value().pc))) : "") << ")" << std::endl;
+                }else{
+                    std::cout << "     fp[" << i << "] :" << std::endl;
+                }
+            }
         }
         if(bp_to_id.empty()){
             std::cout << "breakpoints: (no breakpoint found)" << std::endl;
