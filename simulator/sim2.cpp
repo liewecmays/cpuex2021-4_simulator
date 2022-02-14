@@ -25,15 +25,15 @@ Configuration config; // 各時点の状態
 std::vector<Operation> op_list; // 命令のリスト(PC順)
 Reg reg_int; // 整数レジスタ
 Reg reg_fp; // 浮動小数点数レジスタ
-Memory memory; // メモリ
+Memory_with_cache memory; // メモリ(キャッシュは内部)
 Fpu fpu; // FPU
+TransmissionQueue receive_buffer; // 外部通信での受信バッファ
+TransmissionQueue send_buffer; // 外部通信での受信バッファ
 
 unsigned int code_size = 0; // コードサイズ
 int mem_size = 100; // メモリサイズ
 constexpr unsigned long long max_op_count = 10000000000;
 
-TransmissionQueue receive_buffer; // 外部通信での受信バッファ
-TransmissionQueue send_buffer; // 外部通信での受信バッファ
 
 // シミュレーションの制御
 int sim_state = sim_state_continue; // シミュレータの状態管理
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]){
     }
 
     // メモリ領域の確保
-    memory = Memory(mem_size);
+    memory = Memory_with_cache(mem_size, index_width, offset_width);
 
     // バッファのデータのプリロード
     if(is_preloading){
@@ -349,16 +349,18 @@ bool exec_command(std::string cmd){
             auto start = std::chrono::system_clock::now();
             // Endになるまで実行
             while((sim_state = config.advance_clock(false, "")) != sim_state_end);
+            auto end = std::chrono::system_clock::now();
             std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+
             // 実行時間などの情報の表示
             if(is_time_measuring){
-                auto end = std::chrono::system_clock::now();
                 double exec_time = std::chrono::duration<double>(end - start).count();
                 std::cout << head << "time elapsed (execution): " << exec_time << std::endl;
                 unsigned long long cnt = op_count();
                 std::cout << head << "operation count: " << cnt << std::endl;
                 double op_per_sec = static_cast<double>(cnt) / exec_time;
                 std::cout << head << "operations per second: " << op_per_sec << std::endl;
+
                 std::cout << head << "clock count: " << config.clk << std::endl;
                 std::cout << head << "prediction: " << std::endl;
                 std::cout << head_space << "- execution time: " << transmission_time + static_cast<double>(config.clk) / static_cast<double>(frequency) << std::endl;
@@ -373,7 +375,7 @@ bool exec_command(std::string cmd){
         for(unsigned int i=0; i<op_type_num; ++i) op_type_count[i] = 0;
         reg_int = Reg();
         reg_fp = Reg();
-        memory = Memory(mem_size);
+        memory = Memory_with_cache(mem_size, index_width, offset_width);
         std::cout << head_info << "simulation environment is now initialized" << std::endl;
     }else if(std::regex_match(cmd, std::regex("^\\s*(ir|(init run))\\s*$"))){ // init run
         exec_command("init");

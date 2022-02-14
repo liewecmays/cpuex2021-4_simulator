@@ -16,6 +16,9 @@ inline constexpr unsigned int baud_rate = 12000000;
 inline constexpr unsigned int transmission_speed = baud_rate / 10 * 8;
 inline constexpr unsigned int minrt_filesize = 47468;
 inline constexpr double transmission_time = static_cast<double>(minrt_filesize) / static_cast<double>(baud_rate);
+inline constexpr unsigned int cycles_when_missed = 70;
+inline constexpr unsigned int index_width = 14;
+inline constexpr unsigned int offset_width = 2;
 
 
 // pc・命令
@@ -40,8 +43,6 @@ class Instruction{
         Bit32 rs2_v;
         int pc;
         constexpr unsigned int ma_addr(){ return this->rs1_v.i + this->op.imm; }
-        constexpr unsigned int index(){ return take_bits(this->ma_addr(), offset_width, index_width); }
-        constexpr unsigned int tag(){ return take_bits(this->ma_addr(), offset_width + index_width, tag_width); }
 };
 
 // mod4で演算するだけのunsigned int

@@ -18,7 +18,7 @@ typedef bimap_t2::value_type bimap_value_t2;
 extern std::vector<Operation> op_list;
 extern Reg reg_int;
 extern Reg reg_fp;
-extern Memory memory;
+extern Memory_with_cache memory;
 extern Fpu fpu;
 extern unsigned int code_size;
 extern TransmissionQueue receive_buffer;

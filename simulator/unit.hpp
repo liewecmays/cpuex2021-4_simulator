@@ -48,11 +48,12 @@ constexpr unsigned int addr_width = 25;
 class Cache{
     private:
         unsigned int* tags;
+    public:
         unsigned int index_width;
         unsigned int offset_width;
-    public:
         unsigned long long accessed_times;
         unsigned long long hit_times;
+        unsigned long long miss_times;
         constexpr Cache(){ this->tags = {}; } // 宣言するとき用
         constexpr Cache(unsigned int index_width, unsigned int offset_width){
             this->tags = (unsigned int*) calloc(1 << index_width, sizeof(unsigned int));
@@ -75,6 +76,7 @@ inline constexpr void Cache::read(unsigned int addr){
         ++this->hit_times;
     }else{
         this->tags[index] = tag;
+        ++this->miss_times;
     }
 }
 
@@ -92,7 +94,7 @@ inline constexpr void Cache::write(unsigned int addr){
 /* メモリ */
 constexpr int memory_border = 5000000;
 class Memory{
-    private:
+    protected:
         Bit32* data;
     public:
         constexpr Memory(){ this->data = {}; } // 宣言するとき用
@@ -103,6 +105,24 @@ class Memory{
             for(int i=start; i<start+width; ++i){
                 std::cout << "mem[" << i << "]: " << this->data[i].to_string() << std::endl;
             }
+        }
+};
+
+class Memory_with_cache : public Memory{
+    public:
+        Cache cache;
+        constexpr Memory_with_cache() = default;
+        constexpr Memory_with_cache(unsigned int size, unsigned int index_width, unsigned int offset_width){
+            this->data = (Bit32*) calloc(size, sizeof(Bit32));
+            this->cache = Cache(index_width, offset_width);
+        }
+        constexpr Bit32 read(int w){
+            this->cache.read(w);
+            return this->data[w];
+        }
+        constexpr void write(int w, const Bit32& v){
+            this->cache.write(w);
+            this->data[w] = v;
         }
 };
 
