@@ -5,7 +5,7 @@
 #include <queue>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <boost/bimap/bimap.hpp>
-
+#include <exception>
 
 /* typedef宣言 */
 // boost::bimaps関連の略記
@@ -32,4 +32,4 @@ void print_reg_fp(); // 浮動小数点数レジスタの内容を表示
 void print_memory(int, int); // 4byte単位でメモリの内容を出力
 void print_queue(std::queue<Bit32>, int); // キューの表示
 bool constexpr is_end(const Operation&); // 終了時の命令かどうかを判定
-void exit_with_output(std::string); // 実効情報を表示したうえで異常終了
+void exit_with_output(std::exception&); // 実効情報を表示したうえで異常終了

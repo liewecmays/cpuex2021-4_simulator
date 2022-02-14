@@ -11,6 +11,7 @@
 #include <regex>
 #include <boost/program_options.hpp>
 #include <chrono>
+#include <exception>
 #ifdef DETAILED
 #include <transmission.hpp>
 #include <thread>
@@ -176,6 +177,7 @@ int main(int argc, char *argv[]){
         }
     }
     if(vm.count("gshare")) is_gshare_enabled = true;
+    if(vm.count("cautious")) is_cautious = true;
     if(vm.count("stat")){
         is_stat = true;
     }
@@ -375,18 +377,20 @@ int main(int argc, char *argv[]){
 
 // シミュレーションの本体処理
 void simulate(){
-    if(is_debug){ // デバッグモード
-        std::string cmd;
-        while(true){
-            std::cout << "\033[2D# " << std::flush;
-            if(!std::getline(std::cin, cmd)) break;
-            if(exec_command(cmd)) break;
+    try{
+        if(is_debug){ // デバッグモード
+            std::string cmd;
+            while(true){
+                std::cout << "\033[2D# " << std::flush;
+                if(!std::getline(std::cin, cmd)) break;
+                if(exec_command(cmd)) break;
+            }
+        }else{ // デバッグなしモード
+            exec_command("run -t");
         }
-    }else{ // デバッグなしモード
-        exec_command("run -t");
+    }catch(std::exception& e){
+        exit_with_output(e);
     }
-
-    return;
 }
 
 // デバッグモードのコマンドを認識して実行
@@ -412,7 +416,6 @@ bool exec_command(std::string cmd){
             exec_op();
             if(pc >= op_list.size()){
                 end_flag = true; // 最後の命令に到達した場合も終了とする
-                std::cout << pc << ", " << op_list.size() << std::endl;
             }
             ++op_count;
 
@@ -829,7 +832,7 @@ void exec_op(){
     #endif
 
     if(is_raytracing && op_count >= max_op_count){
-        exit_with_output("too many operations executed for raytracing program");
+        throw std::runtime_error("too many operations executed for raytracing program");
     }
 
     // 実行部分
@@ -1037,7 +1040,7 @@ void exec_op(){
             if(!receive_buffer.empty()){
                 reg_int.write_32(op.rd, receive_buffer.pop());
             }else{
-                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
+                throw std::runtime_error("receive buffer is empty [lrd] (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
             }
             ++op_type_count[o_lrd];
             ++pc;
@@ -1081,7 +1084,7 @@ void exec_op(){
             ++pc;
             return;
         default:
-            exit_with_output("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
+            throw std::runtime_error("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
     }
 }
 
@@ -1173,10 +1176,7 @@ void output_info(){
 inline Bit32 read_memory(int w){
     #ifdef DETAILED
     if(is_cautious){
-        if(w < 0 || w > memory_border){
-            std::cout << head_error << "invalid memory access" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        if(w < 0 || w > memory_border) throw std::runtime_error("invalid memory access");
     }
     #endif
     #ifdef DETAILED
@@ -1192,10 +1192,7 @@ inline Bit32 read_memory(int w){
 inline void write_memory(int w, const Bit32& v){
     #ifdef DETAILED
     if(is_cautious){
-        if(w < 0 || w > memory_border){
-            std::cout << head_error << "invalid memory access" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        if(w < 0 || w > memory_border) throw std::runtime_error("invalid memory access");
     }
     #endif
     #ifdef DETAILED
@@ -1225,8 +1222,8 @@ inline constexpr bool is_end(const Operation& op){
 }
 
 // 実効情報を表示したうえで異常終了
-void exit_with_output(std::string msg){
-    std::cout << head_error << msg << std::endl;
+void exit_with_output(std::exception& e){
+    std::cout << head_error << e.what() << std::endl;
     if(is_info_output){
         std::cout << head << "outputting execution info until now" << std::endl;
         output_info();
