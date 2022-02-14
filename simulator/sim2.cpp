@@ -353,7 +353,7 @@ bool exec_command(std::string cmd){
                 std::cout << head << "operations per second: " << op_per_sec << std::endl;
                 std::cout << head << "clock count: " << config.clk << std::endl;
                 std::cout << head << "prediction: " << std::endl;
-                std::cout << head_space << "- execution time: " << static_cast<double>(config.clk) / static_cast<double>(frequency) << std::endl;
+                std::cout << head_space << "- execution time: " << transmission_time + static_cast<double>(config.clk) / static_cast<double>(frequency) << std::endl;
                 std::cout << head_space << "- clocks per instruction: " << static_cast<double>(config.clk) / static_cast<double>(cnt) << std::endl;
             }
         }else{
