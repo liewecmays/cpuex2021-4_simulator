@@ -28,6 +28,7 @@ Reg reg_fp; // 浮動小数点数レジスタ
 Bit32 *memory; // メモリ領域
 Fpu fpu; // FPU
 Cache cache; // キャッシュ
+Gshare branch_predictor(14); // 分岐予測器
 
 unsigned int pc = 0; // プログラムカウンタ
 unsigned long long op_count = 0; // 命令のカウント
@@ -50,6 +51,7 @@ bool is_info_output = false; // 出力モード
 bool is_bin = false; // バイナリファイルモード
 bool is_stat = false; // 統計モード
 bool is_cache_enabled = false; // キャッシュを考慮するモード
+bool is_gshare_enabled = false; // 分岐予測を組み込むモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
@@ -118,6 +120,7 @@ int main(int argc, char *argv[]){
         ("port,p", po::value<int>(), "port number")
         ("boot", "bootloading mode")
         ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
+        ("gshare,g", "branch prediction (Gshare)")
         ("stat", "statistics mode")
         #endif
         ;
@@ -170,6 +173,7 @@ int main(int argc, char *argv[]){
             std::exit(EXIT_FAILURE);
         }
     }
+    if(vm.count("gshare")) is_gshare_enabled = true;
     if(vm.count("stat")){
         is_stat = true;
     }
@@ -582,6 +586,11 @@ bool exec_command(std::string cmd){
                 std::cout << "  " << x.first << " (pc " << x.second << ", line " << id_to_line.left.at(x.second) << ")" << std::endl;
             }
         }
+        if(is_gshare_enabled){
+            std::cout << "prediction stat:" << std::endl;
+            std::cout << "  taken rate: " << static_cast<double>(branch_predictor.taken_count) / branch_predictor.total_count << std::endl;
+            std::cout << "  correct rate: " << static_cast<double>(branch_predictor.correct_count) / branch_predictor.total_count << std::endl;
+        }
         std::cout << "execution stat:" << std::endl;
         for(int i=0; i<op_type_num; ++i){
             std::cout << "  " << string_of_otype(static_cast<Otype>(i)) << ": " << op_type_count[i] << std::endl;
@@ -942,18 +951,30 @@ void exec_op(){
         case o_beq:
             reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_beq];
+            #ifdef DETAILED
+            branch_predictor.update(pc, reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2));
+            #endif
             return;
         case o_blt:
             reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_blt];
+            #ifdef DETAILED
+            branch_predictor.update(pc, reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2));
+            #endif
             return;
         case o_fbeq:
             reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_fbeq];
+            #ifdef DETAILED
+            branch_predictor.update(pc, reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2));
+            #endif
             return;
         case o_fblt:
             reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_fblt];
+            #ifdef DETAILED
+            branch_predictor.update(pc, reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2));
+            #endif
             return;
         case o_sw:
             write_memory(reg_int.read_int(op.rs1) + op.imm, reg_int.read_32(op.rs2));
@@ -1097,6 +1118,11 @@ void output_info(){
         ss << "\t- size: " << memory_used - stack_border << std::endl;
         ss << "\t- read: " << heap_accessed_read_count << std::endl;
         ss << "\t- write: " << heap_accessed_write_count << std::endl;
+    }
+    if(is_gshare_enabled){
+        ss << "- branch prediction:" << std::endl;
+        ss << "\t- taken rate: " << static_cast<double>(branch_predictor.taken_count) / branch_predictor.total_count << std::endl;
+        ss << "\t- correct rate: " << static_cast<double>(branch_predictor.correct_count) / branch_predictor.total_count << std::endl;
     }
     ss << std::endl;
     ss << "# operation stat" << std::endl;

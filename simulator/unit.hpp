@@ -3,7 +3,8 @@
 #include <iostream>
 #include <queue>
 #include <mutex>
-// #include <optional>
+#include <vector>
+#include <algorithm>
 
 /* レジスタ */
 inline constexpr unsigned int reg_size = 32;
@@ -37,6 +38,7 @@ class Reg{
             }
         }
 };
+
 
 /* キャッシュ */
 constexpr unsigned int addr_width = 25;
@@ -85,6 +87,7 @@ inline constexpr void Cache::write(unsigned int addr){
     this->lines[index].dirty = 1; // todo
     this->lines[index].tag = tag;
 }
+
 
 /* メモリ */
 class Memory{
@@ -146,3 +149,37 @@ class TransmissionQueue{
             std::cout << std::endl;
         }
 };
+
+/* 分岐予測 */
+class Gshare{
+    private:
+        unsigned int width;
+        unsigned int global_history;
+        int* branch_history_table;
+    public:
+        unsigned long long total_count;
+        unsigned long long taken_count;
+        unsigned long long correct_count;
+        constexpr Gshare(unsigned int);
+        constexpr void update(unsigned int, bool);
+        void show_stats();
+};
+
+inline constexpr Gshare::Gshare(unsigned int width){
+    this->width = width;
+    this->global_history = 0;
+    this->branch_history_table = (int*) calloc(1 << width, sizeof(int));
+    for(unsigned int i=0; i<(1 << width); ++i) branch_history_table[i] = 1;
+    this->total_count = 0;
+    this->taken_count = 0;
+    this->correct_count = 0;
+}
+
+inline constexpr void Gshare::update(unsigned int pc, bool taken){
+    unsigned int index = (global_history ^ pc) & ((1 << this->width) - 1);
+    ++total_count;
+    if(taken) taken_count++;
+    if((branch_history_table[index] >= 2) == taken) correct_count++;
+    global_history = (global_history << 1) | (taken ? 1 : 0);
+    branch_history_table[index] = std::clamp(branch_history_table[index] + (taken ? 1 : -1), 0, 3);
+}

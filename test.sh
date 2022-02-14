@@ -13,7 +13,8 @@ IS_RAYTRACING=""
 IS_BIN=""
 IS_PRELOADING=""
 IS_IEEE=""
-while getopts 2f:bdim:srp:b-: OPT
+IS_GSHARE=""
+while getopts 2f:bdim:srp:g-: OPT
 do
     case $OPT in
         -)
@@ -32,6 +33,7 @@ do
         s) IS_SKIP="-s";;
         r) IS_RAYTRACING="-r";;
         p) PORT="-p ${OPTARG}";;
+        g) IS_GSHARE="-g"
     esac
 done
 
@@ -55,8 +57,8 @@ cd simulator || exit 1
 if [ "${IS_SECOND}" != "" ]; then
     rlwrap ./sim2 -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING $PORT || exit 1
 else
-    if [ "$PORT" != "" -o "$IS_BOOTLOADING" != "" -o "$IS_STAT" != "" ]; then
-        rlwrap ./sim-d -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING $PORT $IS_BOOTLOADING $IS_STAT || exit 1
+    if [ "$PORT" != "" -o "$IS_BOOTLOADING" != "" -o "$IS_GSHARE" != "" -o "$IS_STAT" != "" ]; then
+        rlwrap ./sim-d -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING $PORT $IS_BOOTLOADING $IS_GSHARE $IS_STAT || exit 1
     else
         rlwrap ./sim -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING || exit 1
     fi
