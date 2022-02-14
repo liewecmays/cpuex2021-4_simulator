@@ -36,6 +36,7 @@ TransmissionQueue receive_buffer; // 外部通信での受信バッファ
 TransmissionQueue send_buffer; // 外部通信での受信バッファ
 
 // シミュレーションの制御
+int sim_state = sim_state_continue; // シミュレータの状態管理
 bool is_debug = false; // デバッグモード
 bool is_bin = false; // バイナリファイルモード
 bool is_raytracing = false; // レイトレ専用モード
@@ -290,7 +291,6 @@ void simulate(){
 }
 
 // デバッグモードのコマンドを認識して実行
-int sim_state = sim_state_continue; // シミュレータの状態管理
 bool is_in_step = false; // step実行の途中
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue
@@ -448,7 +448,7 @@ bool exec_command(std::string cmd){
             // IF
             std::cout << "\x1b[1m[IF]\x1b[0m";
             for(unsigned int i=0; i<2; ++i){
-                std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << (config.IF.fetch_addr + i) << ((is_debug && (config.IF.fetch_addr + i) < static_cast<int>(code_size)) ? (", line=" + std::to_string(id_to_line.left.at(config.IF.fetch_addr + i))) : "") << std::endl;
+                std::cout << (i==0 ? " " : "     ") << "if[" << i << "] : pc=" << (config.IF.fetch_addr + i) << ((is_debug && (config.IF.fetch_addr + i) < code_size) ? (", line=" + std::to_string(id_to_line.left.at(config.IF.fetch_addr + i))) : "") << std::endl;
             }
 
 
