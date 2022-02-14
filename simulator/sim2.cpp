@@ -286,8 +286,8 @@ void simulate(){
 }
 
 // デバッグモードのコマンドを認識して実行
-bool no_info = false; // infoを表示しない
 int sim_state = sim_state_continue; // シミュレータの状態管理
+bool is_in_step = false; // step実行の途中
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue
     std::smatch match;
@@ -322,13 +322,15 @@ bool exec_command(std::string cmd){
         if(sim_state != sim_state_end){
             if(config.EX.br.inst.op.type == o_jalr || config.EX.br.inst.op.type == o_jal){
                 int old_pc = config.EX.br.inst.pc;
-                no_info = true;
-                exec_command("do");
-                exec_command("break " + std::to_string(id_to_line.left.at(old_pc + 1)) + " __ret");
-                exec_command("continue __ret");
-                exec_command("delete __ret");
-                no_info = false;
-                std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(old_pc) << ") " << op_list[old_pc].to_string() << std::endl;
+                is_in_step = true;
+                if(sim_state != sim_state_end){
+                    exec_command("do");
+                    exec_command("break " + std::to_string(id_to_line.left.at(old_pc + 1)) + " __ret");
+                    exec_command("continue __ret");
+                    exec_command("delete __ret");
+                    std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(old_pc) << ") " << op_list[old_pc].to_string() << std::endl;
+                }
+                is_in_step = false;
             }else{
                 exec_command("do");
             }
@@ -405,7 +407,7 @@ bool exec_command(std::string cmd){
                             break;
                         default:
                             if(sim_state >= 0){ // ブレークポイントに当たった
-                                if(!no_info){
+                                if(!is_in_step){
                                     std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
                                 }
                             }else{
@@ -501,7 +503,7 @@ bool exec_command(std::string cmd){
         if(id_to_line.right.find(line_no) != id_to_line.right.end()){ // 行番号は命令に対応している？
             unsigned int id = id_to_line.right.at(line_no);
             if(bp_to_id.right.find(id) == bp_to_id.right.end()){ // idはまだブレークポイントが付いていない？
-                if(label_to_id.right.find(id) == label_to_id.right.end()){ // idにはラベルが付いていない？
+                if(label_to_id.right.find(id) == label_to_id.right.end() || is_in_step){ // idにはラベルが付いていない？
                     bp_to_id.insert(bimap_value_t("__bp" + std::to_string(bp_counter), id));
                     std::cout << head_info << "breakpoint '" << ("__bp" + std::to_string(bp_counter)) << "' is now set to line " << line_no << std::endl;
                     ++bp_counter;
@@ -525,7 +527,7 @@ bool exec_command(std::string cmd){
                     if(bp_to_id.left.find(bp) == bp_to_id.left.end()){ // そのブレークポイント名は使われていない？
                         if(label_to_id.left.find(bp) == label_to_id.left.end()){ // そのブレークポイント名はラベル名と重複していない？
                             bp_to_id.insert(bimap_value_t(bp, id));
-                            if(!no_info){
+                            if(!is_in_step){
                                 std::cout << head_info << "breakpoint '" << bp << "' is now set to line " << line_no << std::endl;
                             }
                         }else{
@@ -578,7 +580,7 @@ bool exec_command(std::string cmd){
         std::string bp_id = match[3].str();
         if(bp_to_id.left.find(bp_id) != bp_to_id.left.end()){
             bp_to_id.left.erase(bp_id);
-            if(!no_info){
+            if(!is_in_step){
                 std::cout << head_info << "breakpoint '" << bp_id << "' is now deleted" << std::endl;
             }
         }else{
