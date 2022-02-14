@@ -1074,6 +1074,11 @@ int exec_op(){
             throw std::runtime_error("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
     }
 
+    #ifdef DETAILED
+    int x2 = reg_int.read_int(2);
+    max_x2 = (x2 > max_x2) ? x2 : max_x2;
+    #endif
+
     return (pc >= code_size || op.is_exit()) ? sim_state_end : sim_state_continue;
 }
 
