@@ -1,4 +1,5 @@
 #include <sim2.hpp>
+#include <params.hpp>
 #include <common.hpp>
 #include <unit.hpp>
 #include <fpu.hpp>
@@ -33,8 +34,6 @@ BranchPredictor branch_predictor; // 分岐予測器
 
 unsigned int code_size = 0; // コードサイズ
 int mem_size = 100; // メモリサイズ
-constexpr unsigned long long max_op_count = 10000000000;
-
 
 // シミュレーションの制御
 int sim_state = sim_state_continue; // シミュレータの状態管理

@@ -1,4 +1,5 @@
 #pragma once
+#include <params.hpp>
 #include <common.hpp>
 #include <iostream>
 #include <queue>
@@ -205,7 +206,6 @@ inline constexpr void Gshare::update(unsigned int pc, bool taken){
     branch_history_table[index] = std::clamp(branch_history_table[index] + (taken ? 1 : -1), 0, 3);
 }
 
-inline constexpr unsigned int gshare_width = 12;
 
 /* 分岐予測 (for sim2) */
 class BranchPredictor{

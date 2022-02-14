@@ -21,7 +21,6 @@ inline constexpr std::string_view head_warning = "\033[2D\x1b[33mWarning: \x1b[0
 
 
 /* 命令の種類 */
-inline constexpr int op_type_num = 39;
 enum Otype{
     o_add, o_sub, o_sll, o_srl, o_sra, o_and,
     o_fabs, o_fneg, o_fdiv, o_fsqrt, o_fcvtif, o_fcvtfi, o_fmvff,

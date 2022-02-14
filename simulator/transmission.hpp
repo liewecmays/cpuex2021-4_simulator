@@ -1,4 +1,5 @@
 #pragma once
+#include <params.hpp>
 #include <common.hpp>
 #include <unit.hpp>
 #include <sim.hpp>

@@ -1,4 +1,5 @@
 #include <server.hpp>
+#include <params.hpp>
 #include <common.hpp>
 #include <string>
 #include <iostream>

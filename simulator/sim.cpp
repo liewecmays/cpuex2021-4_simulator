@@ -1,4 +1,5 @@
 #include <sim.hpp>
+#include <params.hpp>
 #include <common.hpp>
 #include <unit.hpp>
 #include <fpu.hpp>
@@ -30,18 +31,17 @@ Memory memory; // メモリ
 Fpu fpu; // FPU
 Cache cache; // キャッシュ
 Gshare branch_predictor(gshare_width); // 分岐予測器
+TransmissionQueue receive_buffer; // 外部通信での受信バッファ
+TransmissionQueue send_buffer; // 外部通信での送信バッファ
 
 unsigned int pc = 0; // プログラムカウンタ
 unsigned int code_size = 0; // コードサイズ
-constexpr unsigned long long max_op_count = 1000000000000;
 int mem_size = 100; // メモリサイズ
 
-unsigned int index_width = 6; // インデックス幅 (キャッシュのライン数=2^n)
-unsigned int offset_width = 6; // オフセット幅 (キャッシュのブロックサイズ=2^n)
+unsigned int index_width_ = index_width;
+unsigned int offset_width_ = offset_width;
 
 int port = 20214; // 通信に使うポート番号
-TransmissionQueue receive_buffer; // 外部通信での受信バッファ
-TransmissionQueue send_buffer; // 外部通信での送信バッファ
 
 
 // シミュレーションの制御
@@ -67,7 +67,6 @@ int input_line_num = 0; // ファイルの行数
 unsigned int *line_exec_count; // 行ごとの実行回数
 int max_x2 = 0;
 int memory_used = 0;
-constexpr int stack_border = 1000;
 unsigned long long *mem_accessed_read; // メモリのreadによるアクセス回数
 unsigned long long *mem_accessed_write; // メモリのwriteによるアクセス回数
 unsigned long long stack_accessed_read_count = 0; // スタックのreadによるアクセスの総回数
@@ -164,9 +163,9 @@ int main(int argc, char *argv[]){
         is_cache_enabled = true;
         std::vector<unsigned int> cache_setting = vm["cache"].as<std::vector<unsigned int>>();
         if(cache_setting.size() == 2){
-            index_width = cache_setting[0];
-            offset_width = cache_setting[1];
-            if(index_width + offset_width >= 32){
+            index_width_ = cache_setting[0];
+            offset_width_ = cache_setting[1];
+            if(index_width_ + offset_width_ >= 32){
                 std::cout << head_error << "invalid cache setting" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
@@ -222,7 +221,7 @@ int main(int argc, char *argv[]){
     memory = Memory(mem_size);
 
     // キャッシュの初期化
-    cache = Cache(index_width, offset_width);
+    cache = Cache(index_width_, offset_width_);
 
     // 統計データの初期化
     if(is_stat){
@@ -499,7 +498,7 @@ bool exec_command(std::string cmd){
         reg_int = Reg();
         reg_fp = Reg();
         memory = Memory(mem_size);
-        cache = Cache(index_width, offset_width);
+        cache = Cache(index_width_, offset_width_);
         branch_predictor = Gshare(gshare_width);
         TransmissionQueue receive_buffer = TransmissionQueue();
         TransmissionQueue send_buffer = TransmissionQueue();
@@ -1117,8 +1116,8 @@ void output_info(){
     ss << "- operation count: " << op_count() << std::endl;
     if(is_cache_enabled){
         ss << "- cache:" << std::endl;
-        ss << "\t- line num: " << std::pow(2, index_width) << std::endl;
-        ss << "\t- block size: " << std::pow(2, offset_width) << std::endl;
+        ss << "\t- line num: " << std::pow(2, index_width_) << std::endl;
+        ss << "\t- block size: " << std::pow(2, offset_width_) << std::endl;
         ss << "\t- accessed: " << cache.accessed_times << std::endl;
         ss << "\t- hit: " << cache.hit_times << std::endl;
         ss << "\t- hit rate: " << static_cast<double>(cache.hit_times) / cache.accessed_times << std::endl;
