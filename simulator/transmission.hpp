@@ -123,7 +123,7 @@ void send_data(Cancel_flag& flg){
                     }
                 }
                 
-                data = binary_of_int(send_buffer.pop().value().i);
+                data = binary_of_int(send_buffer.pop().i);
                 send(client_socket, data.substr(24, 8).c_str(), 8, 0); // 下8bitだけ送信
                 res_len = recv(client_socket, recv_buf, 1, 0);
                 if(res_len == 0 || recv_buf[0] != '0'){ // 通信が切断された場合
