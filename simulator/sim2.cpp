@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <boost/program_options.hpp>
 #include <chrono>
-#include <nameof.hpp>
+#include <exception>
 
 namespace po = boost::program_options;
 using enum Otype;
@@ -74,7 +74,6 @@ int main(int argc, char *argv[]){
         ("mem,m", po::value<int>(), "memory size")
         ("raytracing,r", "specialized for ray-tracing program")
         ("skip,s", "skipping bootloading")
-        ("quick,q", "quick multicycle mode")
         ("ieee", "IEEE754 mode")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload");
 	po::variables_map vm;
@@ -273,15 +272,19 @@ int main(int argc, char *argv[]){
 
 // シミュレーションの本体処理
 void simulate(){
-    if(is_debug){ // デバッグモード
-        std::string cmd;
-        while(true){
-            std::cout << "\033[2D# " << std::flush;
-            if(!std::getline(std::cin, cmd)) break;
-            if(exec_command(cmd)) break;
+    try{
+        if(is_debug){ // デバッグモード
+            std::string cmd;
+            while(true){
+                std::cout << "\033[2D# " << std::flush;
+                if(!std::getline(std::cin, cmd)) break;
+                if(exec_command(cmd)) break;
+            }
+        }else{ // デバッグなしモード
+            exec_command("run -t");
         }
-    }else{ // デバッグなしモード
-        exec_command("run -t");
+    }catch(std::exception& e){
+        exit_with_output(e);
     }
 }
 
@@ -386,8 +389,7 @@ bool exec_command(std::string cmd){
                         if(sim_state >= 0){ // ブレークポイントに当たった
                             std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(sim_state) << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
                         }else{
-                            std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
-                            std::exit(EXIT_FAILURE);
+                            throw std::runtime_error("invalid response from Configuration::advance_clock");
                         }
                 }
                 if(sim_state != sim_state_continue) break;
@@ -411,8 +413,7 @@ bool exec_command(std::string cmd){
                                     std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
                                 }
                             }else{
-                                std::cout << head_error << "invalid response from Configuration::advance_clock" << std::endl;
-                                std::exit(EXIT_FAILURE);
+                                throw std::runtime_error("invalid response from Configuration::advance_clock");
                             }
                     }
                     if(sim_state != sim_state_continue) break;
@@ -650,9 +651,9 @@ unsigned long long op_count(){
     return acc;
 }
 
-// 実効情報を表示したうえで異常終了
-void exit_with_output(std::string msg){
-    std::cout << head_error << msg << std::endl;
+// 実行情報を表示したうえで異常終了
+void exit_with_output(std::exception& e){
+    std::cout << head_error << e.what() << std::endl;
     std::cout << head << "abnormal end" << std::endl;
     std::quick_exit(EXIT_FAILURE);
 }

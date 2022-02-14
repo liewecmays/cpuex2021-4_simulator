@@ -5,6 +5,7 @@
 #include <string>
 #include <array>
 #include <optional>
+#include <exception>
 #include <nameof.hpp>
 
 // パラメータ
@@ -944,9 +945,6 @@ inline constexpr void Configuration::wb_req_int(const Instruction& inst){
         this->WB.inst_int[0] = inst;
     }else if(!this->WB.inst_int[1].has_value()){
         this->WB.inst_int[1] = inst;
-    }else{
-        // exit_with_output("too many requests for WB(int) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
-        // インライン展開のために省略
     }
 }
 inline constexpr void Configuration::wb_req_fp(const Instruction& inst){
@@ -955,9 +953,6 @@ inline constexpr void Configuration::wb_req_fp(const Instruction& inst){
         this->WB.inst_fp[0] = inst;
     }else if(!this->WB.inst_fp[1].has_value()){
         this->WB.inst_fp[1] = inst;
-    }else{
-        // exit_with_output("too many requests for WB(fp) (at pc " + std::to_string(inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(inst.pc))) : "") + ")");
-        // インライン展開のため省略
     }
 }
 
@@ -1103,7 +1098,7 @@ inline void Configuration::EX_stage::EX_ma::exec(){
             if(!receive_buffer.empty()){
                 reg_int.write_32(this->ma3.inst.op.rd, receive_buffer.pop());
             }else{
-                exit_with_output("receive buffer is empty [lrd] (at pc " + std::to_string(this->ma3.inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->ma3.inst.pc))) : "") + ")");
+                throw std::runtime_error("receive buffer is empty [lrd] (at pc " + std::to_string(this->ma3.inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->ma3.inst.pc))) : "") + ")");
             }
             ++op_type_count[o_lrd];
             return;
