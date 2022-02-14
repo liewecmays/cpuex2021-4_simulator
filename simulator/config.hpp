@@ -231,9 +231,6 @@ class Configuration{
         constexpr void wb_req_fp(const Instruction&); // WBステージに命令を渡す
 };
 
-inline constexpr int sim_state_continue = -1;
-inline constexpr int sim_state_end = -2;
-
 
 /* using宣言 */
 using enum Otype;

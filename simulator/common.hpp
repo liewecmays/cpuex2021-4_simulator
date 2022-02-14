@@ -8,6 +8,10 @@
 #include <atomic>
 #include <string_view>
 
+/* シミュレータの状態管理 */
+inline constexpr int sim_state_continue = -1;
+inline constexpr int sim_state_end = -2;
+
 
 /* ターミナルへの出力用 */
 inline constexpr std::string_view head_error = "\033[2D\x1b[34m\x1b[1m\x1b[31mError: \x1b[0m";

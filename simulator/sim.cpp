@@ -32,7 +32,7 @@ Cache cache; // キャッシュ
 Gshare branch_predictor(gshare_width); // 分岐予測器
 
 unsigned int pc = 0; // プログラムカウンタ
-unsigned long long op_count = 0; // 命令のカウント
+unsigned int code_size = 0; // コードサイズ
 constexpr unsigned long long max_op_count = 1000000000000;
 int mem_size = 100; // メモリサイズ
 
@@ -326,9 +326,9 @@ int main(int argc, char *argv[]){
         }
     }
 
-    if(is_stat){
-        line_exec_count = (unsigned int*) calloc(input_line_num, sizeof(unsigned int));
-    }
+    code_size = code_id;
+
+    if(is_stat) line_exec_count = (unsigned int*) calloc(input_line_num, sizeof(unsigned int));
 
     auto end = std::chrono::system_clock::now();
     auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -392,7 +392,8 @@ void simulate(){
 }
 
 // デバッグモードのコマンドを認識して実行
-bool no_info = false; // infoを表示しない(一時的な仕様)
+int sim_state = sim_state_continue; // シミュレータの状態管理
+bool is_in_step = false; // step実行の途中
 bool exec_command(std::string cmd){
     bool res = false; // デバッグモード終了ならtrue
     std::smatch match;
@@ -404,97 +405,72 @@ bool exec_command(std::string cmd){
     }else if(std::regex_match(cmd, std::regex("^\\s*(h|(help))\\s*$"))){ // help
         // todo: help
     }else if(std::regex_match(cmd, std::regex("^\\s*(d|(do))\\s*$"))){ // do
-        breakpoint_skip = false;
-        if(simulation_end){
-            std::cout << head_info << "no operation is left to be simulated" << std::endl;
-        }else{
-            bool end_flag = false;
-            if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
+        if(sim_state != sim_state_end){
             std::cout << "pc " << pc << " (line " << id_to_line.left.at(pc) << ") " << op_list[pc].to_string() << std::endl;
-            exec_op();
-            if(pc >= op_list.size()){
-                end_flag = true; // 最後の命令に到達した場合も終了とする
-            }
-            ++op_count;
-
-            if(end_flag){
-                simulation_end = true;
+            if((sim_state = exec_op()) == sim_state_end){
                 std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
             }
-        }
-    }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
-        breakpoint_skip = false;
-        Operation op = op_list[pc];
-        if(op.type == o_jalr || op.type == o_jal){
-            unsigned int old_pc = pc;
-            no_info = true;
-            exec_command("break " + std::to_string(id_to_line.left.at(pc + 1)) + " __ret");
-            exec_command("continue __ret");
-            exec_command("delete __ret");
-            no_info = false;
-            std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(old_pc) << ") " << op_list[old_pc].to_string() << std::endl;
-            std::cout << head_info << "returned to pc " << pc << " (line " << id_to_line.left.at(pc) << ") " << op_list[pc].to_string() << std::endl;
         }else{
-            exec_command("do");
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(d|(do))\\s+(\\d+)\\s*$"))){ // do N
-        breakpoint_skip = false;
-        if(simulation_end){
-            std::cout << head_info << "no operation is left to be simulated" << std::endl;
-        }else{
-            bool end_flag = false;
-            for(int i=0; i<std::stoi(match[3].str()); ++i){
-                if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                exec_op();
-                if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
-                ++op_count;
-                
-                if(end_flag){
-                    simulation_end = true;
+        unsigned int n = std::stoi(match[3].str());
+        if(sim_state != sim_state_end){
+            for(unsigned int i=0; i<n; ++i){
+                if((sim_state = exec_op()) == sim_state_end){
                     std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
                     break;
                 }
             }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
+        }
+    }else if(std::regex_match(cmd, std::regex("^\\s*(s|(step))\\s*$"))){ // step
+        if(sim_state != sim_state_end){
+            if(op_list[pc].type == o_jalr || op_list[pc].type == o_jal){
+                int old_pc = pc;
+                is_in_step = true;
+                exec_command("do");
+                if(sim_state != sim_state_end){
+                    exec_command("break " + std::to_string(id_to_line.left.at(old_pc + 1)) + " __ret");
+                    exec_command("continue __ret");
+                    exec_command("delete __ret");
+                    std::cout << head_info << "step execution around pc " << old_pc << " (line " << id_to_line.left.at(old_pc) << ") " << op_list[old_pc].to_string() << std::endl;
+                }
+                is_in_step = false;
+            }else{
+                exec_command("do");
+            }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(r|(run))(\\s+(-t))?\\s*$"))){ // run
         bool is_time_measuring = match[4].str() == "-t";
-        loop_flag = true;
-        breakpoint_skip = false;
-        if(simulation_end){
-            std::cout << head_info << "no operation is left to be simulated" << std::endl;
-        }else{
-            bool end_flag = false;
-            auto start = std::chrono::system_clock::now();
-            while(true){
-                if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                exec_op();
-                if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
-                ++op_count;
-                
-                if(end_flag){
-                    simulation_end = true;
-                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
-                    break;
-                }
-            }
-            if(is_time_measuring){
-                auto end = std::chrono::system_clock::now();
-                exec_time = std::chrono::duration<double>(end - start).count();
-                std::cout << head << "time elapsed (execution): " << exec_time << std::endl;
-                std::cout << head << "operation count: " << op_count << std::endl;
-                op_per_sec = static_cast<double>(op_count) / exec_time;
-                std::cout << head << "operations per second: " << op_per_sec << std::endl;
-            }
-            // メモリ使用量を保存しておく
-            if(is_raytracing){
-                memory_used = reg_int.read_int(3);
-            }
+        auto start = std::chrono::system_clock::now();
+
+        // Endになるまで実行
+        while((sim_state = exec_op()) != sim_state_end);
+        auto end = std::chrono::system_clock::now();
+        std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
+
+        // 実行時間などの表示
+        if(is_time_measuring){
+            exec_time = std::chrono::duration<double>(end - start).count();
+            std::cout << head << "time elapsed (execution): " << exec_time << std::endl;
+            unsigned long long cnt = op_count();
+            std::cout << head << "operation count: " << cnt << std::endl;
+            op_per_sec = static_cast<double>(cnt) / exec_time;
+            std::cout << head << "operations per second: " << op_per_sec << std::endl;
+        }
+        // メモリ使用量を保存しておく
+        if(is_raytracing){
+            memory_used = reg_int.read_int(3);
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(init))\\s*$"))){ // init
         breakpoint_skip = false;
         simulation_end = false;
         pc = is_skip ? 100 : 0; // PCを0にする
-        op_count = 0; // 総実行命令数を0にする
+        for(unsigned int i=0; i<op_type_num; ++i) op_type_count[i] = 0;
         reg_int = Reg(); // レジスタをクリア
         reg_fp = Reg();
         memory = Memory(mem_size);
@@ -503,76 +479,52 @@ bool exec_command(std::string cmd){
         exec_command("init");
         exec_command("run");
     }else if(std::regex_match(cmd, std::regex("^\\s*(c|(continue))\\s*$"))){ // continue
-        if(simulation_end){
-            std::cout << head_info << "no operation is left to be simulated" << std::endl;
-        }else{
-            loop_flag = true;
-            bool end_flag = false;
+        if(sim_state != sim_state_end){
             while(true){
-                if(bp_to_id.right.find(pc) != bp_to_id.right.end()){ // ブレークポイントに当たった場合は停止
-                    if(breakpoint_skip){
-                        breakpoint_skip = false;
-                    }else{
-                        std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(pc) << "' (line " << id_to_line.left.at(pc) << ")" << std::endl;
-                        loop_flag = false;
-                        breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
+                switch(sim_state = exec_op("__continue")){
+                    case sim_state_continue: break;
+                    case sim_state_end:
+                        std::cout << head_info << "all operations have been simulated successfully! (no breakpoint encountered)" << std::endl;
                         break;
-                    }
+                    default:
+                        if(sim_state >= 0){ // ブレークポイントに当たった
+                            std::cout << head_info << "halt before breakpoint '" + bp_to_id.right.at(sim_state) << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
+                        }else{
+                            throw std::runtime_error("invalid response from exec_op");
+                        }
                 }
-
-                if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                exec_op();
-                if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
-                ++op_count;
-                
-                if(end_flag){
-                    simulation_end = true;
-                    std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
-                    break;
-                }
+                if(sim_state != sim_state_continue) break;
             }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, match, std::regex("^\\s*(c|(continue))\\s+(([a-zA-Z_]\\w*(.\\d+)*))\\s*$"))){ // continue break
-        if(simulation_end){
-            std::cout << head_info << "no operation is left to be simulated" << std::endl;
-        }else{
-            loop_flag = true;
+        if(sim_state != sim_state_end){
             std::string bp = match[3].str();
             if(bp_to_id.left.find(bp) != bp_to_id.left.end()){
-                unsigned int bp_id = bp_to_id.left.at(bp);
-                bool end_flag = false;
                 while(true){
-                    if(pc == bp_id){
-                        if(breakpoint_skip){
-                            breakpoint_skip = false;
-                        }else{
-                            if(!no_info){
-                                std::cout << head_info << "halt before breakpoint '" + bp << "'" << std::endl;
-                            }
-                            loop_flag = false;
-                            breakpoint_skip = true; // ブレークポイント直後に再度continueした場合はスキップ
+                    switch(sim_state = exec_op(bp)){
+                        case sim_state_continue: break;
+                        case sim_state_end:
+                            std::cout << head_info << "all operations have been simulated successfully! (breakpoint '" << bp << "' not encountered)"  << std::endl;
                             break;
-                        }
+                        default:
+                            if(sim_state >= 0){ // ブレークポイントに当たった
+                                if(!is_in_step) std::cout << head_info << "halt before breakpoint '" + bp << "' (pc " << sim_state << ", line " << id_to_line.left.at(sim_state) << ")" << std::endl;
+                            }else{
+                                throw std::runtime_error("invalid response from exec_op");
+                            }
                     }
-
-                    if(is_end(op_list[pc])) end_flag = true; // self-loopの場合は、1回だけ実行して終了とする
-                    exec_op();
-                    if(pc >= op_list.size()) end_flag = true; // 最後の命令に到達した場合も終了とする
-                    ++op_count;
-                    
-                    if(end_flag){
-                        simulation_end = true;
-                        std::cout << head_info << "did not encounter breakpoint '" << bp << "'" << std::endl;
-                        std::cout << head_info << "all operations have been simulated successfully!" << std::endl;
-                        break;
-                    }
+                    if(sim_state != sim_state_continue) break;
                 }
             }else{
                 std::cout << head_error << "breakpoint '" << bp << "' has not been set" << std::endl;
             }
+        }else{
+            std::cout << head_info << "no operation is left to be simulated" << std::endl;
         }
     }else if(std::regex_match(cmd, std::regex("^\\s*(i|(info))\\s*$"))){ // info
-        std::cout << "operations executed: " << op_count << std::endl;
+        std::cout << "operations executed: " << op_count() << std::endl;
         if(simulation_end){
             std::cout << "next: (no operation left to be simulated)" << std::endl;
         }else{
@@ -662,13 +614,11 @@ bool exec_command(std::string cmd){
         if(id_to_line.right.find(line_no) != id_to_line.right.end()){ // 行番号は命令に対応している？
             unsigned int id = id_to_line.right.at(line_no);
             if(bp_to_id.right.find(id) == bp_to_id.right.end()){ // idはまだブレークポイントが付いていない？
-                if(label_to_id.right.find(id) == label_to_id.right.end()){ // idにはラベルが付いていない？
+                if(label_to_id.right.find(id) == label_to_id.right.end() || is_in_step){ // idにはラベルが付いていない？
                     if(bp_to_id.left.find(bp) == bp_to_id.left.end()){ // そのブレークポイント名は使われていない？
                         if(label_to_id.left.find(bp) == label_to_id.left.end()){ // そのブレークポイント名はラベル名と重複していない？
                             bp_to_id.insert(bimap_value_t(bp, id));
-                            if(!no_info){
-                                std::cout << head_info << "breakpoint '" << bp << "' is now set to line " << line_no << std::endl;
-                            }
+                            if(!is_in_step) std::cout << head_info << "breakpoint '" << bp << "' is now set to line " << line_no << std::endl;
                         }else{
                             std::cout << head_error << "'" << bp << "' is a label name and cannot be used as a breakpoint id" << std::endl;
                         }
@@ -720,7 +670,7 @@ bool exec_command(std::string cmd){
         std::string bp_id = match[3].str();
         if(bp_to_id.left.find(bp_id) != bp_to_id.left.end()){
             bp_to_id.left.erase(bp_id);
-            if(!no_info){
+            if(!is_in_step){
                 std::cout << head_info << "breakpoint '" << bp_id << "' is now deleted" << std::endl;
             }
         }else{
@@ -782,9 +732,9 @@ bool exec_command(std::string cmd){
 }
 
 // 命令を実行し、PCを変化させる
-void exec_op(){
+int exec_op(){
     Operation op = op_list[pc];
-
+    
     // 統計モードの場合、行数ごとの実行回数を更新
     #ifdef DETAILED
     if(is_stat){
@@ -826,9 +776,12 @@ void exec_op(){
     }
     #endif
 
-    if(is_raytracing && op_count >= max_op_count){
+    // レイトレに対する無限ループ検知
+    #ifdef DETAILED
+    if(is_raytracing && is_cautious && op_count() >= max_op_count){
         throw std::runtime_error("too many operations executed for raytracing program");
     }
+    #endif
 
     // 実行部分
     switch(op.type){
@@ -836,32 +789,32 @@ void exec_op(){
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) + reg_int.read_int(op.rs2));
             ++op_type_count[o_add];
             ++pc;
-            return;
+            break;
         case o_sub:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) - reg_int.read_int(op.rs2));
             ++op_type_count[o_sub];
             ++pc;
-            return;
+            break;
         case o_sll:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) << reg_int.read_int(op.rs2));
             ++op_type_count[o_sll];
             ++pc;
-            return;
+            break;
         case o_srl:
             reg_int.write_int(op.rd, static_cast<unsigned int>(reg_int.read_int(op.rs1)) >> reg_int.read_int(op.rs2));
             ++op_type_count[o_srl];
             ++pc;
-            return;
+            break;
         case o_sra:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) >> reg_int.read_int(op.rs2)); // note: 処理系依存
             ++op_type_count[o_sra];
             ++pc;
-            return;
+            break;
         case o_and:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) & reg_int.read_int(op.rs2));
             ++op_type_count[o_and];
             ++pc;
-            return;
+            break;
         case o_fabs:
             if(is_ieee){
                 reg_fp.write_float(op.rd, std::abs(reg_fp.read_float(op.rs1)));
@@ -870,7 +823,7 @@ void exec_op(){
             }
             ++op_type_count[Otype::o_fabs];
             ++pc;
-            return;
+            break;
         case o_fneg:
             if(is_ieee){
                 reg_fp.write_float(op.rd, - reg_fp.read_float(op.rs1));
@@ -879,7 +832,7 @@ void exec_op(){
             }
             ++op_type_count[Otype::o_fneg];
             ++pc;
-            return;
+            break;
         case o_fdiv:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) / reg_fp.read_float(op.rs2));
@@ -888,7 +841,7 @@ void exec_op(){
             }
             ++op_type_count[o_fdiv];
             ++pc;
-            return;
+            break;
         case o_fsqrt:
             if(is_ieee){
                 reg_fp.write_float(op.rd, std::sqrt(reg_fp.read_float(op.rs1)));
@@ -897,7 +850,7 @@ void exec_op(){
             }
             ++op_type_count[o_fsqrt];
             ++pc;
-            return;
+            break;
         case o_fcvtif:
             if(is_ieee){
                 reg_fp.write_float(op.rd, static_cast<float>(reg_fp.read_int(op.rs1)));
@@ -906,7 +859,7 @@ void exec_op(){
             }
             ++op_type_count[o_fcvtif];
             ++pc;
-            return;
+            break;
         case o_fcvtfi:
             if(is_ieee){
                 reg_fp.write_float(op.rd, static_cast<int>(std::nearbyint(reg_fp.read_float(op.rs1))));
@@ -915,12 +868,12 @@ void exec_op(){
             }
             ++op_type_count[o_fcvtfi];
             ++pc;
-            return;
+            break;
         case o_fmvff:
             reg_fp.write_32(op.rd, reg_fp.read_32(op.rs1));
             ++op_type_count[o_fmvff];
             ++pc;
-            return;
+            break;
         case o_fadd:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) + reg_fp.read_float(op.rs2));
@@ -929,7 +882,7 @@ void exec_op(){
             }
             ++op_type_count[o_fadd];
             ++pc;
-            return;
+            break;
         case o_fsub:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) - reg_fp.read_float(op.rs2));
@@ -938,7 +891,7 @@ void exec_op(){
             }
             ++op_type_count[o_fsub];
             ++pc;
-            return;
+            break;
         case o_fmul:
             if(is_ieee){
                 reg_fp.write_float(op.rd, reg_fp.read_float(op.rs1) * reg_fp.read_float(op.rs2));
@@ -947,90 +900,90 @@ void exec_op(){
             }
             ++op_type_count[o_fmul];
             ++pc;
-            return;
+            break;
         case o_beq:
             reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_beq];
             #ifdef DETAILED
             branch_predictor.update(pc, reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2));
             #endif
-            return;
+            break;
         case o_blt:
             reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_blt];
             #ifdef DETAILED
             branch_predictor.update(pc, reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2));
             #endif
-            return;
+            break;
         case o_fbeq:
             reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_fbeq];
             #ifdef DETAILED
             branch_predictor.update(pc, reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2));
             #endif
-            return;
+            break;
         case o_fblt:
             reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_fblt];
             #ifdef DETAILED
             branch_predictor.update(pc, reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2));
             #endif
-            return;
+            break;
         case o_sw:
             write_memory(reg_int.read_int(op.rs1) + op.imm, reg_int.read_32(op.rs2));
             ++op_type_count[o_sw];
             ++pc;
-            return;
+            break;
         case o_si:
             op_list[reg_int.read_int(op.rs1) + op.imm] = Operation(reg_int.read_int(op.rs2));
             ++op_type_count[o_si];
             ++pc;
-            return;
+            break;
         case o_std:
             send_buffer.push(reg_int.read_int(op.rs2));
             ++op_type_count[o_std];
             ++pc;
-            return;
+            break;
         case o_fsw:
             write_memory(reg_int.read_int(op.rs1) + op.imm, reg_fp.read_32(op.rs2));
             ++op_type_count[o_fsw];
             ++pc;
-            return;
+            break;
         case o_addi:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) + op.imm);
             ++op_type_count[o_addi];
             ++pc;
-            return;
+            break;
         case o_slli:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) << op.imm);
             ++op_type_count[o_slli];
             ++pc;
-            return;
+            break;
         case o_srli:
             reg_int.write_int(op.rd, static_cast<unsigned int>(reg_int.read_int(op.rs1)) >> op.imm);
             ++op_type_count[o_srli];
             ++pc;
-            return;
+            break;
         case o_srai:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) >> op.imm); // todo: 処理系依存
             ++op_type_count[o_srai];
             ++pc;
-            return;
+            break;
         case o_andi:
             reg_int.write_int(op.rd, reg_int.read_int(op.rs1) & op.imm);
             ++op_type_count[o_andi];
             ++pc;
-            return;
+            break;
         case o_lw:
             reg_int.write_32(op.rd, read_memory(reg_int.read_int(op.rs1) + op.imm));
             ++op_type_count[o_lw];
             ++pc;
-            return;
+            break;
         case o_lre:
             reg_int.write_int(op.rd, receive_buffer.empty() ? 1 : 0);
             ++pc;
             ++op_type_count[o_lre];
-            return;
+            break;
         case o_lrd:
             if(!receive_buffer.empty()){
                 reg_int.write_32(op.rd, receive_buffer.pop());
@@ -1039,17 +992,17 @@ void exec_op(){
             }
             ++op_type_count[o_lrd];
             ++pc;
-            return;
+            break;
         case o_ltf:
             reg_int.write_int(op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
             ++op_type_count[o_ltf];
             ++pc;
-            return;
+            break;
         case o_flw:
             reg_fp.write_32(op.rd, read_memory(reg_int.read_int(op.rs1) + op.imm));
             ++op_type_count[o_flw];
             ++pc;
-            return;
+            break;
         case o_jalr:
             {
                 unsigned next_pc = pc + 1;
@@ -1057,30 +1010,47 @@ void exec_op(){
                 reg_int.write_int(op.rd, next_pc);
                 ++op_type_count[o_jalr];
             }
-            return;
+            break;
         case o_jal:
             reg_int.write_int(op.rd, pc + 1);
             ++op_type_count[o_jal];
             pc += op.imm;
-            return;
+            break;
         case o_lui:
             reg_int.write_int(op.rd, op.imm << 12);
             ++op_type_count[o_lui];
             ++pc;
-            return;
+            break;
         case o_fmvif:
             reg_fp.write_32(op.rd, reg_int.read_32(op.rs1));
             ++op_type_count[o_fmvif];
             ++pc;
-            return;
+            break;
         case o_fmvfi:
             reg_int.write_32(op.rd, reg_fp.read_32(op.rs1));
             ++op_type_count[o_fmvfi];
             ++pc;
-            return;
+            break;
         default:
             throw std::runtime_error("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
     }
+
+    return (pc >= code_size || op.is_exit()) ? sim_state_end : sim_state_continue;
+}
+
+int exec_op(const std::string& bp){
+    int res = exec_op();
+
+    if(is_debug && bp != ""){
+        if(bp == "__continue"){ // continue, 名前指定なし
+            if(bp_to_id.right.find(pc) != bp_to_id.right.end()) res = pc;
+        }else{ // continue, 名前指定あり
+            unsigned int bp_id = bp_to_id.left.at(bp);
+            if(pc == bp_id) res = pc;
+        }
+    }
+
+    return res;
 }
 
 
@@ -1100,7 +1070,7 @@ void output_info(){
     ss << std::endl;
 
     ss << "# basic stat" << std::endl;
-    ss << "- operation count: " << op_count << std::endl;
+    ss << "- operation count: " << op_count() << std::endl;
     if(is_cache_enabled){
         ss << "- cache:" << std::endl;
         ss << "\t- line num: " << std::pow(2, index_width) << std::endl;
@@ -1167,7 +1137,6 @@ void output_info(){
     return;
 }
 
-
 inline Bit32 read_memory(int w){
     #ifdef DETAILED
     if(is_cautious){
@@ -1196,9 +1165,13 @@ inline void write_memory(int w, const Bit32& v){
     memory.write(w, v);
 }
 
-// 終了時の無限ループ命令(jal x0, 0)であるかどうかを判定
-inline constexpr bool is_end(const Operation& op){
-    return (op.type == o_jal) && (op.rd == 0) && (op.imm == 0);
+// 実効命令の総数を返す
+unsigned long long op_count(){
+    unsigned long long acc = 0;
+    for(unsigned int i=0; i<op_type_num; ++i){
+        acc += op_type_count[i];
+    }
+    return acc;
 }
 
 // 実効情報を表示したうえで異常終了

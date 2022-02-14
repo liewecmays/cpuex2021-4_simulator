@@ -2,8 +2,6 @@
 #include <common.hpp>
 #include <unit.hpp>
 #include <string>
-#include <queue>
-#include <boost/lockfree/spsc_queue.hpp>
 #include <boost/bimap/bimap.hpp>
 #include <exception>
 
@@ -24,8 +22,9 @@ extern bool is_raytracing;
 void simulate(); // シミュレーションの本体処理
 bool exec_command(std::string); // デバッグモードのコマンドを認識して実行
 void output_info(); // 情報の出力
-void exec_op(); // 命令を実行し、PCを変化させる
+int exec_op(); // 命令を実行し、PCを変化させる
+int exec_op(const std::string&);
 Bit32 read_memory(int); // メモリ読み出し(class Memoryのラッパー関数)
 void write_memory(int, const Bit32&); // メモリ書き込み(class Memoryのラッパー関数)
-bool constexpr is_end(const Operation&); // 終了時の命令かどうかを判定
+unsigned long long op_count(); // 実効命令の総数を返す
 void exit_with_output(std::exception&); // 実効情報を表示したうえで異常終了
