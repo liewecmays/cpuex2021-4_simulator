@@ -33,6 +33,6 @@ clean-info:
 	rm -f info/*.md info/*.csv
 
 clean-out:
-	rm -f out/*.ppm out/*.bin
+	rm -f out/*.ppm out/*.bin out/*.txt
 
 clean-all: clean clean-info clean-out
