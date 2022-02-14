@@ -56,6 +56,7 @@ bool is_skip = false; // ブートローディングの過程をスキップす�
 bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
+bool is_cautious = false; // 例外処理などを慎重に行うモード
 std::string filename; // 処理対象のファイル名
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string preload_filename; // プリロード対象のファイル名
@@ -122,6 +123,7 @@ int main(int argc, char *argv[]){
         ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
         ("gshare,g", "branch prediction (Gshare)")
         ("stat", "statistics mode")
+        ("cautious", "cautious mode")
         #endif
         ;
 	po::variables_map vm;
@@ -1169,10 +1171,14 @@ void output_info(){
 
 
 inline Bit32 read_memory(int w){
-    // if(!memory_exceeding_flag && w >= max_mem_size){
-    //     memory_exceeding_flag = true;
-    //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
-    // }
+    #ifdef DETAILED
+    if(is_cautious){
+        if(w < 0 || w > memory_border){
+            std::cout << head_error << "invalid memory access" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+    #endif
     #ifdef DETAILED
     if(is_stat){
         ++mem_accessed_read[w];
@@ -1184,10 +1190,14 @@ inline Bit32 read_memory(int w){
 }
 
 inline void write_memory(int w, const Bit32& v){
-    // if(!memory_exceeding_flag && w >= max_mem_size){
-    //     memory_exceeding_flag = true;
-    //     std::cout << head_warning << "exceeded memory limit (384KiB)" << std::endl;
-    // }
+    #ifdef DETAILED
+    if(is_cautious){
+        if(w < 0 || w > memory_border){
+            std::cout << head_error << "invalid memory access" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+    #endif
     #ifdef DETAILED
     if(is_stat){
         ++mem_accessed_write[w];
