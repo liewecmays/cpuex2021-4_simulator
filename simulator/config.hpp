@@ -75,33 +75,6 @@ inline constexpr Hazard_type operator||(const Hazard_type t1, const Hazard_type 
     return (t1 == Hazard_type::No_hazard) ? t2 : t1;
 }
 
-// ハザード情報
-class Hazard_info{
-    public:
-        class Hazard_info_ma{
-            public:
-                std::array<unsigned int, 3> wb_addr;
-                std::array<bool, 3> is_willing_but_not_ready_int;
-                std::array<bool, 3> is_willing_but_not_ready_fp;
-                bool cannot_accept;
-        };
-        class Hazard_info_mfp{
-            public:
-                unsigned int wb_addr;
-                bool is_willing_but_not_ready;
-                bool cannot_accept;
-        };
-        class Hazard_info_pfp{
-            public:
-                std::array<unsigned int, pipelined_fpu_stage_num-1> wb_addr;
-                std::array<bool, pipelined_fpu_stage_num-1> wb_en;
-        };
-    public:
-        Hazard_info_ma ma;
-        Hazard_info_mfp mfp;
-        Hazard_info_pfp pfp;
-};
-
 // 各時点の状態
 class Configuration{
     public:
@@ -197,9 +170,9 @@ class Configuration{
         EX_stage EX;
         WB_stage WB;
         int advance_clock(bool, const std::string&); // クロックを1つ分先に進める
-        constexpr Hazard_type intra_hazard_detector(const std::array<Fetched_inst, 2>&, const Hazard_info&); // 同時発行される命令の間のハザード検出
-        constexpr Hazard_type inter_hazard_detector(const std::array<Fetched_inst, 2>&, const Hazard_info&, unsigned int); // 同時発行されない命令間のハザード検出
-        constexpr Hazard_type iwp_hazard_detector(const std::array<Fetched_inst, 2>&, const Hazard_info&, unsigned int); // 書き込みポート数が不十分な場合のハザード検出
+        constexpr Hazard_type intra_hazard_detector(const std::array<Fetched_inst, 2>&); // 同時発行される命令の間のハザード検出
+        constexpr Hazard_type inter_hazard_detector(const Fetched_inst&); // 同時発行されない命令間のハザード検出
+        constexpr Hazard_type iwp_hazard_detector(const std::array<Fetched_inst, 2>&, unsigned int); // 書き込みポート数が不十分な場合のハザード検出
         constexpr void wb_req_int(const Instruction&); // WBステージに命令を渡す
         constexpr void wb_req_fp(const Instruction&); // WBステージに命令を渡す
 };
@@ -215,7 +188,6 @@ using enum Configuration::EX_stage::EX_mfp::State_mfp;
 // クロックを1つ分先に進める
 inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     Configuration config_next = Configuration(); // *thisを現在の状態として、次の状態
-    Hazard_info info;
     int res = sim_state_continue;
 
     config_next.clk = this->clk + 1;
@@ -252,19 +224,6 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
     // const bool ce = true;
     config_next.EX.ma.ma2.inst = this->EX.ma.ma1.inst;
     config_next.EX.ma.ma3.inst = this->EX.ma.ma2.inst;
-    
-    // MA (hazard info)
-    info.ma.wb_addr[0] = this->EX.ma.ma1.inst.op.rd;
-    info.ma.wb_addr[1] = this->EX.ma.ma2.inst.op.rd;
-    info.ma.wb_addr[2] = this->EX.ma.ma3.inst.op.rd;
-    info.ma.is_willing_but_not_ready_int[0] = this->EX.ma.ma1.inst.op.is_load();
-    info.ma.is_willing_but_not_ready_fp[0] = this->EX.ma.ma1.inst.op.is_load_fp();
-    info.ma.is_willing_but_not_ready_int[1] = this->EX.ma.ma2.inst.op.is_load();
-    info.ma.is_willing_but_not_ready_fp[1] = this->EX.ma.ma2.inst.op.is_load_fp();
-    // bool is_willing_but_not_ready = false;
-    info.ma.is_willing_but_not_ready_int[2] = false;
-    info.ma.is_willing_but_not_ready_fp[2] = false;
-    info.ma.cannot_accept = false; // stall
     
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
@@ -307,24 +266,12 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         }
     }
 
-    // mFP (hazard info)
-    info.mfp.wb_addr = this->EX.mfp.inst.op.rd;
-    info.mfp.is_willing_but_not_ready = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
-    info.mfp.cannot_accept = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
-
     // pFP
     for(unsigned int i=1; i<pipelined_fpu_stage_num; ++i){
         config_next.EX.pfp.inst[i] = this->EX.pfp.inst[i-1];
     }
     this->EX.pfp.exec();
     config_next.wb_req_fp(this->EX.pfp.inst[pipelined_fpu_stage_num-1]);
-
-    // pFP (hazard info)
-    for(unsigned int i=0; i<pipelined_fpu_stage_num-1; ++i){
-        info.pfp.wb_addr[i] = this->EX.pfp.inst[i].op.rd;
-        info.pfp.wb_en[i] = this->EX.pfp.inst[i].op.use_pipelined_fpu();       
-    }
-
 
     /* instruction fetch + decode */
     std::array<Fetched_inst, 2> fetched_inst;
@@ -338,12 +285,12 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         hazard_type[0] = hazard_type[1] = End;
         is_not_dispatched[0] = is_not_dispatched[1] = true;
     }else{
-        hazard_type[0] = this->inter_hazard_detector(fetched_inst, info, 0) || this->iwp_hazard_detector(fetched_inst, info, 0);
+        hazard_type[0] = this->inter_hazard_detector(fetched_inst[0]) || this->iwp_hazard_detector(fetched_inst, 0);
         if(hazard_type[0] != No_hazard){
             hazard_type[1] = Trivial;
             is_not_dispatched[0] = is_not_dispatched[1] = true;
         }else{
-            hazard_type[1] = this->intra_hazard_detector(fetched_inst, info) || this->inter_hazard_detector(fetched_inst, info, 1) || this->iwp_hazard_detector(fetched_inst, info, 1);
+            hazard_type[1] = this->intra_hazard_detector(fetched_inst) || this->inter_hazard_detector(fetched_inst[1]) || this->iwp_hazard_detector(fetched_inst, 1);
             is_not_dispatched[0] = false;
             is_not_dispatched[1] = (hazard_type[1] != No_hazard);
         }
@@ -741,7 +688,7 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
 }
 
 // 同時発行される命令の間のハザード検出
-inline constexpr Hazard_type Configuration::intra_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, const Hazard_info& info){
+inline constexpr Hazard_type Configuration::intra_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst){
     // RAW hazards
     if(
         ((fetched_inst[0].op.use_rd_int() && fetched_inst[1].op.use_rs1_int())
@@ -782,62 +729,73 @@ inline constexpr Hazard_type Configuration::intra_hazard_detector(const std::arr
 }
 
 // 同時発行されない命令間のハザード検出
-inline constexpr Hazard_type Configuration::inter_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, const Hazard_info& info, unsigned int i){ // i = 0,1
+inline constexpr Hazard_type Configuration::inter_hazard_detector(const Fetched_inst& inst){
     // RAW hazards
-    for(unsigned int j=0; j<3; ++j){
-        if(
-            ((info.ma.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs1_int())
-            || (info.ma.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs1_fp()))
-            && info.ma.wb_addr[j] == fetched_inst[i].op.rs1
-        ) return Inter_RAW_ma_to_rs1;
-    }
-    for(unsigned int j=0; j<3; ++j){
-        if(
-            ((info.ma.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rs2_int())
-            || (info.ma.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rs2_fp()))
-            && info.ma.wb_addr[j] == fetched_inst[i].op.rs2
-        ) return Inter_RAW_ma_to_rs2;
-    }
     if(
-        info.mfp.is_willing_but_not_ready && fetched_inst[i].op.use_rs1_fp() && (info.mfp.wb_addr == fetched_inst[i].op.rs1)
+        (((this->EX.ma.ma1.inst.op.is_load() && inst.op.use_rs1_int())
+        || (this->EX.ma.ma1.inst.op.is_load_fp() && inst.op.use_rs1_fp()))
+        && this->EX.ma.ma1.inst.op.rd == inst.op.rs1) // ma1 -> rs1
+        ||
+        (((this->EX.ma.ma2.inst.op.is_load() && inst.op.use_rs1_int())
+        || (this->EX.ma.ma2.inst.op.is_load_fp() && inst.op.use_rs1_fp()))
+        && this->EX.ma.ma2.inst.op.rd == inst.op.rs1) // ma2 -> rs1
+    ) return Inter_RAW_ma_to_rs1;
+    if(
+        (((this->EX.ma.ma1.inst.op.is_load() && inst.op.use_rs2_int())
+        || (this->EX.ma.ma1.inst.op.is_load_fp() && inst.op.use_rs2_fp()))
+        && this->EX.ma.ma1.inst.op.rd == inst.op.rs2) // ma1 -> rs2
+        ||
+        (((this->EX.ma.ma2.inst.op.is_load() && inst.op.use_rs2_int())
+        || (this->EX.ma.ma2.inst.op.is_load_fp() && inst.op.use_rs2_fp()))
+        && this->EX.ma.ma2.inst.op.rd == inst.op.rs2) // ma2 -> rs2
+    ) return Inter_RAW_ma_to_rs2;
+
+    bool mfp_is_willing_but_not_ready = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
+    if(
+        mfp_is_willing_but_not_ready && inst.op.use_rs1_fp() && (this->EX.mfp.inst.op.rd == inst.op.rs1)
     ) return Inter_RAW_mfp_to_rs1;
     if(
-        info.mfp.is_willing_but_not_ready && fetched_inst[i].op.use_rs2_fp() && (info.mfp.wb_addr == fetched_inst[i].op.rs2)
+        mfp_is_willing_but_not_ready && inst.op.use_rs2_fp() && (this->EX.mfp.inst.op.rd == inst.op.rs2)
     ) return Inter_RAW_mfp_to_rs2;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(info.pfp.wb_en[j] && fetched_inst[i].op.use_rs1_fp() && (info.pfp.wb_addr[j] == fetched_inst[i].op.rs1)){
+        if(this->EX.pfp.inst[j].op.use_pipelined_fpu() && inst.op.use_rs1_fp() && (this->EX.pfp.inst[j].op.rd == inst.op.rs1)){
             return Inter_RAW_pfp_to_rs1;
         }
     }
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(info.pfp.wb_en[j] && fetched_inst[i].op.use_rs2_fp() && (info.pfp.wb_addr[j] == fetched_inst[i].op.rs2)){
+        if(this->EX.pfp.inst[j].op.use_pipelined_fpu() && inst.op.use_rs2_fp() && (this->EX.pfp.inst[j].op.rd == inst.op.rs2)){
             return Inter_RAW_pfp_to_rs2;
         }
     }
 
     // WAW hazards
-    for(unsigned int j=0; j<3; ++j){
-        if(
-            ((info.ma.is_willing_but_not_ready_int[j] && fetched_inst[i].op.use_rd_int())
-            || (info.ma.is_willing_but_not_ready_fp[j] && fetched_inst[i].op.use_rd_fp()))
-            && info.ma.wb_addr[j] == fetched_inst[i].op.rd
-        ) return Inter_WAW_ma_to_rd;
-    }
     if(
-        info.mfp.is_willing_but_not_ready && fetched_inst[i].op.use_rd_fp() && (info.mfp.wb_addr == fetched_inst[i].op.rd)
+        (((this->EX.ma.ma1.inst.op.is_load() && inst.op.use_rd_int())
+        || (this->EX.ma.ma1.inst.op.is_load_fp() && inst.op.use_rd_fp()))
+        && this->EX.ma.ma1.inst.op.rd == inst.op.rd) // ma1 -> rd
+        ||
+        (((this->EX.ma.ma2.inst.op.is_load() && inst.op.use_rd_int())
+        || (this->EX.ma.ma2.inst.op.is_load_fp() && inst.op.use_rd_fp()))
+        && this->EX.ma.ma2.inst.op.rd == inst.op.rd) // ma2 -> rd
+    ) return Inter_WAW_ma_to_rd;
+
+    if(
+        mfp_is_willing_but_not_ready && inst.op.use_rd_fp() && (this->EX.mfp.inst.op.rd == inst.op.rd)
     ) return Inter_WAW_mfp_to_rd;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(info.pfp.wb_en[j] && fetched_inst[i].op.use_rd_fp() && (info.pfp.wb_addr[j] == fetched_inst[i].op.rd)){
+        if(this->EX.pfp.inst[j].op.use_pipelined_fpu() && inst.op.use_rd_fp() && (this->EX.pfp.inst[j].op.rd == inst.op.rd)){
             return Inter_WAW_pfp_to_rd;
         }
     }
 
     // structural hazards
+    // 実行中はキャッシュミスを無視
+    // if(
+    //     info.ma.cannot_accept && inst.op.use_mem()
+    // ) return Inter_structural_mem;
     if(
-        info.ma.cannot_accept && fetched_inst[i].op.use_mem()
-    ) return Inter_structural_mem;
-    if(
-        info.mfp.cannot_accept && fetched_inst[i].op.use_multicycle_fpu()
+        mfp_is_willing_but_not_ready // 本当は"cannot_accept"だが同じなので簡略化
+        && inst.op.use_multicycle_fpu()
     ) return Inter_structural_mfp;
 
     // no hazard detected
@@ -845,19 +803,13 @@ inline constexpr Hazard_type Configuration::inter_hazard_detector(const std::arr
 }
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
-inline constexpr Hazard_type Configuration::iwp_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, const Hazard_info& info, unsigned int i){
-    bool ma_wb_int_instantly = info.ma.is_willing_but_not_ready_int[1] || info.ma.is_willing_but_not_ready_int[2];
-    bool ma_wb_fp = false;
-    for(unsigned int j=0; j<3; ++j){
-        if(info.ma.is_willing_but_not_ready_fp[j]){
-            ma_wb_fp = true;
-            break;
-        }
-    }
-    bool mfp_wb_fp = info.mfp.is_willing_but_not_ready;
+inline constexpr Hazard_type Configuration::iwp_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){
+    bool ma_wb_int_instantly = this->EX.ma.ma2.inst.op.is_load();
+    bool ma_wb_fp = this->EX.ma.ma1.inst.op.is_load_fp() || this->EX.ma.ma2.inst.op.is_load_fp();
+    bool mfp_wb_fp = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
     bool pfp_wb_fp = false;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
-        if(info.pfp.wb_en[j]){
+        if(this->EX.pfp.inst[j].op.use_pipelined_fpu()){
             pfp_wb_fp = true;
             break;
         }
