@@ -161,6 +161,7 @@ int main(int argc, char *argv[]){
     if(vm.count("boot")) is_bootloading = true;
     if(vm.count("cache")){
         is_cache_enabled = true;
+        bool is_bad_arg = true;
         std::vector<unsigned int> cache_setting = vm["cache"].as<std::vector<unsigned int>>();
         if(cache_setting.size() == 2){
             index_width_ = cache_setting[0];
@@ -168,8 +169,14 @@ int main(int argc, char *argv[]){
             if(index_width_ + offset_width_ >= 32){
                 std::cout << head_error << "invalid cache setting" << std::endl;
                 std::exit(EXIT_FAILURE);
+            }else{
+                is_bad_arg = false;
             }
-        }else{
+        }else if(cache_setting.size() == 1){
+            std::vector<unsigned int> cache_setting = vm["cache"].as<std::vector<unsigned int>>();
+            if(cache_setting[0] == 0) is_bad_arg = false;
+        }
+        if(is_bad_arg){
             std::cout << head_error << "invalid argument(s) for -c option (there should be 2 ones)" << std::endl;
             std::exit(EXIT_FAILURE);
         }

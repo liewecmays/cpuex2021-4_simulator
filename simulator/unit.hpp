@@ -45,7 +45,6 @@ class Reg{
 
 
 /* キャッシュ */
-constexpr unsigned int addr_width = 25;
 class Cache{
     private:
         unsigned int* tags;
