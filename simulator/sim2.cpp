@@ -464,25 +464,16 @@ bool exec_command(std::string cmd){
             }
 
             // EX_ma
-            // ma1
-            if(!config.EX.ma.ma1.inst.op.is_nop()){
-                std::cout << "     ma1   : " << config.EX.ma.ma1.inst.op.to_string() << " (pc=" << config.EX.ma.ma1.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma1.inst.pc))) : "") << ")" << std::endl;
-            }else{
-                std::cout << "     ma1   :" << std::endl;
-            }
-
-            // ma2
-            if(!config.EX.ma.ma2.inst.op.is_nop()){
-                std::cout << "     ma2   : " << config.EX.ma.ma2.inst.op.to_string() << " (pc=" << config.EX.ma.ma2.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma2.inst.pc))) : "") << ") " << std::endl;
-            }else{
-                std::cout << "     ma2   :" << std::endl;
-            }
-
-            // ma3
-            if(!config.EX.ma.ma3.inst.op.is_nop()){
-                std::cout << "     ma3   : " << config.EX.ma.ma3.inst.op.to_string() << " (pc=" << config.EX.ma.ma3.inst.pc << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.ma3.inst.pc))) : "") << ")" << std::endl;
-            }else{
-                std::cout << "     ma3   :" << std::endl;
+            for(int i=0; i<3; ++i){
+                if(config.EX.ma.inst[i].op.is_nop()){
+                    std::cout
+                    << "     ma[" << i << "] : "
+                    << config.EX.ma.inst[i].op.to_string()
+                    << " (pc=" << config.EX.ma.inst[0].pc
+                    << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(config.EX.ma.inst[i].pc))) : "") << ")" << std::endl;
+                }else{
+                    std::cout << "     ma[" << i << "] : " << std::endl;
+                }
             }
 
             // EX_mfp

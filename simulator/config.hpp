@@ -113,22 +113,7 @@ class Configuration{
                 };
                 class EX_ma{
                     public:
-                        class MA1{
-                            public:
-                                Instruction inst;
-                        };
-                        class MA2{
-                            public:
-                                Instruction inst;
-                        };
-                        class MA3{
-                            public:
-                                Instruction inst;
-                        };
-                    public:
-                        MA1 ma1;
-                        MA2 ma2;
-                        MA3 ma3;
+                        std::array<Instruction, 3> inst;
                         void exec();
                 };
                 class EX_mfp{
@@ -211,19 +196,19 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         - rsp_en: 固定サイクル後に返ってくるものと仮定してmFPと同様に処理
     */
     // シミュレータの内部的な命令実行 (MA3)
-    if(!this->EX.ma.ma3.inst.op.is_nop()){
+    if(!this->EX.ma.inst[2].op.is_nop()){
         this->EX.ma.exec();
-        if(this->EX.ma.ma3.inst.op.type == o_lre || this->EX.ma.ma3.inst.op.type == o_ltf || this->EX.ma.ma3.inst.op.type == o_lrd || this->EX.ma.ma3.inst.op.type == o_lw){
-            config_next.wb_req_int(this->EX.ma.ma3.inst);
-        }else if(this->EX.ma.ma3.inst.op.type == o_si){
-            config_next.wb_req_fp(this->EX.ma.ma3.inst);
+        if(this->EX.ma.inst[2].op.type == o_lre || this->EX.ma.inst[2].op.type == o_ltf || this->EX.ma.inst[2].op.type == o_lrd || this->EX.ma.inst[2].op.type == o_lw){
+            config_next.wb_req_int(this->EX.ma.inst[2]);
+        }else if(this->EX.ma.inst[2].op.type == o_si){
+            config_next.wb_req_fp(this->EX.ma.inst[2]);
         }
     }
     
     // MA3 -> MA2
     // const bool ce = true;
-    config_next.EX.ma.ma2.inst = this->EX.ma.ma1.inst;
-    config_next.EX.ma.ma3.inst = this->EX.ma.ma2.inst;
+    config_next.EX.ma.inst[1] = this->EX.ma.inst[0];
+    config_next.EX.ma.inst[2] = this->EX.ma.inst[1];
     
     // mFP
     if(!this->EX.mfp.inst.op.is_nop()){
@@ -479,16 +464,16 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
             case o_lrd:
             case o_ltf:
             case o_flw:
-                config_next.EX.ma.ma1.inst.op = fetched_inst[i].op;
-                config_next.EX.ma.ma1.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
-                config_next.EX.ma.ma1.inst.rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
-                config_next.EX.ma.ma1.inst.pc = fetched_inst[i].pc;
+                config_next.EX.ma.inst[0].op = fetched_inst[i].op;
+                config_next.EX.ma.inst[0].rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.ma.inst[0].rs2_v = reg_int.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.ma.inst[0].pc = fetched_inst[i].pc;
                 break;
             case o_fsw:
-                config_next.EX.ma.ma1.inst.op = fetched_inst[i].op;
-                config_next.EX.ma.ma1.inst.rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
-                config_next.EX.ma.ma1.inst.rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
-                config_next.EX.ma.ma1.inst.pc = fetched_inst[i].pc;
+                config_next.EX.ma.inst[0].op = fetched_inst[i].op;
+                config_next.EX.ma.inst[0].rs1_v = reg_int.read_32(fetched_inst[i].op.rs1);
+                config_next.EX.ma.inst[0].rs2_v = reg_fp.read_32(fetched_inst[i].op.rs2);
+                config_next.EX.ma.inst[0].pc = fetched_inst[i].pc;
                 break;
             // mFP
             case o_fabs:
@@ -605,37 +590,16 @@ inline int Configuration::advance_clock(bool verbose, const std::string& bp){
         }
 
         // EX_ma
-        // ma1
-        if(!this->EX.ma.ma1.inst.op.is_nop()){
-            std::cout
-            << "     ma1   : "
-            << this->EX.ma.ma1.inst.op.to_string()
-            << " (pc=" << this->EX.ma.ma1.inst.pc
-            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma1.inst.pc))) : "") << ")" << std::endl;
-        }else{
-            std::cout << "     ma1   :" << std::endl;
-        }
-
-        // ma2
-        if(!this->EX.ma.ma2.inst.op.is_nop()){
-            std::cout
-            << "     ma2   : "
-            << this->EX.ma.ma2.inst.op.to_string()
-            << " (pc=" << this->EX.ma.ma2.inst.pc
-            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma2.inst.pc))) : "") << ") " << std::endl;
-        }else{
-            std::cout << "     ma2   :" << std::endl;
-        }
-
-        // ma3
-        if(!this->EX.ma.ma3.inst.op.is_nop()){
-            std::cout
-            << "     ma3   : "
-            << this->EX.ma.ma3.inst.op.to_string()
-            << " (pc=" << this->EX.ma.ma3.inst.pc
-            << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.ma3.inst.pc))) : "") << ")" << std::endl;
-        }else{
-            std::cout << "     ma3   :" << std::endl;
+        for(int i=0; i<3; ++i){
+            if(!this->EX.ma.inst[i].op.is_nop()){
+                std::cout
+                << "     ma[" << i << "] : "
+                << this->EX.ma.inst[i].op.to_string()
+                << " (pc=" << this->EX.ma.inst[0].pc
+                << (is_debug ? (", line=" + std::to_string(id_to_line.left.at(this->EX.ma.inst[i].pc))) : "") << ")" << std::endl;
+            }else{
+                std::cout << "     ma[" << i << "] : " << std::endl;
+            }
         }
 
         // EX_mfp
@@ -732,22 +696,22 @@ inline constexpr Hazard_type Configuration::intra_hazard_detector(const std::arr
 inline constexpr Hazard_type Configuration::inter_hazard_detector(const Fetched_inst& inst){
     // RAW hazards
     if(
-        (((this->EX.ma.ma1.inst.op.is_load() && inst.op.use_rs1_int())
-        || (this->EX.ma.ma1.inst.op.is_load_fp() && inst.op.use_rs1_fp()))
-        && this->EX.ma.ma1.inst.op.rd == inst.op.rs1) // ma1 -> rs1
+        (((this->EX.ma.inst[0].op.is_load() && inst.op.use_rs1_int())
+        || (this->EX.ma.inst[0].op.is_load_fp() && inst.op.use_rs1_fp()))
+        && this->EX.ma.inst[0].op.rd == inst.op.rs1) // ma1 -> rs1
         ||
-        (((this->EX.ma.ma2.inst.op.is_load() && inst.op.use_rs1_int())
-        || (this->EX.ma.ma2.inst.op.is_load_fp() && inst.op.use_rs1_fp()))
-        && this->EX.ma.ma2.inst.op.rd == inst.op.rs1) // ma2 -> rs1
+        (((this->EX.ma.inst[1].op.is_load() && inst.op.use_rs1_int())
+        || (this->EX.ma.inst[1].op.is_load_fp() && inst.op.use_rs1_fp()))
+        && this->EX.ma.inst[1].op.rd == inst.op.rs1) // ma2 -> rs1
     ) return Inter_RAW_ma_to_rs1;
     if(
-        (((this->EX.ma.ma1.inst.op.is_load() && inst.op.use_rs2_int())
-        || (this->EX.ma.ma1.inst.op.is_load_fp() && inst.op.use_rs2_fp()))
-        && this->EX.ma.ma1.inst.op.rd == inst.op.rs2) // ma1 -> rs2
+        (((this->EX.ma.inst[0].op.is_load() && inst.op.use_rs2_int())
+        || (this->EX.ma.inst[0].op.is_load_fp() && inst.op.use_rs2_fp()))
+        && this->EX.ma.inst[0].op.rd == inst.op.rs2) // ma1 -> rs2
         ||
-        (((this->EX.ma.ma2.inst.op.is_load() && inst.op.use_rs2_int())
-        || (this->EX.ma.ma2.inst.op.is_load_fp() && inst.op.use_rs2_fp()))
-        && this->EX.ma.ma2.inst.op.rd == inst.op.rs2) // ma2 -> rs2
+        (((this->EX.ma.inst[1].op.is_load() && inst.op.use_rs2_int())
+        || (this->EX.ma.inst[1].op.is_load_fp() && inst.op.use_rs2_fp()))
+        && this->EX.ma.inst[1].op.rd == inst.op.rs2) // ma2 -> rs2
     ) return Inter_RAW_ma_to_rs2;
 
     bool mfp_is_willing_but_not_ready = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
@@ -770,13 +734,13 @@ inline constexpr Hazard_type Configuration::inter_hazard_detector(const Fetched_
 
     // WAW hazards
     if(
-        (((this->EX.ma.ma1.inst.op.is_load() && inst.op.use_rd_int())
-        || (this->EX.ma.ma1.inst.op.is_load_fp() && inst.op.use_rd_fp()))
-        && this->EX.ma.ma1.inst.op.rd == inst.op.rd) // ma1 -> rd
+        (((this->EX.ma.inst[0].op.is_load() && inst.op.use_rd_int())
+        || (this->EX.ma.inst[0].op.is_load_fp() && inst.op.use_rd_fp()))
+        && this->EX.ma.inst[0].op.rd == inst.op.rd) // ma1 -> rd
         ||
-        (((this->EX.ma.ma2.inst.op.is_load() && inst.op.use_rd_int())
-        || (this->EX.ma.ma2.inst.op.is_load_fp() && inst.op.use_rd_fp()))
-        && this->EX.ma.ma2.inst.op.rd == inst.op.rd) // ma2 -> rd
+        (((this->EX.ma.inst[1].op.is_load() && inst.op.use_rd_int())
+        || (this->EX.ma.inst[1].op.is_load_fp() && inst.op.use_rd_fp()))
+        && this->EX.ma.inst[1].op.rd == inst.op.rd) // ma2 -> rd
     ) return Inter_WAW_ma_to_rd;
 
     if(
@@ -804,8 +768,8 @@ inline constexpr Hazard_type Configuration::inter_hazard_detector(const Fetched_
 
 // 書き込みポート数が不十分な場合のハザード検出 (insufficient write port)
 inline constexpr Hazard_type Configuration::iwp_hazard_detector(const std::array<Fetched_inst, 2>& fetched_inst, unsigned int i){
-    bool ma_wb_int_instantly = this->EX.ma.ma2.inst.op.is_load();
-    bool ma_wb_fp = this->EX.ma.ma1.inst.op.is_load_fp() || this->EX.ma.ma2.inst.op.is_load_fp();
+    bool ma_wb_int_instantly = this->EX.ma.inst[1].op.is_load();
+    bool ma_wb_fp = this->EX.ma.inst[0].op.is_load_fp() || this->EX.ma.inst[1].op.is_load_fp();
     bool mfp_wb_fp = (this->EX.mfp.state == MFP_idle && this->EX.mfp.inst.op.is_nonzero_latency_mfp()) || this->EX.mfp.state == MFP_busy;
     bool pfp_wb_fp = false;
     for(unsigned int j=0; j<pipelined_fpu_stage_num-1; ++j){
@@ -974,45 +938,45 @@ inline void Configuration::EX_stage::EX_br::exec(){
 }
 
 inline void Configuration::EX_stage::EX_ma::exec(){
-    switch(this->ma3.inst.op.type){
+    switch(this->inst[2].op.type){
         case o_sw:
-            memory.write(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
+            memory.write(this->inst[2].ma_addr(), this->inst[2].rs2_v);
             ++op_type_count[o_sw];
             return;
         case o_si:
-            op_list[this->ma3.inst.rs1_v.i + this->ma3.inst.op.imm] = Operation(this->ma3.inst.rs2_v.i);
+            op_list[this->inst[2].rs1_v.i + this->inst[2].op.imm] = Operation(this->inst[2].rs2_v.i);
             ++op_type_count[o_si];
             return;
         case o_std:
-            send_buffer.push(this->ma3.inst.rs2_v);
+            send_buffer.push(this->inst[2].rs2_v);
             ++op_type_count[o_std];
             return;
         case o_fsw:
-            memory.write(this->ma3.inst.ma_addr(), this->ma3.inst.rs2_v);
+            memory.write(this->inst[2].ma_addr(), this->inst[2].rs2_v);
             ++op_type_count[o_fsw];
             return;
         case o_lw:
-            reg_int.write_32(this->ma3.inst.op.rd, memory.read(this->ma3.inst.ma_addr()));
+            reg_int.write_32(this->inst[2].op.rd, memory.read(this->inst[2].ma_addr()));
             ++op_type_count[o_lw];
             return;
         case o_lre:
-            reg_int.write_int(this->ma3.inst.op.rd, receive_buffer.empty() ? 1 : 0);
+            reg_int.write_int(this->inst[2].op.rd, receive_buffer.empty() ? 1 : 0);
             ++op_type_count[o_lre];
             return;
         case o_lrd:
             if(!receive_buffer.empty()){
-                reg_int.write_32(this->ma3.inst.op.rd, receive_buffer.pop());
+                reg_int.write_32(this->inst[2].op.rd, receive_buffer.pop());
             }else{
-                throw std::runtime_error("receive buffer is empty [lrd] (at pc " + std::to_string(this->ma3.inst.pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->ma3.inst.pc))) : "") + ")");
+                throw std::runtime_error("receive buffer is empty [lrd] (at pc " + std::to_string(this->inst[2].pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(this->inst[2].pc))) : "") + ")");
             }
             ++op_type_count[o_lrd];
             return;
         case o_ltf:
-            reg_int.write_int(this->ma3.inst.op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
+            reg_int.write_int(this->inst[2].op.rd, 0); // 暫定的に、常にfull flagが立っていない(=送信バッファの大きさに制限がない)としている
             ++op_type_count[o_ltf];
             return;
         case o_flw:
-            reg_fp.write_32(this->ma3.inst.op.rd, memory.read(this->ma3.inst.ma_addr()));
+            reg_fp.write_32(this->inst[2].op.rd, memory.read(this->inst[2].ma_addr()));
             ++op_type_count[o_flw];
             return;
         default: return;
@@ -1116,7 +1080,7 @@ inline void Configuration::EX_stage::EX_pfp::exec(){
 
 // EXステージに命令がないかどうかの判定
 inline constexpr bool Configuration::EX_stage::is_clear(){
-    bool ma_clear = this->ma.ma1.inst.op.is_nop() && this->ma.ma2.inst.op.is_nop() && this->ma.ma3.inst.op.is_nop();
+    bool ma_clear = this->ma.inst[0].op.is_nop() && this->ma.inst[1].op.is_nop() && this->ma.inst[2].op.is_nop();
     bool pfp_clear = true;
     for(unsigned int i=0; i<pipelined_fpu_stage_num; ++i){
         if(!this->pfp.inst[i].op.is_nop()){
