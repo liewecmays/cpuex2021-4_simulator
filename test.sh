@@ -22,7 +22,7 @@ do
             case $OPTARG in
                 ieee) IS_IEEE="--ieee";;
                 preload) IS_PRELOADING="--preload";;
-                boot) IS_BOOTLOADING="--boot";;
+                # boot) IS_BOOTLOADING="--boot";;
                 stat) IS_STAT="--stat";;
                 cautious) IS_CAUTIOUS="--cautious"
             esac;;

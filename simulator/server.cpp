@@ -25,9 +25,9 @@ struct sockaddr_in opponent_addr; // 通信相手(./sim)の情報
 // int client_socket; // 送信用のソケット
 // bool is_connected = false; // 通信が維持されているかどうかのフラグ
 
-// ブートローダ関連
-bool bootloading_start_flag = false; // ブートローダ用通信開始のフラグ
-bool bootloading_end_flag = false; // ブートローダ用通信終了のフラグ
+// ブートローダ関連 -> 廃止
+// bool bootloading_start_flag = false; // ブートローダ用通信開始のフラグ
+// bool bootloading_end_flag = false; // ブートローダ用通信終了のフラグ
 
 
 int main(int argc, char *argv[]){

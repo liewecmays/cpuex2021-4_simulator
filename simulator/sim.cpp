@@ -53,7 +53,7 @@ bool is_stat = false; // 統計モード
 bool is_cache_enabled = false; // キャッシュを考慮するモード
 bool is_gshare_enabled = false; // 分岐予測を組み込むモード
 bool is_skip = false; // ブートローディングの過程をスキップするモード
-bool is_bootloading = false; // ブートローダ対応モード
+// bool is_bootloading = false; // ブートローダ対応モード
 bool is_raytracing = false; // レイトレ専用モード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_cautious = false; // 例外処理などを慎重に行うモード
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]){
         ("raytracing,r", "specialized for ray-tracing program")
         #ifdef DETAILED
         ("port,p", po::value<int>(), "port number")
-        ("boot", "bootloading mode")
+        // ("boot", "bootloading mode")
         ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
         ("gshare,g", "branch prediction (Gshare)")
         ("stat", "statistics mode")
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]){
     if(vm.count("raytracing")) is_raytracing = true;
     #ifdef DETAILED
     if(vm.count("port")) port = vm["port"].as<int>();
-    if(vm.count("boot")) is_bootloading = true;
+    // if(vm.count("boot")) is_bootloading = true;
     if(vm.count("cache")){
         is_cache_enabled = true;
         bool is_bad_arg = true;
@@ -254,11 +254,11 @@ int main(int argc, char *argv[]){
 
     // ファイルを読む
     std::string input_filename;
-    if(is_bootloading){
-        input_filename = "./code/bootloader";
-    }else{
+    // if(is_bootloading){
+    //     input_filename = "./code/bootloader";
+    // }else{
         input_filename = "./code/" + filename + (is_bin ? ".bin" : (is_debug ? ".dbg" : ""));
-    }
+    // }
     std::ifstream input_file(input_filename);
     if(!input_file.is_open()){
         std::cerr << head_error << "could not open " << input_filename << std::endl;
@@ -788,37 +788,37 @@ int exec_op(){
     }
     #endif
 
-    // ブートローダ用処理(bootloader.sの内容に依存しているので注意！)
+    // ブートローダ用処理(bootloader.sの内容に依存しているので注意！) -> 廃止
     #ifdef DETAILED
-    if(is_bootloading){
-        if(op.type == o_std && op.rs2 == 5){ // std %x5
-            int x5 = reg_int.read_int(5);
-            if(x5 == 153){ // 0x99
-                is_waiting_for_lnum = true;
-            }else if(x5 == 170){ // 0xaa
-                is_loading_codes = false;
-                is_bootloading = false; // ブートローダ用処理の終了
-                if(is_debug){
-                    id_to_line = std::move(id_to_line_loaded);
-                    label_to_id = std::move(label_to_id_loaded);
-                    bp_to_id = std::move(bp_to_id_loaded);
-                    TransmissionQueue new_buf;
-                    receive_buffer = new_buf;
-                    std::cout << head_info << "bootloading end" << std::endl;
-                }
-            }
-        }
+    // if(is_bootloading){
+    //     if(op.type == o_std && op.rs2 == 5){ // std %x5
+    //         int x5 = reg_int.read_int(5);
+    //         if(x5 == 153){ // 0x99
+    //             is_waiting_for_lnum = true;
+    //         }else if(x5 == 170){ // 0xaa
+    //             is_loading_codes = false;
+    //             is_bootloading = false; // ブートローダ用処理の終了
+    //             if(is_debug){
+    //                 id_to_line = std::move(id_to_line_loaded);
+    //                 label_to_id = std::move(label_to_id_loaded);
+    //                 bp_to_id = std::move(bp_to_id_loaded);
+    //                 TransmissionQueue new_buf;
+    //                 receive_buffer = new_buf;
+    //                 std::cout << head_info << "bootloading end" << std::endl;
+    //             }
+    //         }
+    //     }
 
-        if(is_waiting_for_lnum && op.type == o_addi && op.rs1 == 6 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
-            is_waiting_for_lnum = false;
-            int loaded_op_num = reg_int.read_int(6);
-            if(is_debug){
-                std::cout << head_info << "operations to be loaded: " << loaded_op_num << std::endl;
-                is_loading_codes = true; // 命令のロード開始
-            }
-            op_list.resize(100 + loaded_op_num); // 受け取る命令の数に合わせてop_listを拡大
-        }
-    }
+    //     if(is_waiting_for_lnum && op.type == o_addi && op.rs1 == 6 && op.rd == 7 && op.imm == 0){ // addi %x7, %x6, 0
+    //         is_waiting_for_lnum = false;
+    //         int loaded_op_num = reg_int.read_int(6);
+    //         if(is_debug){
+    //             std::cout << head_info << "operations to be loaded: " << loaded_op_num << std::endl;
+    //             is_loading_codes = true; // 命令のロード開始
+    //         }
+    //         op_list.resize(100 + loaded_op_num); // 受け取る命令の数に合わせてop_listを拡大
+    //     }
+    // }
     #endif
 
     // レイトレに対する無限ループ検知
