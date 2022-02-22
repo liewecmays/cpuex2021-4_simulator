@@ -10,9 +10,9 @@ all:
 	$(MAKE) -C assembler
 	$(MAKE) sim -C simulator
 
-1st-d: # assembler + extended 1st simulator
+1st+: # assembler + extended 1st simulator
 	$(MAKE) -C assembler
-	$(MAKE) sim-d -C simulator
+	$(MAKE) sim+ -C simulator
 
 2nd: # assembler + 2nd simulator
 	$(MAKE) -C assembler

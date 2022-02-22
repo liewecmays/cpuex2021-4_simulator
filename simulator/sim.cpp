@@ -13,7 +13,7 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <exception>
-#ifdef DETAILED
+#ifdef EXTENDED // EXTENDED: 1stシミュレータ拡張版(sim+)用のコード
 #include <transmission.hpp>
 #include <thread>
 #endif
@@ -96,8 +96,8 @@ bool is_loading_codes = false; // 命令ロード中のフラグ
 int loading_id = 100; // 読み込んでいる命令のid
 
 // ターミナルへの出力用
-#ifdef DETAILED
-std::string head = "\x1b[1m[sim(d)]\x1b[0m ";
+#ifdef EXTENDED
+std::string head = "\x1b[1m[sim+]\x1b[0m ";
 #else
 std::string head = "\x1b[1m[sim]\x1b[0m ";
 #endif
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]){
         ("skip,s", "skipping bootloading")
         ("preload", po::value<std::string>()->implicit_value("contest"), "data preload")
         ("raytracing,r", "specialized for ray-tracing program")
-        #ifdef DETAILED
+        #ifdef EXTENDED
         ("port,p", po::value<int>(), "port number")
         // ("boot", "bootloading mode")
         ("cache,c", po::value<std::vector<unsigned int>>()->multitoken(), "cache setting")
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]){
         preload_filename = vm["preload"].as<std::string>();
     };
     if(vm.count("raytracing")) is_raytracing = true;
-    #ifdef DETAILED
+    #ifdef EXTENDED
     if(vm.count("port")) port = vm["port"].as<int>();
     // if(vm.count("boot")) is_bootloading = true;
     if(vm.count("cache")){
@@ -341,7 +341,7 @@ int main(int argc, char *argv[]){
     auto msec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     std::cout << head << "time elapsed (preparation): " << msec << std::endl;
 
-    #ifdef DETAILED
+    #ifdef EXTENDED
     // コマンドの受け付けとデータ受信処理を別々のスレッドで起動
     std::thread t1(simulate);
     std::thread t2(receive_data);
@@ -781,7 +781,7 @@ int exec_op(){
     Operation op = op_list[pc];
     
     // 統計モードの場合、行数ごとの実行回数を更新
-    #ifdef DETAILED
+    #ifdef EXTENDED
     if(is_stat){
         int l = id_to_line.left.at(pc);
         if(l > 0) ++line_exec_count[l-1];
@@ -789,7 +789,7 @@ int exec_op(){
     #endif
 
     // ブートローダ用処理(bootloader.sの内容に依存しているので注意！) -> 廃止
-    #ifdef DETAILED
+    #ifdef EXTENDED
     // if(is_bootloading){
     //     if(op.type == o_std && op.rs2 == 5){ // std %x5
     //         int x5 = reg_int.read_int(5);
@@ -822,7 +822,7 @@ int exec_op(){
     #endif
 
     // レイトレに対する無限ループ検知
-    #ifdef DETAILED
+    #ifdef EXTENDED
     if(is_raytracing && is_cautious && op_count() >= max_op_count){
         throw std::runtime_error("too many operations executed for raytracing program");
     }
@@ -949,28 +949,28 @@ int exec_op(){
         case o_beq:
             reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_beq];
-            #ifdef DETAILED
+            #ifdef EXTENDED
             branch_predictor.update(pc, reg_int.read_int(op.rs1) == reg_int.read_int(op.rs2));
             #endif
             break;
         case o_blt:
             reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_blt];
-            #ifdef DETAILED
+            #ifdef EXTENDED
             branch_predictor.update(pc, reg_int.read_int(op.rs1) < reg_int.read_int(op.rs2));
             #endif
             break;
         case o_fbeq:
             reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_fbeq];
-            #ifdef DETAILED
+            #ifdef EXTENDED
             branch_predictor.update(pc, reg_fp.read_float(op.rs1) == reg_fp.read_float(op.rs2));
             #endif
             break;
         case o_fblt:
             reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2) ? pc += op.imm : ++pc;
             ++op_type_count[o_fblt];
-            #ifdef DETAILED
+            #ifdef EXTENDED
             branch_predictor.update(pc, reg_fp.read_float(op.rs1) < reg_fp.read_float(op.rs2));
             #endif
             break;
@@ -1080,7 +1080,7 @@ int exec_op(){
             throw std::runtime_error("error in executing the code (at pc " + std::to_string(pc) + (is_debug ? (", line " + std::to_string(id_to_line.left.at(pc))) : "") + ")");
     }
 
-    #ifdef DETAILED
+    #ifdef EXTENDED
     int x2 = reg_int.read_int(2);
     max_x2 = (x2 > max_x2) ? x2 : max_x2;
     #endif
@@ -1188,7 +1188,7 @@ void output_info(){
 }
 
 inline Bit32 read_memory(int w){
-    #ifdef DETAILED
+    #ifdef EXTENDED
     if(is_cautious){
         if(w < 0 || w > memory_border) throw std::runtime_error("invalid memory access");
     }
@@ -1202,7 +1202,7 @@ inline Bit32 read_memory(int w){
 }
 
 inline void write_memory(int w, const Bit32& v){
-    #ifdef DETAILED
+    #ifdef EXTENDED
     if(is_cautious){
         if(w < 0 || w > memory_border) throw std::runtime_error("invalid memory access");
     }

@@ -27,7 +27,7 @@ assembler/parser.mli
 assembler/asm
 simulator/**/*.o
 simulator/sim
-simulator/sim-d
+simulator/sim+
 simulator/sim2
 simulator/server
 simulator/fpu_test
