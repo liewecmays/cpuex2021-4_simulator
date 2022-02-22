@@ -32,7 +32,12 @@ simulator/sim2
 simulator/server
 simulator/fpu_test
 
-#gprof関連
+# サンプル用の.sファイル
+!source/fib.s
+!source/leibniz.s
+!source/loopback.s
+
+# gprof関連
 simulator/prof
 simulator/prof2
 simulator/gmon*
