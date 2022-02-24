@@ -6,7 +6,7 @@ IS_INFO_OUT=""
 IS_DEBUG=""
 IS_STAT=""
 PORT=""
-IS_BOOTLOADING=""
+# IS_BOOTLOADING=""
 MEMORY=""
 IS_SKIP=""
 IS_RAYTRACING=""
@@ -14,8 +14,9 @@ IS_BIN=""
 IS_PRELOADING=""
 IS_IEEE=""
 IS_GSHARE=""
+IS_CACHE=""
 IS_CAUTIOUS=""
-while getopts 2f:bdim:srp:g-: OPT
+while getopts 2f:bdim:srp:gc-: OPT
 do
     case $OPT in
         -)
@@ -35,7 +36,8 @@ do
         s) IS_SKIP="-s";;
         r) IS_RAYTRACING="-r";;
         p) PORT="-p ${OPTARG}";;
-        g) IS_GSHARE="-g"
+        g) IS_GSHARE="-g";;
+        c) IS_CACHE="-c 0";;
     esac
 done
 
@@ -50,18 +52,18 @@ fi
 
 cp source/"${FILENAME}.s" assembler/source/"${FILENAME}.s" || exit 1
 cd assembler || exit 1
-./asm -f $FILENAME $IS_DEBUG $IS_BOOTLOADING $IS_SKIP $IS_BIN || exit 1
+./asm -f $FILENAME $IS_DEBUG $IS_SKIP $IS_BIN || exit 1
 cd ../ || exit 1
 cp assembler/out/$FILENAME$EXT simulator/code/$FILENAME$EXT || exit 1
 cd simulator || exit 1
 
 
 if [ "${IS_SECOND}" != "" ]; then
-    rlwrap ./sim2 -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING $PORT || exit 1
+    rlwrap ./sim2 -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_PRELOADING $IS_RAYTRACING || exit 1
 else
-    if [ "$PORT" != "" -o "$IS_BOOTLOADING" != "" -o "$IS_GSHARE" != "" -o "$IS_STAT" != "" -o "$IS_CAUTIOUS" != "" ]; then
-        rlwrap ./sim+ -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING $PORT $IS_BOOTLOADING $IS_GSHARE $IS_STAT $IS_CAUTIOUS || exit 1
+    if [ "$PORT" != "" -o "$IS_GSHARE" != "" -o "$IS_CACHE" != "" -o "$IS_STAT" != "" -o "$IS_CAUTIOUS" != "" ]; then
+        rlwrap ./sim+ -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_SKIP $IS_PRELOADING $IS_RAYTRACING $PORT $IS_BOOTLOADING $IS_GSHARE $IS_CACHE $IS_STAT $IS_CAUTIOUS || exit 1
     else
-        rlwrap ./sim -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $MEMORY $IS_IEEE $IS_PRELOADING $IS_RAYTRACING || exit 1
+        rlwrap ./sim -f $FILENAME $IS_BIN $IS_DEBUG $IS_INFO_OUT $IS_SKIP $MEMORY $IS_IEEE $IS_PRELOADING $IS_RAYTRACING || exit 1
     fi
 fi
