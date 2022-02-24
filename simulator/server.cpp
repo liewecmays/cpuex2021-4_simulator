@@ -17,7 +17,7 @@
 /* グローバル変数 */
 std::vector<Bit32> data_received; // 受け取ったデータのリスト
 std::string head = "\x1b[1m[server]\x1b[0m "; // ターミナルへの出力用
-bool is_debug = false;
+// bool is_debug = false;
 
 // 通信関連
 int port = 20214; // 通信に使うポート番号
@@ -34,11 +34,11 @@ int main(int argc, char *argv[]){
     // コマンドライン引数をパース
     int option;
     std::string filename;
-    while ((option = getopt(argc, argv, "dp:")) != -1){
+    while ((option = getopt(argc, argv, "p:")) != -1){
         switch(option){
-            case 'd':
-                is_debug = true;
-                break;
+            // case 'd':
+            //     is_debug = true;
+            //     break;
             case 'p':
                 port = std::stoi(std::string(optarg));
                 break;
