@@ -9,6 +9,7 @@ simulator/code/*
 !simulator/code/.gitkeep
 simulator/data/*
 !simulator/data/.gitkeep
+!simulator/data/contest.bin
 simulator/out/*
 !simulator/out/.gitkeep
 simulator/info/*
