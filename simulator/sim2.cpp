@@ -40,7 +40,6 @@ int sim_state = sim_state_continue; // シミュレータの状態管理
 bool is_debug = false; // デバッグモード
 bool is_bin = false; // バイナリファイルモード
 bool is_raytracing = false; // レイトレ専用モード
-bool is_quick = false; // マルチサイクルの処理をすぐに終わったものと見なすモード
 bool is_ieee = false; // IEEE754に従って浮動小数演算を行うモード
 bool is_preloading = false; // バッファのデータを予め取得しておくモード
 std::string filename; // 処理対象のファイル名
