@@ -34,6 +34,7 @@ simulator/fpu_test
 
 # サンプル用の.sファイル
 !source/fib.s
+!source/fib-for-debug.s
 !source/leibniz.s
 !source/loopback.s
 
